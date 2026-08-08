@@ -1,4 +1,4 @@
-# Pages CMS configuration (app.pagescms.org) — v3
+# Pages CMS configuration (app.pagescms.org) — v3.1
 # This file defines everything editors can see and change.
 # It must stay in sync with src/content.config.ts (the build-time validation).
 
