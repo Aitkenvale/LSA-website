@@ -6,6 +6,17 @@ const settings = await getSiteSettings();
 const turnstileSiteKey =
   (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAEKAbAcHwrSiJaVY';
 
+// 15-minute booking slots within venue hours (08:00–22:00)
+const timeSlots: { value: string; label: string }[] = [];
+for (let h = 8; h <= 22; h++) {
+  for (const m of [0, 15, 30, 45]) {
+    if (h === 22 && m > 0) break;
+    const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const label = `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+    timeSlots.push({ value, label });
+  }
+}
+
 const inputClass =
   'mt-1 w-full rounded-lg border border-teal-900/20 bg-white px-3 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink/40 focus:border-teal-700 focus:outline-2 focus:outline-teal-700/30';
 const labelClass = 'block text-sm font-medium text-teal-900';
@@ -39,11 +50,17 @@ const labelClass = 'block text-sm font-medium text-teal-900';
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label for="hf-start" class={labelClass}>From <span class="text-gold-700">*</span></label>
-        <input id="hf-start" name="startTime" type="time" step="900" required class={inputClass} />
+        <select id="hf-start" name="startTime" required class={inputClass}>
+          <option value="">Select…</option>
+          {timeSlots.slice(0, -1).map((t) => <option value={t.value}>{t.label}</option>)}
+        </select>
       </div>
       <div>
         <label for="hf-end" class={labelClass}>Until <span class="text-gold-700">*</span></label>
-        <input id="hf-end" name="endTime" type="time" step="900" required class={inputClass} />
+        <select id="hf-end" name="endTime" required class={inputClass}>
+          <option value="">Select…</option>
+          {timeSlots.slice(1).map((t) => <option value={t.value}>{t.label}</option>)}
+        </select>
       </div>
     </div>
     <div class="sm:col-span-2">

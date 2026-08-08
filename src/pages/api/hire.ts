@@ -42,6 +42,7 @@ export const POST: APIRoute = async (context) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push('date');
   if (!/^\d{2}:\d{2}$/.test(startTime)) errors.push('start time');
   if (!/^\d{2}:\d{2}$/.test(endTime)) errors.push('end time');
+  if (startTime && endTime && endTime <= startTime) errors.push('end time (must be after the start)');
   if (!purpose || purpose.length > 4000) errors.push('purpose');
   if (!/^\d{1,3}$/.test(attendance)) errors.push('attendance');
   if (!insurance) errors.push('public liability insurance confirmation');
