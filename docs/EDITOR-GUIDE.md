@@ -2,66 +2,91 @@
 
 *Bahá'í Community of Townsville — how to update the website*
 
-You don't need any technical knowledge to keep the website up to date. Everything
-is done through a friendly editing site called **Pages CMS**. Changes appear on
-the live website about **2 minutes** after you save.
+You don't need any technical knowledge to keep the website up to date.
+Everything is done through a friendly editing site called **Pages CMS**.
+Changes appear on the live website about **2 minutes** after you save.
+
+- The website: **https://bahaitownsville.org.au**
+- The editor: **https://app.pagescms.org**
 
 ## Signing in
 
 1. Go to **https://app.pagescms.org**
 2. Enter your email address (you must have been invited — ask the website
    coordinator if you haven't been).
-3. You'll receive a sign-in code by email. Enter it. That's it — no password to
-   remember.
+3. You'll receive a sign-in code by email. Enter it. That's it — no password.
+
+## What's what in the sidebar
+
+| Item | What it controls |
+|---|---|
+| **Home** | The big heading, welcome text and section headings on the home page |
+| **What We Believe / What We Do** | Those pages: intro, banner photo, and sections (heading + text + photo) |
+| **Community Centre** | That page's text and photos, **plus** all the hire settings: rates, the hire headings, and the form introduction |
+| **Pages** | Extra pages not in the menu. Create one here and it appears at `/its-file-name/` — use simple lowercase names with hyphens (e.g. `naw-ruz-2027`) |
+| **Centre photo gallery** | The interior photos on the Community Centre page |
+| **Events** | Upcoming events on the home page (they drop off automatically once past) |
+| **News** | News items on the home page (the five newest show) |
+| **Site settings** | Site name, contact details, footer text, the Acknowledgement of Country — and the **pre-launch access code** (clearing that field makes the site fully public) |
 
 ## Adding an event
 
-1. In the left menu, choose **Events** → **Add entry**.
-2. Fill in the event name, when it starts and ends, and the location.
+1. **Events** → **Add an entry**.
+2. Fill in the name, when it starts and ends, and the location.
 3. Optionally add a photo (photos straight from your phone are fine — the
-   website shrinks them automatically) and a short description of the photo.
-4. Write a sentence or two describing the event.
-5. Click **Save**. The event appears on the home page within a couple of
-   minutes, and disappears automatically once it's over. Nothing to clean up.
+   website shrinks them) and a short photo description (read aloud to visitors
+   using screen readers).
+4. **Save.** It appears within a couple of minutes and disappears by itself
+   once it's over.
 
-## Adding an announcement
+## Adding a news item
 
-Same as events: **Announcements** → **Add entry**. Announcements show newest
-first on the home page (the five most recent). If you set a "Hide after" date,
-the announcement removes itself on that date.
+Same as events: **News → Add an entry**. Newest first on the home page. An
+optional "Hide after" date removes it automatically.
 
-## Changing the text or photos on a page
+## Changing page text or photos
 
-1. Choose **Pages** and open the page you want (What We Believe, What We Do, or
-   Community Centre).
-2. Each page has an introduction and a list of sections — each section is a
-   heading, some text, and an optional photo. Edit what you need.
-3. When you replace a photo, please also update the **photo description** — it's
-   read aloud to visitors who use screen readers.
-4. Click **Save**.
+Open the page in the sidebar (Home, What We Believe, What We Do, Community
+Centre), edit, **Save**. When you replace a photo, please update its
+description too.
 
-## Changing the Community Centre gallery photos
+## Handling a Centre hire application
 
-Choose **Centre photo gallery**. Each entry is one photo with a caption and a
-position number (1 shows first). Add, replace or remove entries as needed.
+When someone applies through the website, an email arrives in the booking
+inbox with all their details (they receive an automatic "we got it" reply):
 
-## Changing contact details
+1. **Reply to the email** to approve, decline or ask questions — your reply
+   goes straight to the applicant. Keep a saved template with payment and key
+   details.
+2. If approved, click **"add the booking to the calendar"** in the email — a
+   Google Calendar event opens pre-filled. **Choose the "Bahai Centre"
+   calendar** in the dropdown, adjust if needed, Save.
+3. Done — the website marks those hours as booked within about 15 minutes.
 
-Choose **Site settings**. This is where the contact email, the **booking officer
-email** (where hire applications are sent), the street address and the footer
-text live.
+**Managing bookings in Google Calendar directly:** any event you put in the
+"Bahai Centre" calendar blocks that time on the website. Two important habits:
 
-## Things that happen automatically — don't worry about them
+- Use **timed events** for part-day hires so the rest of the day stays
+  bookable.
+- If you make an **all-day** event, you must set its "Free/Busy" option to
+  **Busy** — Google marks all-day events as "Free" by default, and the website
+  ignores "Free" events.
 
-- Past events drop off the home page overnight, every night.
-- Photos are resized and compressed for fast loading.
-- The availability calendar on the Community Centre page reads from the venue
-  Google Calendar on its own. Add or remove bookings **in Google Calendar** as
-  usual — the website only ever shows "available" or "booked", never who booked
-  or why.
+The website only ever shows "available" or "booked" — never event names or who
+booked.
+
+## Changing hire rates or the booking email
+
+- Rates: **Community Centre → Hire rates** (one rate per line).
+- Where applications are sent: **Site settings → Booking officer email**.
+
+## Things that happen automatically
+
+- Past events drop off overnight; photos are resized; the availability
+  calendar follows the Bahai Centre Google calendar on its own.
 
 ## If something looks wrong
 
-If you save something and the website doesn't update after 10 minutes, or a page
-looks broken, don't panic — nothing is lost. Contact the website coordinator:
-**[add name and phone number at handover]**.
+Nothing you do in the editor can permanently break the site — every change is
+saved with history. If the site doesn't update after 10 minutes or a page looks
+broken, contact the website coordinator: **[name and phone at handover]**.
