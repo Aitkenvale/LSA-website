@@ -19,6 +19,8 @@ sections:
       Free classes that nurture qualities like kindness, honesty and generosity
       in children through stories, songs, games and art. Families of all
       backgrounds are warmly welcome.
+    image: ../../assets/uploads/placeholder-deep.jpg
+    imageAlt: Decorative dark teal banner with a gold nine-pointed star
   - heading: Junior youth groups
     text: >-
       Young people aged 11–14 explore big ideas, develop their powers of
@@ -31,4 +33,6 @@ sections:
       Small groups that study together and put what they learn into practice —
       exploring themes such as the life of the spirit, service to humanity and
       the education of children. Open to all, at times that suit participants.
+    image: ../../assets/uploads/placeholder-teal-light.jpg
+    imageAlt: Decorative teal banner with a gold nine-pointed star
 ---

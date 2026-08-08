@@ -7,6 +7,34 @@ media:
   output: ../../assets/uploads
 
 content:
+  - name: homepage
+    label: Home page
+    description: The text on the home page — hero, section headings and the venue call-out.
+    type: file
+    path: src/content/homepage/home.yml
+    fields:
+      - name: heroTitle
+        label: Main heading
+        type: string
+        required: true
+      - name: heroIntro
+        label: Welcome paragraph
+        type: text
+        required: true
+      - { name: heroButtonEvents, label: 'Button: events', type: string }
+      - { name: heroButtonBelieve, label: 'Button: what we believe', type: string }
+      - { name: eventsHeading, label: Events section heading, type: string }
+      - name: eventsEmptyText
+        label: Text when no upcoming events
+        type: text
+      - { name: announcementsHeading, label: Announcements section heading, type: string }
+      - name: announcementsEmptyText
+        label: Text when no announcements
+        type: text
+      - { name: venueHeading, label: Venue call-out heading, type: string }
+      - { name: venueText, label: Venue call-out text, type: text }
+      - { name: venueButton, label: Venue call-out button, type: string }
+
   - name: events
     label: Events
     description: Upcoming events shown on the home page. Past events drop off automatically.
@@ -148,7 +176,11 @@ content:
     path: src/content/settings/site.yml
     fields:
       - { name: siteName, label: Site name, type: string, required: true }
-      - { name: tagline, label: Tagline, type: string, required: true }
+      - name: tagline
+        label: Site description
+        description: Shown to search engines and in link previews — not on the page itself.
+        type: string
+        required: true
       - { name: contactEmail, label: Contact email, type: string, required: true }
       - name: bookingEmail
         label: Booking officer email
@@ -158,7 +190,19 @@ content:
       - { name: phone, label: Phone (optional), type: string }
       - { name: address, label: Address, type: string, required: true }
       - { name: facebook, label: Facebook page link (optional), type: string }
-      - { name: footerText, label: Footer text, type: text, required: true }
+      - name: footer
+        label: Footer
+        type: object
+        fields:
+          - name: text
+            label: Footer text
+            description: The short paragraph under the site name in the footer.
+            type: text
+            required: true
+          - name: acknowledgement
+            label: Acknowledgement of Country
+            type: text
+            required: true
       - name: hireHeading
         label: Hire section heading
         type: string

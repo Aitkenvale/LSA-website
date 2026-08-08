@@ -69,6 +69,23 @@ const gallery = defineCollection({
     }),
 });
 
+const homepage = defineCollection({
+  loader: glob({ pattern: 'home.yml', base: './src/content/homepage' }),
+  schema: z.object({
+    heroTitle: z.string(),
+    heroIntro: z.string(),
+    heroButtonEvents: z.string().default('Upcoming events'),
+    heroButtonBelieve: z.string().default('What we believe'),
+    eventsHeading: z.string().default('Upcoming events'),
+    eventsEmptyText: z.string().default('Nothing scheduled right now — check back soon.'),
+    announcementsHeading: z.string().default('News & announcements'),
+    announcementsEmptyText: z.string().default('No announcements at the moment.'),
+    venueHeading: z.string().default('Looking for a venue?'),
+    venueText: z.string().default(''),
+    venueButton: z.string().default('Community Centre'),
+  }),
+});
+
 const settings = defineCollection({
   loader: glob({ pattern: '**/*.{yml,yaml}', base: './src/content/settings' }),
   schema: z.object({
@@ -79,7 +96,10 @@ const settings = defineCollection({
     phone: z.string().optional(),
     address: z.string(),
     facebook: z.string().url().or(z.literal('')).optional(),
-    footerText: z.string(),
+    footer: z.object({
+      text: z.string(),
+      acknowledgement: z.string(),
+    }),
     hireHeading: z.string().default('Hire the Centre'),
     hireCalendarNote: z.string().default(''),
     hireIntro: z.string(),
@@ -89,4 +109,4 @@ const settings = defineCollection({
   }),
 });
 
-export const collections = { events, announcements, pages, gallery, settings };
+export const collections = { events, announcements, pages, gallery, settings, homepage };

@@ -16,13 +16,12 @@ const { title, intro, heroImage, heroImageAlt, sections } = page.data;
 
 <PageHero title={title} intro={intro} image={heroImage} imageAlt={heroImageAlt} />
 {
-  sections.map((section, i) => (
+  sections.map((section) => (
     <SectionBlock
       heading={section.heading}
       text={section.text}
       image={section.image}
       imageAlt={section.imageAlt}
-      flip={i % 2 === 1}
     />
   ))
 }

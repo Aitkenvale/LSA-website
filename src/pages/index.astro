@@ -1,5 +1,5 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Logo from '../components/Logo.astro';
 import EventCard from '../components/EventCard.astro';
@@ -7,6 +7,9 @@ import AnnouncementCard from '../components/AnnouncementCard.astro';
 import { getSiteSettings } from '../lib/site';
 
 const settings = await getSiteSettings();
+const homeEntry = await getEntry('homepage', 'home');
+if (!homeEntry) throw new Error('Missing home page content (src/content/homepage/home.yml)');
+const home = homeEntry.data;
 const now = new Date(); // build time; a daily cron rebuild keeps this fresh
 
 const events = (await getCollection('events'))
@@ -31,24 +34,21 @@ const announcements = (await getCollection('announcements'))
     <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
       <div class="h-1 w-16 rounded bg-gold-500" aria-hidden="true"></div>
       <h1 class="font-display mt-6 max-w-3xl text-4xl leading-tight font-semibold text-white sm:text-6xl">
-        {settings.tagline}
+        {home.heroTitle}
       </h1>
-      <p class="mt-6 max-w-2xl text-lg leading-relaxed text-teal-100">
-        Welcome to the {settings.siteName}. Join us for gatherings, classes and
-        celebrations that are open to everyone — of all backgrounds and beliefs.
-      </p>
+      <p class="mt-6 max-w-2xl text-lg leading-relaxed text-teal-100">{home.heroIntro}</p>
       <div class="mt-8 flex flex-wrap gap-3">
         <a
           href="#events"
           class="rounded-full bg-gold-500 px-6 py-3 text-sm font-semibold text-teal-950 shadow-md transition-colors hover:bg-gold-400"
         >
-          Upcoming events
+          {home.heroButtonEvents}
         </a>
         <a
           href="/what-we-believe/"
           class="rounded-full border border-teal-100/40 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
         >
-          What we believe
+          {home.heroButtonBelieve}
         </a>
       </div>
     </div>
@@ -57,7 +57,7 @@ const announcements = (await getCollection('announcements'))
   <!-- Upcoming events -->
   <section id="events" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6">
     <div class="h-1 w-10 rounded bg-gold-500" aria-hidden="true"></div>
-    <h2 class="font-display mt-4 text-3xl font-semibold text-teal-900">Upcoming events</h2>
+    <h2 class="font-display mt-4 text-3xl font-semibold text-teal-900">{home.eventsHeading}</h2>
     {
       events.length > 0 ? (
         <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -66,11 +66,7 @@ const announcements = (await getCollection('announcements'))
           ))}
         </div>
       ) : (
-        <p class="mt-6 text-ink/70">
-          Nothing scheduled right now — check back soon, or{' '}
-          <a href={`mailto:${settings.contactEmail}`} class="text-teal-700 underline">get in touch</a>{' '}
-          to hear about what's coming up.
-        </p>
+        <p class="mt-6 text-ink/70">{home.eventsEmptyText}</p>
       )
     }
   </section>
@@ -79,7 +75,7 @@ const announcements = (await getCollection('announcements'))
   <section class="bg-teal-50/60">
     <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6">
       <div class="h-1 w-10 rounded bg-gold-500" aria-hidden="true"></div>
-      <h2 class="font-display mt-4 text-3xl font-semibold text-teal-900">News &amp; announcements</h2>
+      <h2 class="font-display mt-4 text-3xl font-semibold text-teal-900">{home.announcementsHeading}</h2>
       {
         announcements.length > 0 ? (
           <div class="mt-8 grid gap-5 lg:grid-cols-2">
@@ -88,7 +84,7 @@ const announcements = (await getCollection('announcements'))
             ))}
           </div>
         ) : (
-          <p class="mt-6 text-ink/70">No announcements at the moment.</p>
+          <p class="mt-6 text-ink/70">{home.announcementsEmptyText}</p>
         )
       }
     </div>
@@ -100,17 +96,15 @@ const announcements = (await getCollection('announcements'))
       <div class="md:flex md:items-center md:justify-between md:gap-8">
         <div>
           <h2 class="font-display text-2xl font-semibold text-white sm:text-3xl">
-            Looking for a venue?
+            {home.venueHeading}
           </h2>
-          <p class="mt-3 max-w-xl text-teal-100">
-            Our Community Centre is available for hire — check live availability and apply online.
-          </p>
+          <p class="mt-3 max-w-xl text-teal-100">{home.venueText}</p>
         </div>
         <a
           href="/community-centre/"
           class="mt-6 inline-block shrink-0 rounded-full bg-gold-500 px-6 py-3 text-sm font-semibold text-teal-950 shadow-md transition-colors hover:bg-gold-400 md:mt-0"
         >
-          Community Centre
+          {home.venueButton}
         </a>
       </div>
     </div>

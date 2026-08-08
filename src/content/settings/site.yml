@@ -5,9 +5,13 @@ bookingEmail: lsatownsville@gmail.com
 phone: ''
 address: Bahá'í Centre, Townsville QLD
 facebook: ''
-footerText: >-
-  The Bahá'í community of Townsville warmly welcomes people of all backgrounds
-  to join us in worship, service and community building.
+footer:
+  text: >-
+    The Bahá'í community of Townsville warmly welcomes people of all
+    backgrounds to join us in worship, service and community building.
+  acknowledgement: >-
+    We acknowledge the Wulgurukaba and Bindal peoples, Traditional Owners of
+    the land on which we meet, and pay our respects to Elders past and present.
 hireHeading: Hire the Centre
 hireCalendarNote: >-
   Check the calendar for a day that suits you — green days are free, gold days

@@ -13,7 +13,7 @@ const year = new Date().getFullYear();
         <Logo class="h-8 w-8 text-gold-500" />
         <span class="font-display text-lg font-semibold text-white">{settings.siteName}</span>
       </div>
-      <p class="mt-4 max-w-sm text-sm leading-relaxed text-teal-100/80">{settings.footerText}</p>
+      <p class="mt-4 max-w-sm text-sm leading-relaxed text-teal-100/80">{settings.footer.text}</p>
     </div>
 
     <div>
@@ -52,10 +52,7 @@ const year = new Date().getFullYear();
 
   <div class="border-t border-white/10">
     <div class="mx-auto max-w-6xl space-y-2 px-4 py-6 text-xs text-teal-100/60 sm:px-6">
-      <p>
-        We acknowledge the Wulgurukaba and Bindal peoples, Traditional Owners of the land on which we
-        meet, and pay our respects to Elders past and present.
-      </p>
+      <p>{settings.footer.acknowledgement}</p>
       <p>© {year} {settings.siteName}</p>
     </div>
   </div>
