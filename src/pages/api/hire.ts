@@ -80,8 +80,10 @@ export const POST: APIRoute = async (context) => {
   const to = settings?.data.bookingEmail;
   if (!to) return json({ error: 'The booking form is not set up yet — please email us directly.' }, 503);
 
-  // One-click pre-filled event for the "Centre Bookings" Google Calendar
+  // One-click pre-filled event for the "Bahai Centre" Google Calendar
   const compact = (t: string) => t.replace(/[-:]/g, '');
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const gcalUrl =
     `https://calendar.google.com/calendar/render?action=TEMPLATE` +
     `&text=${encodeURIComponent(`Centre hire: ${name}`)}` +
@@ -109,12 +111,36 @@ export const POST: APIRoute = async (context) => {
     `Purpose:`,
     purpose,
     ``,
-    `To APPROVE: reply to this email, then add the booking to the calendar in one click`,
-    `(pick the "Centre Bookings" calendar in the event window before saving):`,
+    `To APPROVE: reply to this email, then add the booking to the Bahai Centre`,
+    `calendar in one click (pick "Bahai Centre" in the event window before saving):`,
     gcalUrl,
     ``,
     `— Sent from the website hire form. Reply to this email to contact the applicant.`,
   ];
+
+  const rows: [string, string][] = [
+    ['Name', name],
+    ['Email', email],
+    ['Phone', phone || '—'],
+    ['Organisation', organisation || '—'],
+    ['Date', date],
+    ['Time', `${startTime} – ${endTime}`],
+    ['Attendance', attendance],
+    ['Public liability insurance', 'confirmed'],
+    ['Alcohol and drug free', 'confirmed'],
+  ];
+  const html = [
+    `<h2 style="margin:0 0 12px">New Community Centre hire application</h2>`,
+    `<table style="border-collapse:collapse">`,
+    ...rows.map(
+      ([k, v]) =>
+        `<tr><td style="padding:2px 16px 2px 0;color:#555">${k}</td><td style="padding:2px 0"><strong>${esc(v)}</strong></td></tr>`,
+    ),
+    `</table>`,
+    `<p style="margin:14px 0 4px;color:#555">Purpose</p><p style="margin:0;white-space:pre-wrap">${esc(purpose)}</p>`,
+    `<p style="margin:18px 0"><a href="${gcalUrl}" style="background:#0e6e6b;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Add booking to the Bahai Centre calendar</a></p>`,
+    `<p style="color:#555;font-size:13px">To approve: reply to this email (goes straight to the applicant), then use the button above — pick the <strong>Bahai Centre</strong> calendar in the event window before saving.</p>`,
+  ].join('\n');
 
   const send = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -125,6 +151,7 @@ export const POST: APIRoute = async (context) => {
       reply_to: email,
       subject: `Hire application: ${date} ${startTime}–${endTime} (${name})`,
       text: lines.join('\n'),
+      html,
     }),
   });
 
