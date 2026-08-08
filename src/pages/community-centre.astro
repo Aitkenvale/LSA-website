@@ -4,6 +4,9 @@ import ContentPage from '../components/ContentPage.astro';
 import Gallery from '../components/Gallery.astro';
 import AvailabilityCalendar from '../components/AvailabilityCalendar.astro';
 import HireForm from '../components/HireForm.astro';
+import { getSiteSettings } from '../lib/site';
+
+const settings = await getSiteSettings();
 ---
 
 <Base
@@ -33,7 +36,24 @@ import HireForm from '../components/HireForm.astro';
         booked (tap one to see the times) — then send us your application below.
       </p>
       <div class="mt-8 grid gap-8 lg:grid-cols-2 lg:items-start">
-        <AvailabilityCalendar />
+        <div class="space-y-8">
+          <AvailabilityCalendar />
+          {
+            settings.hireRates.length > 0 && (
+              <div class="rounded-2xl bg-teal-900 p-5 text-white shadow-lg shadow-teal-900/10 sm:p-6">
+                <h3 class="font-display text-xl font-semibold">Hire rates</h3>
+                <ul class="mt-4 space-y-2">
+                  {settings.hireRates.map((rate) => (
+                    <li class="flex items-center gap-3 text-teal-100">
+                      <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-gold-500" aria-hidden="true" />
+                      {rate}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          }
+        </div>
         <HireForm />
       </div>
     </div>

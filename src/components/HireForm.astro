@@ -37,17 +37,37 @@ const labelClass = 'block text-sm font-medium text-teal-900';
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label for="hf-start" class={labelClass}>From <span class="text-gold-700">*</span></label>
-        <input id="hf-start" name="startTime" type="time" required class={inputClass} />
+        <input id="hf-start" name="startTime" type="time" step="900" required class={inputClass} />
       </div>
       <div>
         <label for="hf-end" class={labelClass}>Until <span class="text-gold-700">*</span></label>
-        <input id="hf-end" name="endTime" type="time" required class={inputClass} />
+        <input id="hf-end" name="endTime" type="time" step="900" required class={inputClass} />
       </div>
     </div>
     <div class="sm:col-span-2">
       <label for="hf-purpose" class={labelClass}>What is the booking for? <span class="text-gold-700">*</span></label>
       <textarea id="hf-purpose" name="purpose" rows="4" required class={inputClass}
-        placeholder="e.g. weekly yoga class, birthday celebration, committee meeting…"></textarea>
+        placeholder="e.g. weekly yoga class, community celebration, committee meeting..."></textarea>
+    </div>
+    <div class="space-y-3 sm:col-span-2">
+      <label class="flex items-start gap-3 text-sm text-ink/90">
+        <input
+          type="checkbox"
+          name="insurance"
+          required
+          class="mt-0.5 h-4 w-4 shrink-0 rounded border-teal-900/30 accent-teal-700"
+        />
+        <span>You have public liability insurance <span class="text-gold-700">*</span></span>
+      </label>
+      <label class="flex items-start gap-3 text-sm text-ink/90">
+        <input
+          type="checkbox"
+          name="alcoholDrugFree"
+          required
+          class="mt-0.5 h-4 w-4 shrink-0 rounded border-teal-900/30 accent-teal-700"
+        />
+        <span>Event is alcohol and drug free <span class="text-gold-700">*</span></span>
+      </label>
     </div>
     <div>
       <label for="hf-attendance" class={labelClass}>Expected attendance <span class="text-gold-700">*</span></label>

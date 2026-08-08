@@ -163,3 +163,8 @@ content:
         label: Hire form introduction
         type: text
         required: true
+      - name: hireRates
+        label: Hire rates
+        description: One rate per line, e.g. "$30 per hour". Shown under the availability calendar.
+        type: string
+        list: true

@@ -81,6 +81,7 @@ const settings = defineCollection({
     facebook: z.string().url().or(z.literal('')).optional(),
     footerText: z.string(),
     hireIntro: z.string(),
+    hireRates: z.array(z.string()).default([]),
   }),
 });
 
