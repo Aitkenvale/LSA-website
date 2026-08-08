@@ -38,24 +38,38 @@ const announcements = defineCollection({
     }),
 });
 
+const pageFields = ({ image }: { image: () => z.ZodTypeAny }) => ({
+  title: z.string(),
+  intro: z.string(),
+  heroImage: image().optional(),
+  heroImageAlt: z.string().optional(),
+  sections: z
+    .array(
+      z.object({
+        heading: z.string(),
+        text: z.string(),
+        image: image().optional(),
+        imageAlt: z.string().optional(),
+      }),
+    )
+    .default([]),
+});
+
 const pages = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/pages' }),
+  schema: ({ image }) => z.object(pageFields({ image })),
+});
+
+// The Community Centre page carries its own hire settings alongside the content
+const centre = defineCollection({
+  loader: glob({ pattern: 'centre.md', base: './src/content/centre' }),
   schema: ({ image }) =>
     z.object({
-      title: z.string(),
-      intro: z.string(),
-      heroImage: image().optional(),
-      heroImageAlt: z.string().optional(),
-      sections: z
-        .array(
-          z.object({
-            heading: z.string(),
-            text: z.string(),
-            image: image().optional(),
-            imageAlt: z.string().optional(),
-          }),
-        )
-        .default([]),
+      ...pageFields({ image }),
+      hireHeading: z.string().default('Hire the Centre'),
+      hireCalendarNote: z.string().default(''),
+      hireIntro: z.string(),
+      hireRates: z.array(z.string()).default([]),
     }),
 });
 
@@ -100,13 +114,9 @@ const settings = defineCollection({
       text: z.string(),
       acknowledgement: z.string(),
     }),
-    hireHeading: z.string().default('Hire the Centre'),
-    hireCalendarNote: z.string().default(''),
-    hireIntro: z.string(),
-    hireRates: z.array(z.string()).default([]),
     // Non-empty = pre-launch gate active (casual deterrent, not security)
     sitePassword: z.string().default(''),
   }),
 });
 
-export const collections = { events, announcements, pages, gallery, settings, homepage };
+export const collections = { events, announcements, pages, centre, gallery, settings, homepage };

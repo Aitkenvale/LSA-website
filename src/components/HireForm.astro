@@ -1,7 +1,8 @@
 ---
-import { getSiteSettings } from '../lib/site';
-
-const settings = await getSiteSettings();
+interface Props {
+  hireIntro: string;
+}
+const { hireIntro } = Astro.props;
 // Site keys are public by design; env var can override for another environment
 const turnstileSiteKey =
   (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAEKAbAcHwrSiJaVY';
@@ -24,7 +25,7 @@ const labelClass = 'block text-sm font-medium text-teal-900';
 
 <div class="rounded-2xl bg-white p-5 shadow-lg shadow-teal-900/5 ring-1 ring-teal-900/5 sm:p-8">
   <h3 class="font-display text-2xl font-semibold text-teal-900">Apply to hire the Centre</h3>
-  <p class="mt-2 text-sm leading-relaxed text-ink/70">{settings.hireIntro}</p>
+  <p class="mt-2 text-sm leading-relaxed text-ink/70">{hireIntro}</p>
 
   <form id="hire-form" method="post" action="/api/hire" class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>
     <div>

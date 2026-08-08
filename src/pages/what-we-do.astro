@@ -1,11 +1,15 @@
 ---
+import { getEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import ContentPage from '../components/ContentPage.astro';
+
+const page = await getEntry('pages', 'what-we-do');
+if (!page) throw new Error('Missing page content: src/content/pages/what-we-do.md');
 ---
 
 <Base
   title="What We Do"
   description="Devotional gatherings, children's classes, junior youth groups and study circles — open to everyone in Townsville."
 >
-  <ContentPage slug="what-we-do" />
+  <ContentPage page={page.data} />
 </Base>

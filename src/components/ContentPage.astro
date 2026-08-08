@@ -1,17 +1,22 @@
 ---
-// Shared template for the CMS-driven info pages (What We Believe / What We Do /
-// Community Centre intro): hero + alternating section blocks.
-import { getEntry } from 'astro:content';
+// Shared template for CMS-driven pages: hero + section blocks.
+import type { ImageMetadata } from 'astro';
 import PageHero from './PageHero.astro';
 import SectionBlock from './SectionBlock.astro';
 
-interface Props {
-  slug: string;
+interface PageData {
+  title: string;
+  intro: string;
+  heroImage?: ImageMetadata;
+  heroImageAlt?: string;
+  sections: { heading: string; text: string; image?: ImageMetadata; imageAlt?: string }[];
 }
-const { slug } = Astro.props;
-const page = await getEntry('pages', slug);
-if (!page) throw new Error(`Missing page content: src/content/pages/${slug}.md`);
-const { title, intro, heroImage, heroImageAlt, sections } = page.data;
+
+interface Props {
+  page: PageData;
+}
+const { page } = Astro.props;
+const { title, intro, heroImage, heroImageAlt, sections } = page;
 ---
 
 <PageHero title={title} intro={intro} image={heroImage} imageAlt={heroImageAlt} />

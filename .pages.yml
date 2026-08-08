@@ -106,7 +106,7 @@ content:
 
   - name: pages
     label: Pages
-    description: The text and photos on What We Believe, What We Do and Community Centre.
+    description: The text and photos on What We Believe and What We Do.
     type: collection
     path: src/content/pages
     view:
@@ -145,6 +145,62 @@ content:
           - name: imageAlt
             label: Photo description
             type: string
+
+  - name: centre
+    label: Community Centre
+    description: The Community Centre page — its text, photos and all venue-hire settings.
+    type: file
+    path: src/content/centre/centre.md
+    fields:
+      - name: title
+        label: Page title
+        type: string
+        required: true
+      - name: intro
+        label: Introduction
+        type: text
+        required: true
+      - name: heroImage
+        label: Banner photo
+        type: image
+      - name: heroImageAlt
+        label: Banner photo description
+        type: string
+      - name: sections
+        label: Sections
+        type: object
+        list: true
+        fields:
+          - name: heading
+            label: Heading
+            type: string
+            required: true
+          - name: text
+            label: Text
+            type: text
+            required: true
+          - name: image
+            label: Photo (optional)
+            type: image
+          - name: imageAlt
+            label: Photo description
+            type: string
+      - name: hireHeading
+        label: Hire section heading
+        type: string
+      - name: hireCalendarNote
+        label: Hire calendar explanation
+        description: The paragraph under the hire heading explaining the availability calendar.
+        type: text
+      - name: hireIntro
+        label: Hire form introduction
+        type: text
+        required: true
+      - name: hireRates
+        label: Hire rates
+        description: One rate per line, e.g. "$30 per hour". Shown under the availability calendar.
+        type: string
+        list: true
 
   - name: gallery
     label: Centre photo gallery
@@ -203,22 +259,6 @@ content:
             label: Acknowledgement of Country
             type: text
             required: true
-      - name: hireHeading
-        label: Hire section heading
-        type: string
-      - name: hireCalendarNote
-        label: Hire calendar explanation
-        description: The paragraph under the hire heading explaining the availability calendar.
-        type: text
-      - name: hireIntro
-        label: Hire form introduction
-        type: text
-        required: true
-      - name: hireRates
-        label: Hire rates
-        description: One rate per line, e.g. "$30 per hour". Shown under the availability calendar.
-        type: string
-        list: true
       - name: sitePassword
         label: Pre-launch access code
         description: While this has a value, visitors must enter it to view the site. CLEAR THIS FIELD TO LAUNCH the site publicly.
