@@ -159,6 +159,13 @@ content:
       - { name: address, label: Address, type: string, required: true }
       - { name: facebook, label: Facebook page link (optional), type: string }
       - { name: footerText, label: Footer text, type: text, required: true }
+      - name: hireHeading
+        label: Hire section heading
+        type: string
+      - name: hireCalendarNote
+        label: Hire calendar explanation
+        description: The paragraph under the hire heading explaining the availability calendar.
+        type: text
       - name: hireIntro
         label: Hire form introduction
         type: text

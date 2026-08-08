@@ -80,6 +80,8 @@ const settings = defineCollection({
     address: z.string(),
     facebook: z.string().url().or(z.literal('')).optional(),
     footerText: z.string(),
+    hireHeading: z.string().default('Hire the Centre'),
+    hireCalendarNote: z.string().default(''),
     hireIntro: z.string(),
     hireRates: z.array(z.string()).default([]),
     // Non-empty = pre-launch gate active (casual deterrent, not security)
