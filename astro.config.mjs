@@ -6,8 +6,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
-  // TODO: set to the community's real domain before launch
-  site: 'https://townsville-bahai.pages.dev',
+  // Official domain (launched 2026-08-08)
+  site: 'https://bahaitownsville.org.au',
   // 'compile' = images optimised at build time with sharp (free; all our
   // image-bearing pages are prerendered) instead of paid Cloudflare Images
   adapter: cloudflare({ imageService: 'compile', platformProxy: { enabled: true } }),
