@@ -168,3 +168,7 @@ content:
         description: One rate per line, e.g. "$30 per hour". Shown under the availability calendar.
         type: string
         list: true
+      - name: sitePassword
+        label: Pre-launch access code
+        description: While this has a value, visitors must enter it to view the site. CLEAR THIS FIELD TO LAUNCH the site publicly.
+        type: string

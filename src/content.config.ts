@@ -82,6 +82,8 @@ const settings = defineCollection({
     footerText: z.string(),
     hireIntro: z.string(),
     hireRates: z.array(z.string()).default([]),
+    // Non-empty = pre-launch gate active (casual deterrent, not security)
+    sitePassword: z.string().default(''),
   }),
 });
 
