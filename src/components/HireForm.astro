@@ -2,7 +2,9 @@
 import { getSiteSettings } from '../lib/site';
 
 const settings = await getSiteSettings();
-const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined;
+// Site keys are public by design; env var can override for another environment
+const turnstileSiteKey =
+  (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAEKAbAcHwrSiJaVY';
 
 const inputClass =
   'mt-1 w-full rounded-lg border border-teal-900/20 bg-white px-3 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink/40 focus:border-teal-700 focus:outline-2 focus:outline-teal-700/30';
