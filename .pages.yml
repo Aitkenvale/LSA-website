@@ -8,7 +8,7 @@ media:
 
 content:
   - name: homepage
-    label: Home page
+    label: Home
     description: The text on the home page — hero, section headings and the venue call-out.
     type: file
     path: src/content/homepage/home.yml
@@ -35,13 +35,51 @@ content:
       - { name: venueText, label: Venue call-out text, type: text }
       - { name: venueButton, label: Venue call-out button, type: string }
 
-  - name: pages
-    label: Pages
-    description: The text and photos on What We Believe and What We Do.
-    type: collection
-    path: src/content/pages
-    view:
-      fields: [title]
+  - name: believe
+    label: What We Believe
+    type: file
+    path: src/content/pages/what-we-believe.md
+    fields: [title]
+    fields:
+      - name: title
+        label: Page title
+        type: string
+        required: true
+      - name: intro
+        label: Introduction
+        type: text
+        required: true
+      - name: heroImage
+        label: Banner photo
+        type: image
+      - name: heroImageAlt
+        label: Banner photo description
+        type: string
+      - name: sections
+        label: Sections
+        type: object
+        list: true
+        fields:
+          - name: heading
+            label: Heading
+            type: string
+            required: true
+          - name: text
+            label: Text
+            type: text
+            required: true
+          - name: image
+            label: Photo (optional)
+            type: image
+          - name: imageAlt
+            label: Photo description
+            type: string
+
+  - name: do
+    label: What We Do
+    type: file
+    path: src/content/pages/what-we-do.md
+    fields: [title]
     fields:
       - name: title
         label: Page title
@@ -132,6 +170,49 @@ content:
         description: One rate per line, e.g. "$30 per hour". Shown under the availability calendar.
         type: string
         list: true
+
+  - name: pages
+    label: Pages
+    description: Extra pages that are not in the menu. A page created here appears on the website at /its-file-name/ — link to it from other pages or share the address directly.
+    type: collection
+    path: src/content/extra-pages
+    view:
+      fields: [title]
+    fields: [title]
+    fields:
+      - name: title
+        label: Page title
+        type: string
+        required: true
+      - name: intro
+        label: Introduction
+        type: text
+        required: true
+      - name: heroImage
+        label: Banner photo
+        type: image
+      - name: heroImageAlt
+        label: Banner photo description
+        type: string
+      - name: sections
+        label: Sections
+        type: object
+        list: true
+        fields:
+          - name: heading
+            label: Heading
+            type: string
+            required: true
+          - name: text
+            label: Text
+            type: text
+            required: true
+          - name: image
+            label: Photo (optional)
+            type: image
+          - name: imageAlt
+            label: Photo description
+            type: string
 
   - name: gallery
     label: Centre photo gallery

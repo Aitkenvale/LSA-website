@@ -1,0 +1,18 @@
+---
+// Renders any page editors create in the CMS "Pages" area (src/content/extra-pages)
+// at /<file-name>/. These pages are not in the navigation — link to them manually.
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import ContentPage from '../components/ContentPage.astro';
+
+export async function getStaticPaths() {
+  const extras = await getCollection('extraPages');
+  return extras.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+---
+
+<Base title={entry.data.title} description={entry.data.intro}>
+  <ContentPage page={entry.data} />
+</Base>

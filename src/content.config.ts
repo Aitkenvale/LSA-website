@@ -60,6 +60,12 @@ const pages = defineCollection({
   schema: ({ image }) => z.object(pageFields({ image })),
 });
 
+// Future non-menu pages created by editors; each renders at /<file-name>/
+const extraPages = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/extra-pages' }),
+  schema: ({ image }) => z.object(pageFields({ image })),
+});
+
 // The Community Centre page carries its own hire settings alongside the content
 const centre = defineCollection({
   loader: glob({ pattern: 'centre.md', base: './src/content/centre' }),
@@ -119,4 +125,13 @@ const settings = defineCollection({
   }),
 });
 
-export const collections = { events, announcements, pages, centre, gallery, settings, homepage };
+export const collections = {
+  events,
+  announcements,
+  pages,
+  extraPages,
+  centre,
+  gallery,
+  settings,
+  homepage,
+};
