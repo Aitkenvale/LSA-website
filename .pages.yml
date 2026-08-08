@@ -1,0 +1,165 @@
+# Pages CMS configuration (app.pagescms.org)
+# This file defines everything editors can see and change.
+# It must stay in sync with src/content.config.ts (the build-time validation).
+
+media:
+  input: src/assets/uploads
+  output: ../../assets/uploads
+
+content:
+  - name: events
+    label: Events
+    description: Upcoming events shown on the home page. Past events drop off automatically.
+    type: collection
+    path: src/content/events
+    view:
+      fields: [title, start, location]
+      sort: [start]
+    fields:
+      - name: title
+        label: Event name
+        type: string
+        required: true
+      - name: start
+        label: Starts
+        type: date
+        required: true
+        options: { time: true, format: "yyyy-MM-dd'T'HH:mm" }
+      - name: end
+        label: Ends
+        type: date
+        options: { time: true, format: "yyyy-MM-dd'T'HH:mm" }
+      - name: location
+        label: Location
+        type: string
+        required: true
+      - name: image
+        label: Photo
+        type: image
+      - name: imageAlt
+        label: Photo description
+        description: Describe the photo for people using screen readers.
+        type: string
+      - name: body
+        label: Description
+        type: rich-text
+
+  - name: announcements
+    label: Announcements
+    description: News shown on the home page (newest first).
+    type: collection
+    path: src/content/announcements
+    view:
+      fields: [title, date]
+      sort: [date]
+      order: desc
+    fields:
+      - name: title
+        label: Title
+        type: string
+        required: true
+      - name: date
+        label: Date
+        type: date
+        required: true
+      - name: expires
+        label: Hide after (optional)
+        description: The announcement disappears from the home page after this date.
+        type: date
+      - name: image
+        label: Photo (optional)
+        type: image
+      - name: imageAlt
+        label: Photo description
+        type: string
+      - name: body
+        label: Text
+        type: rich-text
+
+  - name: pages
+    label: Pages
+    description: The text and photos on What We Believe, What We Do and Community Centre.
+    type: collection
+    path: src/content/pages
+    view:
+      fields: [title]
+    fields:
+      - name: title
+        label: Page title
+        type: string
+        required: true
+      - name: intro
+        label: Introduction
+        type: text
+        required: true
+      - name: heroImage
+        label: Banner photo
+        type: image
+      - name: heroImageAlt
+        label: Banner photo description
+        type: string
+      - name: sections
+        label: Sections
+        type: object
+        list: true
+        fields:
+          - name: heading
+            label: Heading
+            type: string
+            required: true
+          - name: text
+            label: Text
+            type: text
+            required: true
+          - name: image
+            label: Photo (optional)
+            type: image
+          - name: imageAlt
+            label: Photo description
+            type: string
+
+  - name: gallery
+    label: Centre photo gallery
+    description: Photos of the inside of the Community Centre.
+    type: collection
+    path: src/content/gallery
+    format: yaml
+    view:
+      fields: [caption, order]
+      sort: [order]
+    fields:
+      - name: image
+        label: Photo
+        type: image
+        required: true
+      - name: caption
+        label: Caption
+        description: Also read aloud by screen readers — describe the photo.
+        type: string
+        required: true
+      - name: order
+        label: Position (1 = first)
+        type: number
+
+  - name: settings
+    label: Site settings
+    description: Contact details and site-wide text.
+    type: file
+    path: src/content/settings/site.yml
+    fields:
+      - { name: siteName, label: Site name, type: string, required: true }
+      - { name: tagline, label: Tagline, type: string, required: true }
+      - { name: contactEmail, label: Contact email, type: string, required: true }
+      - name: bookingEmail
+        label: Booking officer email
+        description: Hire applications from the website are sent here.
+        type: string
+        required: true
+      - { name: phone, label: Phone (optional), type: string }
+      - { name: address, label: Address, type: string, required: true }
+      - { name: facebook, label: Facebook page link (optional), type: string }
+      - { name: footerText, label: Footer text, type: text, required: true }
+      - name: hireIntro
+        label: Hire form introduction
+        type: text
+        required: true

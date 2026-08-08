@@ -1,0 +1,64 @@
+---
+import { Image } from 'astro:assets';
+import { getCollection } from 'astro:content';
+
+const photos = (await getCollection('gallery')).sort((a, b) => a.data.order - b.data.order);
+---
+
+<div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" id="gallery">
+  {
+    photos.map((photo, i) => (
+      <button
+        type="button"
+        class="group overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+        data-lightbox-index={i}
+        aria-label={`View photo: ${photo.data.caption}`}
+      >
+        <Image
+          src={photo.data.image}
+          alt={photo.data.caption}
+          widths={[320, 640]}
+          sizes="(min-width: 1024px) 25vw, 50vw"
+          class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </button>
+    ))
+  }
+</div>
+
+<dialog
+  id="lightbox"
+  class="m-auto w-[min(92vw,56rem)] rounded-2xl bg-teal-950 p-3 backdrop:bg-teal-950/80"
+>
+  <div class="flex items-center justify-between gap-4 px-2 pb-2">
+    <p id="lightbox-caption" class="text-sm text-teal-100"></p>
+    <button type="button" id="lightbox-close" class="rounded-lg p-2 text-teal-100 hover:bg-white/10" aria-label="Close">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"></path>
+      </svg>
+    </button>
+  </div>
+  <img id="lightbox-image" src="" alt="" class="max-h-[75vh] w-full rounded-xl object-contain" />
+</dialog>
+
+<script>
+  const dialog = document.getElementById('lightbox') as HTMLDialogElement | null;
+  const imgEl = document.getElementById('lightbox-image') as HTMLImageElement | null;
+  const captionEl = document.getElementById('lightbox-caption');
+
+  document.querySelectorAll<HTMLButtonElement>('[data-lightbox-index]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const thumb = btn.querySelector('img');
+      if (!dialog || !imgEl || !captionEl || !thumb) return;
+      imgEl.src = thumb.currentSrc || thumb.src;
+      imgEl.alt = thumb.alt;
+      captionEl.textContent = thumb.alt;
+      dialog.showModal();
+    });
+  });
+
+  document.getElementById('lightbox-close')?.addEventListener('click', () => dialog?.close());
+  dialog?.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+</script>

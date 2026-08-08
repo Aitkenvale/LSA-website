@@ -1,0 +1,13 @@
+---
+// Nine-pointed star mark used in the header and footer.
+interface Props {
+  class?: string;
+}
+const { class: className = 'h-8 w-8' } = Astro.props;
+---
+
+<svg viewBox="0 0 100 100" class={className} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M50.00 6.00L61.97 19.11L79.57 16.76L80.31 34.50L95.30 44.01L84.47 58.08L89.84 75.00L72.50 78.81L65.73 95.23L50.00 87.00L34.27 95.23L27.50 78.81L10.16 75.00L15.53 58.08L4.70 44.01L19.69 34.50L20.43 16.76L38.03 19.11Z"
+    fill="currentColor"></path>
+</svg>

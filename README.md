@@ -1,43 +1,43 @@
-# Astro Starter Kit: Minimal
+# Bahá'í Community of Townsville — website
+
+Community website: upcoming events and announcements, What We Believe / What We
+Do pages, and a Community Centre page with a live hire-availability calendar and
+application form. Built to be maintained by non-technical editors.
+
+- **Editing** (non-technical): see [docs/EDITOR-GUIDE.md](docs/EDITOR-GUIDE.md)
+- **Deployment & service setup**: see [docs/SETUP.md](docs/SETUP.md)
+
+## Stack
+
+| Piece | Choice |
+|---|---|
+| Framework | Astro + Tailwind CSS (static pages + two server API routes) |
+| CMS | [Pages CMS](https://pagescms.org) — config in `.pages.yml`; editors sign in by email code |
+| Hosting | Cloudflare Workers (git-connected deploys, free tier) |
+| Availability calendar | Google service account → `/api/availability` (freeBusy proxy, busy blocks only) → custom grid |
+| Hire form | `/api/hire` → Turnstile spam check → Resend email to booking officer |
+
+## Key files
+
+- `.pages.yml` — what editors can see/change (keep in sync with `src/content.config.ts`)
+- `src/content/` — all site content (Markdown/YAML, committed by the CMS)
+- `src/pages/api/availability.ts` — privacy boundary: only busy start/end times ever leave it
+- `src/pages/api/hire.ts` — hire-form handler
+- `docs/SETUP.md` — secrets, Google/Resend/Turnstile setup, the daily-rebuild cron (required)
+
+## Development
 
 ```sh
-npm create astro@latest -- --template minimal
+npm install
+cp .dev.vars.example .dev.vars   # optional; dev works without credentials
+npm run dev                      # http://localhost:4321
+npm run build                    # production build (dist/)
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Without credentials, the availability API serves sample data in dev and the hire
+form returns a friendly "not configured" message.
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Timezone note: all event/calendar times are Australia/Brisbane (no DST). Naive
+datetimes from the CMS are interpreted as Brisbane wall-clock time in
+`src/content.config.ts` — don't let anything parse them in the build machine's
+timezone.

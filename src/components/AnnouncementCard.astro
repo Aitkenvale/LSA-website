@@ -1,0 +1,36 @@
+---
+import { Image } from 'astro:assets';
+import { render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import { formatFullDate } from '../lib/dates';
+
+interface Props {
+  announcement: CollectionEntry<'announcements'>;
+}
+const { announcement } = Astro.props;
+const { title, date, image, imageAlt = '' } = announcement.data;
+const { Content } = await render(announcement);
+---
+
+<article class="flex gap-5 rounded-2xl bg-white p-5 shadow-lg shadow-teal-900/5 ring-1 ring-teal-900/5">
+  {
+    image && (
+      <Image
+        src={image}
+        alt={imageAlt}
+        widths={[240, 480]}
+        sizes="8rem"
+        class="hidden h-28 w-28 shrink-0 rounded-xl object-cover sm:block"
+      />
+    )
+  }
+  <div>
+    <p class="text-xs font-semibold tracking-wide text-gold-700 uppercase">
+      {formatFullDate(date)}
+    </p>
+    <h3 class="font-display mt-1 text-lg font-semibold text-teal-900">{title}</h3>
+    <div class="prose-site mt-2 text-sm">
+      <Content />
+    </div>
+  </div>
+</article>

@@ -1,0 +1,123 @@
+---
+import { getSiteSettings } from '../lib/site';
+
+const settings = await getSiteSettings();
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined;
+
+const inputClass =
+  'mt-1 w-full rounded-lg border border-teal-900/20 bg-white px-3 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink/40 focus:border-teal-700 focus:outline-2 focus:outline-teal-700/30';
+const labelClass = 'block text-sm font-medium text-teal-900';
+---
+
+<div class="rounded-2xl bg-white p-5 shadow-lg shadow-teal-900/5 ring-1 ring-teal-900/5 sm:p-8">
+  <h3 class="font-display text-2xl font-semibold text-teal-900">Apply to hire the Centre</h3>
+  <p class="mt-2 text-sm leading-relaxed text-ink/70">{settings.hireIntro}</p>
+
+  <form id="hire-form" method="post" action="/api/hire" class="mt-6 grid gap-4 sm:grid-cols-2" novalidate>
+    <div>
+      <label for="hf-name" class={labelClass}>Your name <span class="text-gold-700">*</span></label>
+      <input id="hf-name" name="name" type="text" required autocomplete="name" class={inputClass} />
+    </div>
+    <div>
+      <label for="hf-email" class={labelClass}>Email <span class="text-gold-700">*</span></label>
+      <input id="hf-email" name="email" type="email" required autocomplete="email" class={inputClass} />
+    </div>
+    <div>
+      <label for="hf-phone" class={labelClass}>Phone</label>
+      <input id="hf-phone" name="phone" type="tel" autocomplete="tel" class={inputClass} />
+    </div>
+    <div>
+      <label for="hf-org" class={labelClass}>Organisation (if any)</label>
+      <input id="hf-org" name="organisation" type="text" autocomplete="organization" class={inputClass} />
+    </div>
+    <div>
+      <label for="hf-date" class={labelClass}>Date requested <span class="text-gold-700">*</span></label>
+      <input id="hf-date" name="date" type="date" required class={inputClass} />
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="hf-start" class={labelClass}>From <span class="text-gold-700">*</span></label>
+        <input id="hf-start" name="startTime" type="time" required class={inputClass} />
+      </div>
+      <div>
+        <label for="hf-end" class={labelClass}>Until <span class="text-gold-700">*</span></label>
+        <input id="hf-end" name="endTime" type="time" required class={inputClass} />
+      </div>
+    </div>
+    <div class="sm:col-span-2">
+      <label for="hf-purpose" class={labelClass}>What is the booking for? <span class="text-gold-700">*</span></label>
+      <textarea id="hf-purpose" name="purpose" rows="4" required class={inputClass}
+        placeholder="e.g. weekly yoga class, birthday celebration, committee meeting…"></textarea>
+    </div>
+    <div>
+      <label for="hf-attendance" class={labelClass}>Expected attendance <span class="text-gold-700">*</span></label>
+      <input id="hf-attendance" name="attendance" type="number" min="1" max="500" required class={inputClass} />
+    </div>
+
+    <!-- Honeypot: real people never see or fill this field -->
+    <div class="hidden" aria-hidden="true">
+      <label>Leave this field empty<input name="website" type="text" tabindex="-1" autocomplete="off" /></label>
+    </div>
+
+    {
+      turnstileSiteKey && (
+        <div class="sm:col-span-2">
+          <div class="cf-turnstile" data-sitekey={turnstileSiteKey} />
+        </div>
+      )
+    }
+
+    <div class="sm:col-span-2">
+      <button
+        type="submit"
+        class="w-full rounded-full bg-teal-700 px-6 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:w-auto"
+      >
+        Send application
+      </button>
+      <p class="mt-3 text-xs text-ink/50">
+        Your details are used only to respond to this application. We'll be in touch to confirm
+        availability and hire terms.
+      </p>
+    </div>
+
+    <p id="hire-status" class="hidden rounded-xl p-4 text-sm sm:col-span-2" role="status"></p>
+  </form>
+</div>
+
+{turnstileSiteKey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+
+<script>
+  const form = document.getElementById('hire-form') as HTMLFormElement | null;
+  const status = document.getElementById('hire-status')!;
+
+  function show(kind: 'ok' | 'err', msg: string) {
+    status.textContent = msg;
+    status.className = `rounded-xl p-4 text-sm sm:col-span-2 ${
+      kind === 'ok' ? 'bg-teal-100 text-teal-900' : 'bg-gold-100 text-gold-800'
+    }`;
+    status.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/hire', { method: 'POST', body: new FormData(form) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        form.reset();
+        show('ok', "Thank you! Your application has been sent — we'll be in touch soon to confirm.");
+      } else {
+        show('err', data.error ?? 'Something went wrong sending your application. Please try again, or email us directly.');
+      }
+    } catch {
+      show('err', 'Something went wrong sending your application. Please check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send application';
+    }
+  });
+</script>

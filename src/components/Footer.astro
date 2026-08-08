@@ -1,0 +1,62 @@
+---
+import Logo from './Logo.astro';
+import { getSiteSettings } from '../lib/site';
+
+const settings = await getSiteSettings();
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-16 bg-teal-900 text-teal-100">
+  <div class="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-3">
+    <div>
+      <div class="flex items-center gap-3">
+        <Logo class="h-8 w-8 text-gold-500" />
+        <span class="font-display text-lg font-semibold text-white">{settings.siteName}</span>
+      </div>
+      <p class="mt-4 max-w-sm text-sm leading-relaxed text-teal-100/80">{settings.footerText}</p>
+    </div>
+
+    <div>
+      <h2 class="font-display text-base font-semibold text-white">Contact</h2>
+      <ul class="mt-4 space-y-2 text-sm text-teal-100/80">
+        <li>{settings.address}</li>
+        <li>
+          <a href={`mailto:${settings.contactEmail}`} class="underline decoration-gold-500/60 underline-offset-2 hover:text-white">
+            {settings.contactEmail}
+          </a>
+        </li>
+        {settings.phone && <li>{settings.phone}</li>}
+        {
+          settings.facebook && (
+            <li>
+              <a href={settings.facebook} class="underline decoration-gold-500/60 underline-offset-2 hover:text-white">
+                Facebook
+              </a>
+            </li>
+          )
+        }
+      </ul>
+    </div>
+
+    <div>
+      <h2 class="font-display text-base font-semibold text-white">Explore</h2>
+      <ul class="mt-4 space-y-2 text-sm text-teal-100/80">
+        <li><a href="/what-we-believe/" class="hover:text-white">What We Believe</a></li>
+        <li><a href="/what-we-do/" class="hover:text-white">What We Do</a></li>
+        <li><a href="/community-centre/" class="hover:text-white">Community Centre &amp; venue hire</a></li>
+        <li><a href="https://www.bahai.org.au" class="hover:text-white">Australian Bahá'í Community</a></li>
+        <li><a href="https://www.bahai.org" class="hover:text-white">Bahá'ís of the world</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="border-t border-white/10">
+    <div class="mx-auto max-w-6xl space-y-2 px-4 py-6 text-xs text-teal-100/60 sm:px-6">
+      <p>
+        We acknowledge the Wulgurukaba and Bindal peoples, Traditional Owners of the land on which we
+        meet, and pay our respects to Elders past and present.
+      </p>
+      <p>© {year} {settings.siteName}</p>
+    </div>
+  </div>
+</footer>

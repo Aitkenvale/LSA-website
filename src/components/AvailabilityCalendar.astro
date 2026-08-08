@@ -1,0 +1,182 @@
+---
+// Client-side island: fetches busy blocks from /api/availability and renders a
+// month grid. Only start/end times ever reach the browser — never event details.
+---
+
+<div id="availability" class="rounded-2xl bg-white p-4 shadow-lg shadow-teal-900/5 ring-1 ring-teal-900/5 sm:p-6">
+  <div class="flex items-center justify-between gap-2">
+    <button type="button" id="cal-prev" class="rounded-lg p-2 text-teal-900 hover:bg-teal-100 disabled:opacity-30" aria-label="Previous month">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+    </button>
+    <h3 id="cal-title" class="font-display text-lg font-semibold text-teal-900" aria-live="polite">Loading…</h3>
+    <button type="button" id="cal-next" class="rounded-lg p-2 text-teal-900 hover:bg-teal-100 disabled:opacity-30" aria-label="Next month">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+    </button>
+  </div>
+
+  <div class="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-ink/60" aria-hidden="true">
+    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+  </div>
+  <div id="cal-grid" class="mt-1 grid grid-cols-7 gap-1"></div>
+
+  <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink/70">
+    <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-teal-300 bg-teal-100" aria-hidden="true"></span> Available</span>
+    <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-gold-400 bg-gold-100" aria-hidden="true"></span> Partly booked</span>
+    <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-ink/20 bg-sand-200" aria-hidden="true"></span> Booked</span>
+  </div>
+
+  <div id="cal-detail" class="mt-4 hidden rounded-xl bg-teal-50 p-4 text-sm" aria-live="polite"></div>
+  <p id="cal-error" class="mt-4 hidden rounded-xl bg-gold-50 p-4 text-sm text-gold-800">
+    Sorry, we couldn't load availability right now. Please try again shortly, or contact us to check a date.
+  </p>
+</div>
+
+<script>
+  const TZ = 'Australia/Brisbane';
+  const OPEN_HOUR = 8;
+  const CLOSE_HOUR = 22;
+  const MONTHS_AHEAD = 3;
+
+  type Busy = { start: string; end: string };
+
+  const grid = document.getElementById('cal-grid')!;
+  const title = document.getElementById('cal-title')!;
+  const detail = document.getElementById('cal-detail')!;
+  const errorEl = document.getElementById('cal-error')!;
+  const prevBtn = document.getElementById('cal-prev') as HTMLButtonElement;
+  const nextBtn = document.getElementById('cal-next') as HTMLButtonElement;
+
+  // "Today" in Brisbane regardless of the viewer's timezone
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
+  const [ty, tm] = todayStr.split('-').map(Number);
+  let offset = 0; // months from current month, 0..MONTHS_AHEAD
+  const cache = new Map<string, Busy[]>();
+
+  function monthKey(off: number): string {
+    const m = tm - 1 + off;
+    const y = ty + Math.floor(m / 12);
+    return `${y}-${String((((m % 12) + 12) % 12) + 1).padStart(2, '0')}`;
+  }
+
+  function brisbaneMs(dateStr: string, hour: number): number {
+    // Queensland is fixed UTC+10, no DST — safe to construct directly
+    return Date.parse(`${dateStr}T${String(hour).padStart(2, '0')}:00:00+10:00`);
+  }
+
+  function fmtTime(ms: number): string {
+    return new Intl.DateTimeFormat('en-AU', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true })
+      .format(new Date(ms))
+      .replace(/\s/g, '')
+      .toLowerCase();
+  }
+
+  function dayState(dateStr: string, busy: Busy[]): { state: 'available' | 'partly' | 'booked'; ranges: [number, number][] } {
+    const open = brisbaneMs(dateStr, OPEN_HOUR);
+    const close = brisbaneMs(dateStr, CLOSE_HOUR);
+    const ranges: [number, number][] = [];
+    let covered = 0;
+    for (const b of busy) {
+      const s = Math.max(Date.parse(b.start), open);
+      const e = Math.min(Date.parse(b.end), close);
+      if (e > s) {
+        ranges.push([s, e]);
+        covered += e - s;
+      }
+    }
+    const total = close - open;
+    const state = covered === 0 ? 'available' : covered >= total * 0.95 ? 'booked' : 'partly';
+    ranges.sort((a, b) => a[0] - b[0]);
+    return { state, ranges };
+  }
+
+  function showDetail(dateStr: string, busy: Busy[]) {
+    const { state, ranges } = dayState(dateStr, busy);
+    const nice = new Intl.DateTimeFormat('en-AU', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).format(
+      new Date(`${dateStr}T12:00:00+10:00`),
+    );
+    let html = `<p class="font-semibold text-teal-900">${nice}</p>`;
+    if (state === 'available') {
+      html += `<p class="mt-1 text-teal-800">✓ Available all day (${OPEN_HOUR}am – ${CLOSE_HOUR - 12}pm)</p>`;
+    } else {
+      html += `<p class="mt-1 text-ink/80">Booked times:</p><ul class="mt-1 space-y-0.5 text-ink/80">`;
+      for (const [s, e] of ranges) html += `<li>• ${fmtTime(s)} – ${fmtTime(e)}</li>`;
+      html += `</ul><p class="mt-2 text-teal-800">Times outside these are available.</p>`;
+    }
+    detail.innerHTML = html;
+    detail.classList.remove('hidden');
+  }
+
+  async function load() {
+    const key = monthKey(offset);
+    prevBtn.disabled = offset <= 0;
+    nextBtn.disabled = offset >= MONTHS_AHEAD;
+    detail.classList.add('hidden');
+    errorEl.classList.add('hidden');
+    title.textContent = new Intl.DateTimeFormat('en-AU', { timeZone: TZ, month: 'long', year: 'numeric' }).format(
+      new Date(`${key}-15T12:00:00+10:00`),
+    );
+
+    let busy = cache.get(key);
+    if (!busy) {
+      grid.innerHTML = `<p class="col-span-7 py-8 text-center text-sm text-ink/50">Checking availability…</p>`;
+      try {
+        const res = await fetch(`/api/availability?month=${key}`);
+        if (!res.ok) throw new Error(String(res.status));
+        busy = (await res.json()).busy as Busy[];
+        cache.set(key, busy);
+      } catch {
+        grid.innerHTML = '';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+    }
+    renderMonth(key, busy);
+  }
+
+  function renderMonth(key: string, busy: Busy[]) {
+    const [y, m] = key.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    // Weekday of the 1st in Brisbane (Mon-first index)
+    const firstDow = new Date(`${key}-01T12:00:00+10:00`).getUTCDay(); // +10 fixed: UTC day at 02:00 == Brisbane day
+    const lead = (firstDow + 6) % 7;
+    grid.innerHTML = '';
+
+    for (let i = 0; i < lead; i++) grid.appendChild(document.createElement('div'));
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${key}-${String(d).padStart(2, '0')}`;
+      const isPast = dateStr < todayStr;
+      const cell = document.createElement(isPast ? 'div' : 'button');
+      const { state } = dayState(dateStr, busy);
+
+      const base = 'flex aspect-square flex-col items-center justify-center rounded-lg text-sm';
+      if (isPast) {
+        cell.className = `${base} text-ink/25`;
+        cell.textContent = String(d);
+      } else {
+        const styles = {
+          available: 'border border-teal-300 bg-teal-100 text-teal-900 hover:bg-teal-200',
+          partly: 'border border-gold-400 bg-gold-100 text-gold-800 hover:bg-gold-200',
+          booked: 'border border-ink/20 bg-sand-200 text-ink/50 hover:bg-sand-100',
+        }[state];
+        const labels = { available: 'available', partly: 'partly booked', booked: 'booked' };
+        cell.className = `${base} ${styles} cursor-pointer font-medium`;
+        (cell as HTMLButtonElement).type = 'button';
+        cell.setAttribute('aria-label', `${dateStr}: ${labels[state]}. Show details`);
+        cell.innerHTML =
+          `<span>${d}</span>` +
+          (state === 'booked'
+            ? '<span class="text-[0.6rem] leading-none">✕</span>'
+            : state === 'partly'
+              ? '<span class="text-[0.6rem] leading-none">◐</span>'
+              : '<span class="text-[0.6rem] leading-none">✓</span>');
+        cell.addEventListener('click', () => showDetail(dateStr, busy));
+      }
+      grid.appendChild(cell);
+    }
+  }
+
+  prevBtn.addEventListener('click', () => { if (offset > 0) { offset--; load(); } });
+  nextBtn.addEventListener('click', () => { if (offset < MONTHS_AHEAD) { offset++; load(); } });
+  load();
+</script>

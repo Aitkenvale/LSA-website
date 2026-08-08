@@ -1,0 +1,41 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { marked } from 'marked';
+
+interface Props {
+  heading: string;
+  text: string;
+  image?: ImageMetadata;
+  imageAlt?: string;
+  flip?: boolean;
+}
+const { heading, text, image, imageAlt = '', flip = false } = Astro.props;
+const html = marked.parse(text);
+---
+
+<section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+  <div
+    class:list={[
+      'grid items-center gap-8 sm:gap-12',
+      image ? 'md:grid-cols-2' : 'md:max-w-3xl',
+    ]}
+  >
+    <div class:list={[image && flip && 'md:order-2']}>
+      <div class="h-1 w-10 rounded bg-gold-500" aria-hidden="true"></div>
+      <h2 class="font-display mt-4 text-2xl font-semibold text-teal-900 sm:text-3xl">{heading}</h2>
+      <div class="prose-site mt-4" set:html={html} />
+    </div>
+    {
+      image && (
+        <Image
+          src={image}
+          alt={imageAlt}
+          widths={[480, 800, 1200]}
+          sizes="(min-width: 768px) 50vw, 100vw"
+          class="aspect-[3/2] w-full rounded-2xl object-cover shadow-lg shadow-teal-900/10"
+        />
+      )
+    }
+  </div>
+</section>

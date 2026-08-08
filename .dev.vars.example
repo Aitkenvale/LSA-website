@@ -1,0 +1,17 @@
+# Copy to .dev.vars for local development (never commit .dev.vars).
+# In production these are set as encrypted secrets on the Cloudflare Pages project.
+
+# Google service account (calendar availability)
+GOOGLE_SA_EMAIL="venue-calendar@your-project.iam.gserviceaccount.com"
+GOOGLE_SA_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+VENUE_CALENDAR_ID="your-venue-calendar-id@group.calendar.google.com"
+
+# Hire form email (resend.com)
+RESEND_API_KEY="re_..."
+RESEND_FROM="Website <website@yourdomain.org.au>"
+
+# Spam protection (Cloudflare Turnstile) — secret half
+TURNSTILE_SECRET="0x..."
+
+# Public half of Turnstile (goes in normal env, not secrets)
+PUBLIC_TURNSTILE_SITE_KEY="0x..."
