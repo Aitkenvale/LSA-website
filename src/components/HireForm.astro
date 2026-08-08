@@ -18,7 +18,7 @@ for (let h = 8; h <= 22; h++) {
 }
 
 const inputClass =
-  'mt-1 w-full rounded-lg border border-teal-900/20 bg-white px-3 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink/40 focus:border-teal-700 focus:outline-2 focus:outline-teal-700/30';
+  'mt-1 w-full min-w-0 rounded-lg border border-teal-900/20 bg-white px-3 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink/40 focus:border-teal-700 focus:outline-2 focus:outline-teal-700/30';
 const labelClass = 'block text-sm font-medium text-teal-900';
 ---
 
@@ -48,14 +48,14 @@ const labelClass = 'block text-sm font-medium text-teal-900';
       <input id="hf-date" name="date" type="date" required class={inputClass} />
     </div>
     <div class="grid grid-cols-2 gap-3">
-      <div>
+      <div class="min-w-0">
         <label for="hf-start" class={labelClass}>From <span class="text-gold-700">*</span></label>
         <select id="hf-start" name="startTime" required class={inputClass}>
           <option value="">Select…</option>
           {timeSlots.slice(0, -1).map((t) => <option value={t.value}>{t.label}</option>)}
         </select>
       </div>
-      <div>
+      <div class="min-w-0">
         <label for="hf-end" class={labelClass}>Until <span class="text-gold-700">*</span></label>
         <select id="hf-end" name="endTime" required class={inputClass}>
           <option value="">Select…</option>
