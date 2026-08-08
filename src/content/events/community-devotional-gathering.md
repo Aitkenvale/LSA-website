@@ -1,7 +1,7 @@
 ---
 title: Community Devotional Gathering
-start: '2026-08-16T10:00:00'
-end: '2026-08-16T11:30:00'
+start: '2026-08-16T10:00'
+end: '2026-08-16T11:30'
 location: Bahá'í Centre, Townsville
 image: ../../assets/uploads/placeholder-teal.jpg
 imageAlt: Decorative teal banner with a gold nine-pointed star

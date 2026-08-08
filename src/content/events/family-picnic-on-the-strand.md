@@ -1,7 +1,7 @@
 ---
 title: Family Picnic on The Strand
-start: '2026-09-06T11:00:00'
-end: '2026-09-06T14:00:00'
+start: '2026-09-06T11:00'
+end: '2026-09-06T14:00'
 location: The Strand, North Ward
 image: ../../assets/uploads/placeholder-warm.jpg
 imageAlt: Decorative teal banner with a gold nine-pointed star
