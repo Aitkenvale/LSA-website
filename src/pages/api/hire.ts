@@ -79,6 +79,18 @@ export const POST: APIRoute = async (context) => {
   const to = settings?.data.bookingEmail;
   if (!to) return json({ error: 'The booking form is not set up yet — please email us directly.' }, 503);
 
+  // One-click pre-filled event for the "Centre Bookings" Google Calendar
+  const compact = (t: string) => t.replace(/[-:]/g, '');
+  const gcalUrl =
+    `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+    `&text=${encodeURIComponent(`Centre hire: ${name}`)}` +
+    `&dates=${compact(date)}T${compact(startTime)}00/${compact(date)}T${compact(endTime)}00` +
+    `&ctz=Australia/Brisbane` +
+    `&details=${encodeURIComponent(
+      `${purpose}\n\nContact: ${email}${phone ? ` / ${phone}` : ''}` +
+        `${organisation ? `\nOrganisation: ${organisation}` : ''}\nAttendance: ${attendance}`,
+    )}`;
+
   const lines = [
     `New Community Centre hire application`,
     ``,
@@ -95,6 +107,10 @@ export const POST: APIRoute = async (context) => {
     ``,
     `Purpose:`,
     purpose,
+    ``,
+    `To APPROVE: reply to this email, then add the booking to the calendar in one click`,
+    `(pick the "Centre Bookings" calendar in the event window before saving):`,
+    gcalUrl,
     ``,
     `— Sent from the website hire form. Reply to this email to contact the applicant.`,
   ];
@@ -114,6 +130,38 @@ export const POST: APIRoute = async (context) => {
   if (!send.ok) {
     console.error('Resend error:', send.status, await send.text());
     return json({ error: 'We could not send your application just now. Please try again shortly.' }, 502);
+  }
+
+  // Best-effort acknowledgement to the applicant — never fails the request
+  try {
+    const ack = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${resendKey}` },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [email],
+        reply_to: to,
+        subject: 'We received your Community Centre hire application',
+        text: [
+          `Dear ${name},`,
+          ``,
+          `Thank you for your application to hire the Bahá'í Community Centre:`,
+          ``,
+          `Date:       ${date}`,
+          `Time:       ${startTime} – ${endTime}`,
+          `Purpose:    ${purpose}`,
+          ``,
+          `This is an automatic confirmation that your request has been received.`,
+          `We will review it and be in touch to confirm availability and hire details.`,
+          ``,
+          `Warm regards,`,
+          `Bahá'í Community of Townsville`,
+        ].join('\n'),
+      }),
+    });
+    if (!ack.ok) console.error('Ack email failed:', ack.status, await ack.text());
+  } catch (err) {
+    console.error('Ack email error:', err);
   }
 
   return json({ ok: true });
