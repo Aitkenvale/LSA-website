@@ -84,8 +84,8 @@ sections:
       - An attitude of service expressed in action within their communities
 
     image: ../../assets/uploads/JYSEP.jpg
-    imageAlt: "Junior Youth Groups @ Townsville Women's Centre — 2 May 2026 "
-    imageCaption: "Junior Youth Groups @ Townsville Women's Centre — 2 May 2026 "
+    imageAlt: "Junior Youth Groups — Townsville Women's Centre — 2 May 2026 "
+    imageCaption: "Junior Youth Groups — Townsville Women's Centre — 2 May 2026 "
     imageSide: right
   - heading: Study circles
     text: >-
