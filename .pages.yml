@@ -87,6 +87,15 @@ content:
             label: Photo caption (optional)
             description: A small light line shown under the photo.
             type: string
+          - name: imageStyle
+            label: Photo style
+            description: 'Photo: framed and cropped to shape. Emblem: shown smaller, uncropped, no frame — for logos and symbols.'
+            type: select
+            default: photo
+            options:
+              values:
+                - { value: photo, label: Photo }
+                - { value: emblem, label: Emblem }
           - name: imageSide
             label: Photo position (desktop)
             description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
@@ -142,6 +151,15 @@ content:
             label: Photo caption (optional)
             description: A small light line shown under the photo.
             type: string
+          - name: imageStyle
+            label: Photo style
+            description: 'Photo: framed and cropped to shape. Emblem: shown smaller, uncropped, no frame — for logos and symbols.'
+            type: select
+            default: photo
+            options:
+              values:
+                - { value: photo, label: Photo }
+                - { value: emblem, label: Emblem }
           - name: imageSide
             label: Photo position (desktop)
             description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
@@ -198,6 +216,15 @@ content:
             label: Photo caption (optional)
             description: A small light line shown under the photo.
             type: string
+          - name: imageStyle
+            label: Photo style
+            description: 'Photo: framed and cropped to shape. Emblem: shown smaller, uncropped, no frame — for logos and symbols.'
+            type: select
+            default: photo
+            options:
+              values:
+                - { value: photo, label: Photo }
+                - { value: emblem, label: Emblem }
           - name: imageSide
             label: Photo position (desktop)
             description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
@@ -279,6 +306,15 @@ content:
             label: Photo caption (optional)
             description: A small light line shown under the photo.
             type: string
+          - name: imageStyle
+            label: Photo style
+            description: 'Photo: framed and cropped to shape. Emblem: shown smaller, uncropped, no frame — for logos and symbols.'
+            type: select
+            default: photo
+            options:
+              values:
+                - { value: photo, label: Photo }
+                - { value: emblem, label: Emblem }
           - name: imageSide
             label: Photo position (desktop)
             description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.

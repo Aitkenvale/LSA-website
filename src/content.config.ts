@@ -52,6 +52,8 @@ const pageFields = ({ image }: { image: () => z.ZodTypeAny }) => ({
         imageAlt: z.string().optional(),
         imageCaption: z.string().optional(),
         imageSide: z.enum(['left', 'right']).default('right'),
+        // photo = framed 3:2 crop; emblem = smaller, uncropped, no frame
+        imageStyle: z.enum(['photo', 'emblem']).default('photo'),
       }),
     )
     .default([]),

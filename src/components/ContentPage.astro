@@ -16,6 +16,7 @@ interface PageData {
     imageAlt?: string;
     imageCaption?: string;
     imageSide?: 'left' | 'right';
+    imageStyle?: 'photo' | 'emblem';
   }[];
 }
 
@@ -35,6 +36,7 @@ const { title, intro, heroImage, heroImageAlt, sections } = page;
       image={section.image}
       imageAlt={section.imageAlt}
       imageCaption={section.imageCaption}
+      imageStyle={section.imageStyle}
       flip={section.imageSide === 'left'}
     />
   ))
