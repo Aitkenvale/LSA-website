@@ -9,7 +9,13 @@ interface PageData {
   intro: string;
   heroImage?: ImageMetadata;
   heroImageAlt?: string;
-  sections: { heading: string; text: string; image?: ImageMetadata; imageAlt?: string }[];
+  sections: {
+    heading: string;
+    text: string;
+    image?: ImageMetadata;
+    imageAlt?: string;
+    imageSide?: 'left' | 'right';
+  }[];
 }
 
 interface Props {
@@ -27,6 +33,7 @@ const { title, intro, heroImage, heroImageAlt, sections } = page;
       text={section.text}
       image={section.image}
       imageAlt={section.imageAlt}
+      flip={section.imageSide === 'left'}
     />
   ))
 }

@@ -76,6 +76,15 @@ content:
           - name: imageAlt
             label: Photo description
             type: string
+          - name: imageSide
+            label: Photo position (desktop)
+            description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
+            type: select
+            default: right
+            options:
+              values:
+                - { value: right, label: Right }
+                - { value: left, label: Left }
 
   - name: do
     label: What We Do
@@ -118,6 +127,15 @@ content:
           - name: imageAlt
             label: Photo description
             type: string
+          - name: imageSide
+            label: Photo position (desktop)
+            description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
+            type: select
+            default: right
+            options:
+              values:
+                - { value: right, label: Right }
+                - { value: left, label: Left }
 
   - name: centre
     label: Community Centre
@@ -161,6 +179,15 @@ content:
           - name: imageAlt
             label: Photo description
             type: string
+          - name: imageSide
+            label: Photo position (desktop)
+            description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
+            type: select
+            default: right
+            options:
+              values:
+                - { value: right, label: Right }
+                - { value: left, label: Left }
       - name: hireHeading
         label: Hire section heading
         type: string
@@ -222,6 +249,15 @@ content:
           - name: imageAlt
             label: Photo description
             type: string
+          - name: imageSide
+            label: Photo position (desktop)
+            description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
+            type: select
+            default: right
+            options:
+              values:
+                - { value: right, label: Right }
+                - { value: left, label: Left }
 
   - name: gallery
     label: Centre photo gallery

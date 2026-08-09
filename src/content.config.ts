@@ -50,6 +50,7 @@ const pageFields = ({ image }: { image: () => z.ZodTypeAny }) => ({
         text: z.string(),
         image: image().optional(),
         imageAlt: z.string().optional(),
+        imageSide: z.enum(['left', 'right']).default('right'),
       }),
     )
     .default([]),
