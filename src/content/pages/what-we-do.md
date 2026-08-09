@@ -26,7 +26,7 @@ sections:
     imageAlt: Decorative teal banner with a gold nine-pointed star
     imageSide: right
   - heading: Children's classes
-    text: >-
+    text: >+
       The goal of spiritual education is to cultivate in participants spiritual
       qualities such as love, forgiveness and justice, and to help them manifest
       these qualities in all interactions with all people. Classes draw on the
@@ -39,19 +39,20 @@ sections:
       peaceful world through exploration of universal themes such as:
 
 
-      — We are all loved by the same God  
+      - We are all loved by the same God
 
-      — We are all one human family  
+      - We are all one human family
 
-      — Diversity is valuable  
+      - Diversity is valuable
 
-      — Women and men are equal  
+      - Women and men are equal
 
-      — All forms of prejudice must be eliminated  
+      - All forms of prejudice must be eliminated
 
-      — The natural environment is a sacred trust  
+      - The natural environment is a sacred trust
 
-      — Consultation is an essential skill for peaceful problem solving
+      - Consultation is an essential skill for peaceful problem solving
+
     image: ../../assets/uploads/placeholder-deep.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
     imageSide: left
