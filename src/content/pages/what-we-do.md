@@ -52,7 +52,7 @@ sections:
 
       - Consultation is an essential skill for peaceful problem solving
 
-    image: ../../assets/uploads/placeholder-deep.jpg
+    image: ../../assets/uploads/PSEC.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
     imageSide: left
   - heading: Junior youth groups
