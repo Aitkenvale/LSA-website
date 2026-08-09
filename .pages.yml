@@ -57,7 +57,10 @@ content:
       - name: sections
         label: Sections
         type: object
-        list: true
+        list:
+          collapsible:
+            collapsed: true
+            summary: '{fields.heading}'
         fields:
           - name: heading
             label: Heading
@@ -96,7 +99,10 @@ content:
       - name: sections
         label: Sections
         type: object
-        list: true
+        list:
+          collapsible:
+            collapsed: true
+            summary: '{fields.heading}'
         fields:
           - name: heading
             label: Heading
@@ -136,7 +142,10 @@ content:
       - name: sections
         label: Sections
         type: object
-        list: true
+        list:
+          collapsible:
+            collapsed: true
+            summary: '{fields.heading}'
         fields:
           - name: heading
             label: Heading
@@ -194,7 +203,10 @@ content:
       - name: sections
         label: Sections
         type: object
-        list: true
+        list:
+          collapsible:
+            collapsed: true
+            summary: '{fields.heading}'
         fields:
           - name: heading
             label: Heading
