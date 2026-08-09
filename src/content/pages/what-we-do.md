@@ -54,7 +54,7 @@ sections:
 
     image: ../../assets/uploads/PSEC.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
-    imageCaption: All four grades of the Richard St children's class — 18 April 2026
+    imageCaption: Four grades of the Children's Class — Richard St — 18 April 2026
     imageSide: left
   - heading: Junior youth groups
     text: >+
