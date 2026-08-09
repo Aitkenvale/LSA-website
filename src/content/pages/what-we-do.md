@@ -3,7 +3,7 @@ title: What We Do
 intro: Across Townsville, Bahá'ís and their friends take part in activities that
   are open to everyone — building friendship, spiritual life, and service to the
   wider community.
-heroImage: ../../assets/uploads/placeholder-teal-light.jpg
+heroImage: ../../assets/uploads/placeholder-deep.jpg
 heroImageAlt: Decorative teal banner with a gold nine-pointed star
 sections:
   - heading: Devotional gatherings
