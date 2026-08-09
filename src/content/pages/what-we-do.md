@@ -65,9 +65,47 @@ sections:
     image: ../../assets/uploads/placeholder-deep.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
   - heading: Junior youth groups
-    text: Young people aged 11–14 explore big ideas, develop their powers of
-      expression, and carry out service projects that make a real difference in
-      their neighbourhood.
+    text: >-
+      The Junior Youth Spiritual Empowerment Programme is for young people aged
+      12 to 15. This period of life is a time of rapid development of spiritual,
+      intellectual, and physical capacities. 
+
+
+      The programme instils in junior youth a sense of moral purpose, which
+      helps channel their inherent capacity for justice and altruism into
+      meaningful contributions to their community.
+
+
+      Junior youth groups are guided by a youth role-model, also known as an
+      animator. Groups meet on a regular basis, giving participants a sense of
+      belonging within the community and fostering an environment of mutual
+      support.
+
+
+      The programme comprises activities including arts, drama, sports, and
+      exploration of spiritual concepts by means of the study of stories. 
+
+
+      With the help of their animator, the junior youth are empowered to become
+      agents of positive social change by developing:
+
+
+      — The ability to critically analyse the positive and negative social
+      forces that exert an influence on their lives, such as targeted propaganda
+      through media
+
+
+      — The ability to understand and practice spiritual qualities such as love,
+      honesty and humility
+
+
+      — The ability to express themselves with confidence and clarity
+
+
+      — A strong moral framework upon which to base their decisions and actions
+
+
+      — An attitude of service expressed in action within their communities
     image: ../../assets/uploads/placeholder-warm.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
   - heading: Study circles
