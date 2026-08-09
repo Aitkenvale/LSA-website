@@ -218,6 +218,13 @@ content:
         label: Hire form introduction
         type: text
         required: true
+      - name: hirePolicyUrl
+        label: Centre Hire Policy file
+        description: The document "Please read our Centre Hire Policy" on the hire form links to. Upload a new PDF here to replace it.
+        type: file
+        options:
+          media: documents
+          extensions: [pdf]
       - name: hireRates
         label: Hire rates
         description: One rate per line, e.g. "$30 per hour". Shown under the availability calendar.
@@ -395,13 +402,6 @@ content:
       - { name: phone, label: Phone (optional), type: string }
       - { name: address, label: Address, type: string, required: true }
       - { name: facebook, label: Facebook page link (optional), type: string }
-      - name: hirePolicyUrl
-        label: Centre Hire Policy file
-        description: The document "Please read our Centre Hire Policy" on the hire form links to. Upload a new PDF here to replace it.
-        type: file
-        options:
-          media: documents
-          extensions: [pdf]
       - name: footer
         label: Footer
         type: object

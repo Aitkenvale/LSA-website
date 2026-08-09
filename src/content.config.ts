@@ -77,6 +77,8 @@ const centre = defineCollection({
       hireHeading: z.string().default('Hire the Centre'),
       hireCalendarNote: z.string().default(''),
       hireIntro: z.string(),
+      // Link target for "Please read our Centre Hire Policy" on the hire form
+      hirePolicyUrl: z.string().default(''),
       hireRates: z.array(z.string()).default([]),
     }),
 });
@@ -118,8 +120,6 @@ const settings = defineCollection({
     phone: z.string().optional(),
     address: z.string(),
     facebook: z.string().url().or(z.literal('')).optional(),
-    // Link target for the Centre Hire Policy (shown on the hire form)
-    hirePolicyUrl: z.string().default(''),
     footer: z.object({
       text: z.string(),
       acknowledgement: z.string(),

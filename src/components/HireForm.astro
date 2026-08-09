@@ -1,11 +1,9 @@
 ---
-import { getSiteSettings } from '../lib/site';
-
 interface Props {
   hireIntro: string;
+  hirePolicyUrl?: string;
 }
-const { hireIntro } = Astro.props;
-const { hirePolicyUrl } = await getSiteSettings();
+const { hireIntro, hirePolicyUrl = '' } = Astro.props;
 // Site keys are public by design; env var can override for another environment
 const turnstileSiteKey =
   (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAEKAbAcHwrSiJaVY';
