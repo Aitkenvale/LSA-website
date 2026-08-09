@@ -388,6 +388,10 @@ content:
       - { name: phone, label: Phone (optional), type: string }
       - { name: address, label: Address, type: string, required: true }
       - { name: facebook, label: Facebook page link (optional), type: string }
+      - name: hirePolicyUrl
+        label: Centre Hire Policy link
+        description: Where "Please read our Centre Hire Policy" on the hire form points (a web address or an uploaded document link).
+        type: string
       - name: footer
         label: Footer
         type: object

@@ -34,6 +34,7 @@ export const POST: APIRoute = async (context) => {
   const purpose = str(form.get('purpose'));
   const attendance = str(form.get('attendance'));
   const insurance = str(form.get('insurance')) === 'on';
+  const policyRead = str(form.get('policyRead')) === 'on';
   const alcoholDrugFree = str(form.get('alcoholDrugFree')) === 'on';
 
   const errors: string[] = [];
@@ -46,6 +47,7 @@ export const POST: APIRoute = async (context) => {
   if (!purpose || purpose.length > 4000) errors.push('purpose');
   if (!/^\d{1,3}$/.test(attendance)) errors.push('attendance');
   if (!insurance) errors.push('public liability insurance confirmation');
+  if (!policyRead) errors.push('Centre Hire Policy confirmation');
   if (!alcoholDrugFree) errors.push('alcohol and drug free confirmation');
   if (errors.length) {
     return json({ error: `Please check these fields: ${errors.join(', ')}.` }, 400);
@@ -106,6 +108,7 @@ export const POST: APIRoute = async (context) => {
     `Time:         ${startTime} – ${endTime}`,
     `Attendance:   ${attendance}`,
     `Public liability insurance: confirmed`,
+    `Centre Hire Policy read:    confirmed`,
     `Alcohol and drug free:      confirmed`,
     ``,
     `Purpose:`,
@@ -127,6 +130,7 @@ export const POST: APIRoute = async (context) => {
     ['Time', `${startTime} – ${endTime}`],
     ['Attendance', attendance],
     ['Public liability insurance', 'confirmed'],
+    ['Centre Hire Policy read', 'confirmed'],
     ['Alcohol and drug free', 'confirmed'],
   ];
   const html = [

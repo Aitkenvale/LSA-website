@@ -1,8 +1,11 @@
 ---
+import { getSiteSettings } from '../lib/site';
+
 interface Props {
   hireIntro: string;
 }
 const { hireIntro } = Astro.props;
+const { hirePolicyUrl } = await getSiteSettings();
 // Site keys are public by design; env var can override for another environment
 const turnstileSiteKey =
   (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAEKAbAcHwrSiJaVY';
@@ -68,6 +71,19 @@ const labelClass = 'block text-sm font-medium text-teal-900';
       <label for="hf-purpose" class={labelClass}>What is the booking for? <span class="text-gold-700">*</span></label>
       <textarea id="hf-purpose" name="purpose" rows="4" required class={inputClass}
         placeholder="e.g. weekly yoga class, community celebration, committee meeting..."></textarea>
+      {
+        hirePolicyUrl && (
+          <p class="mt-2 text-sm">
+            <a
+              href={hirePolicyUrl}
+              target="_blank"
+              class="font-medium text-teal-700 underline decoration-gold-500/60 underline-offset-2 hover:text-teal-900"
+            >
+              Please read our Centre Hire Policy
+            </a>
+          </p>
+        )
+      }
     </div>
     <div class="space-y-3 sm:col-span-2">
       <label class="flex items-start gap-3 text-sm text-ink/90">
@@ -78,6 +94,15 @@ const labelClass = 'block text-sm font-medium text-teal-900';
           class="mt-0.5 h-4 w-4 shrink-0 rounded border-teal-900/30 accent-teal-700"
         />
         <span>You have public liability insurance <span class="text-gold-700">*</span></span>
+      </label>
+      <label class="flex items-start gap-3 text-sm text-ink/90">
+        <input
+          type="checkbox"
+          name="policyRead"
+          required
+          class="mt-0.5 h-4 w-4 shrink-0 rounded border-teal-900/30 accent-teal-700"
+        />
+        <span>You have read our Centre Hire Policy <span class="text-gold-700">*</span></span>
       </label>
       <label class="flex items-start gap-3 text-sm text-ink/90">
         <input
