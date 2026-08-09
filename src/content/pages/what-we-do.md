@@ -85,7 +85,7 @@ sections:
 
     image: ../../assets/uploads/JYSEP.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
-    imageCaption: 2 May 2026
+    imageCaption: "Junior Youth Groups @ Townsville Women's Centre — 2 May 2026 "
     imageSide: right
   - heading: Study circles
     text: >-
