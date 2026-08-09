@@ -19,8 +19,6 @@ sections:
         **Grade 2** considers the source of spiritual qualities, developing love for the Creator's beauty through prayer, adhering to God's laws, and seeking knowledge; and love for humanity through living in harmony, having dignity for human beings, and being a good friend.  
         **Grade 3** shares the history of God's prophets Adam, Krishna, Abraham, Zoroaster, Moses, Buddha, Christ, Muhammad and The Báb (The Gate) have all lived similar lives, delivering a book to humanity to inform of humanity's potential and create unity.  
         **Grade 4** shares the history of Bahá'u'lláh (the Glory of God), the manifestation of God for this age, heralding humanity towards its collective unity and maturity.
-
-      Families of all backgrounds are warmly welcome.
     image: ../../assets/uploads/placeholder-deep.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
   - heading: Junior youth groups
