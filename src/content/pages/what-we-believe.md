@@ -13,17 +13,20 @@ sections:
       citizens.
     image: ../../assets/uploads/placeholder-teal-light.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageSide: right
   - heading: One unfolding faith
     text: Bahá'ís believe that God has guided humanity throughout history through
       great teachers — among them Abraham, Moses, Buddha, Krishna, Zoroaster,
       Christ and Muhammad. Bahá'u'lláh is the most recent of these divine
       educators, bringing teachings for the needs of our age.
+    imageSide: left
   - heading: Faith in action
     text: Worship and service belong together. Bahá'ís everywhere work alongside
       their neighbours — of all beliefs and none — to build communities marked
       by unity, justice and the equality of women and men.
     image: ../../assets/uploads/placeholder-warm.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageSide: right
   - heading: Education of Children
     text: >-
       “Children are the most precious treasure a community can possess, for in
@@ -35,4 +38,5 @@ sections:
       learn in that early stage of their development will leave its traces upon
       their whole life. It becomes part of their nature.” — Bahá’í Writings
     image: ../../assets/uploads/placeholder-teal-light.jpg
+    imageSide: left
 ---
