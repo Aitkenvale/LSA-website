@@ -71,12 +71,12 @@ sections:
       forces that exert an influence on their lives, such as targeted propaganda
       through media
 
-      - The ability to understand and practice spiritual qualities such as love,
+      - The ability to understand and practice spiritual qualities such as
       honesty and humility
 
       - The ability to express themselves with confidence and clarity
 
-      - A strong moral framework upon which to base their decisions and actions
+      - A strong moral framework upon which to base decisions and actions
 
       - An attitude of service expressed in action within their communities
 
