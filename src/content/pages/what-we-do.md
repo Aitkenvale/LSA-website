@@ -92,18 +92,15 @@ sections:
 
       — The ability to critically analyse the positive and negative social
       forces that exert an influence on their lives, such as targeted propaganda
-      through media
-
+      through media  
 
       — The ability to understand and practice spiritual qualities such as love,
-      honesty and humility
+      honesty and humility  
 
+      — The ability to express themselves with confidence and clarity  
 
-      — The ability to express themselves with confidence and clarity
-
-
-      — A strong moral framework upon which to base their decisions and actions
-
+      — A strong moral framework upon which to base their decisions and
+      actions  
 
       — An attitude of service expressed in action within their communities
     image: ../../assets/uploads/placeholder-warm.jpg
