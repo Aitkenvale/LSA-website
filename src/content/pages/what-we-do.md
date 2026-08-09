@@ -83,8 +83,9 @@ sections:
 
       - An attitude of service expressed in action within their communities
 
-    image: ../../assets/uploads/placeholder-warm.jpg
+    image: ../../assets/uploads/JYSEP.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageCaption: 2 May 2026
     imageSide: right
   - heading: Study circles
     text: >-
