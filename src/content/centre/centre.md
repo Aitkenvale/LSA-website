@@ -27,7 +27,7 @@ hireCalendarNote: Check the calendar for a day that suits you — green days are
 hireIntro: Our Community Centre is available for hire for meetings, classes,
   workshops and celebrations. Check the availability calendar below, then send
   us your details and we will be in touch to confirm your booking.
-hirePolicyUrl: /files/Baha'i Centre Policy.pdf
+hirePolicyUrl: /files/Baha'i Centre Policy-1.pdf
 hireRates:
   - $30 per hour
   - $150 per day
