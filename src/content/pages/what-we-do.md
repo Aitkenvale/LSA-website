@@ -14,11 +14,24 @@ sections:
     imageAlt: Decorative teal banner with a gold nine-pointed star
   - heading: Children's classes
     text: >-
-      The programme for the education of children comprises many grades.  
-        **Grade 1** develops the language of spiritual qualities such as a purity of heart, truthfulness and selflessness.  
-        **Grade 2** considers the source of spiritual qualities, developing love for the Creator's beauty through prayer, adhering to God's laws, and seeking knowledge; and love for humanity through living in harmony, having dignity for human beings, and being a good friend.  
-        **Grade 3** shares the history of God's prophets Adam, Krishna, Abraham, Zoroaster, Moses, Buddha, Christ, Muhammad and The Báb (The Gate) have all lived similar lives, delivering a book to humanity to inform of humanity's potential and create unity.  
-        **Grade 4** shares the history of Bahá'u'lláh (the Glory of God), the manifestation of God for this age, heralding humanity towards its collective unity and maturity.
+      For children in grades prep to year six:  
+
+      **Year 1** develops the language of spiritual qualities such as a purity
+      of heart, truthfulness and selflessness.  
+
+      **Year 2** considers the source of spiritual qualities, developing love
+      for the Creator's beauty through prayer, adhering to God's laws, and
+      seeking knowledge; and love for humanity through living in harmony, having
+      dignity for human beings, and being a good friend.  
+
+      **Year 3** shares the history of God's prophets Adam, Krishna, Abraham,
+      Zoroaster, Moses, Buddha, Christ, Muhammad and The Báb (The Gate) have all
+      lived similar lives, delivering a book to humanity to inform of humanity's
+      potential and create unity.  
+
+      **Year 4** shares the history of Bahá'u'lláh (the Glory of God), the
+      manifestation of God for this age, heralding humanity towards its
+      collective unity and maturity.
     image: ../../assets/uploads/placeholder-deep.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
   - heading: Junior youth groups
