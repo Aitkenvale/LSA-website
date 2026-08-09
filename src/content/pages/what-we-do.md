@@ -24,6 +24,7 @@ sections:
       service to humankind.
     image: ../../assets/uploads/placeholder-teal.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageCaption: Who's in the photo and when was it taken
     imageSide: right
   - heading: Children's classes
     text: >+
