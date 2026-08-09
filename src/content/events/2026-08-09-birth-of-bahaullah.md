@@ -1,7 +1,7 @@
 ---
 title: "Twin Holy Birthdays — The Báb & Bahá’u’lláh "
 start: 2026-11-10T19:00
-end: 2026-11-12T18:00
+end: 2026-11-10T22:00
 location: Bahá'í Centre, Townsville
 image: ../../assets/uploads/placeholder-warm.jpg
 ---
