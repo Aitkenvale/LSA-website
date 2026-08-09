@@ -11,7 +11,8 @@ interface Props {
   flip?: boolean;
 }
 const { heading, text, image, imageAlt = '', flip = false } = Astro.props;
-const html = marked.parse(text);
+// breaks:true — a single Enter in the editor shows as a line break on the page
+const html = marked.parse(text, { breaks: true });
 ---
 
 <section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">

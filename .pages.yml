@@ -39,7 +39,6 @@ content:
     label: What We Believe
     type: file
     path: src/content/pages/what-we-believe.md
-    fields: [title]
     fields:
       - name: title
         label: Page title
@@ -66,7 +65,7 @@ content:
             required: true
           - name: text
             label: Text
-            type: text
+            type: rich-text
             required: true
           - name: image
             label: Photo (optional)
@@ -79,7 +78,6 @@ content:
     label: What We Do
     type: file
     path: src/content/pages/what-we-do.md
-    fields: [title]
     fields:
       - name: title
         label: Page title
@@ -106,7 +104,7 @@ content:
             required: true
           - name: text
             label: Text
-            type: text
+            type: rich-text
             required: true
           - name: image
             label: Photo (optional)
@@ -146,7 +144,7 @@ content:
             required: true
           - name: text
             label: Text
-            type: text
+            type: rich-text
             required: true
           - name: image
             label: Photo (optional)
@@ -178,7 +176,6 @@ content:
     path: src/content/extra-pages
     view:
       fields: [title]
-    fields: [title]
     fields:
       - name: title
         label: Page title
@@ -205,7 +202,7 @@ content:
             required: true
           - name: text
             label: Text
-            type: text
+            type: rich-text
             required: true
           - name: image
             label: Photo (optional)
