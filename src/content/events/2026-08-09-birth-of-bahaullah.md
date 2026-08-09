@@ -3,6 +3,7 @@ title: "Twin Holy Birthdays — The Báb & Bahá’u’lláh "
 start: 2026-11-11T19:00
 end: 2026-11-11T22:00
 location: Bahá'í Centre, Townsville
+image: ../../assets/uploads/placeholder-warm.jpg
 ---
 Two births, two years apart, celebrated as one festival. The Báb was born in Shíráz in 1819, Bahá'u'lláh in Tehran in 1817 — and on the old lunar calendar their birthdays fell on consecutive days. So Bahá'ís mark them together: the herald and the one he foretold.
 
