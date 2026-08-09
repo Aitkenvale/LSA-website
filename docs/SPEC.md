@@ -4,7 +4,7 @@
 it from scratch. Written so a developer or AI agent with no prior context can
 rebuild or maintain the entire system.*
 
-Last updated: 2026-08-09. Status: **live** at https://bahaitownsville.org.au
+Last updated: 2026-08-09 (nightly cron done — no launch blockers remain). Status: **live** at https://bahaitownsville.org.au
 (pre-launch access code "1844" until the CMS `sitePassword` field is cleared).
 
 ---
@@ -177,9 +177,10 @@ Media: CMS uploads → `src/assets/uploads/`, referenced relatively
 
 ## 10. Known-pending work
 
-- **Nightly rebuild cron** (launch-blocking): create a Worker deploy hook; tiny
-  scheduled Worker (cron `0 17 * * *` = 3am AEST) POSTs it, so past events drop
-  off. Snippet in SETUP.md §7.
+- ~~Nightly rebuild cron~~ **DONE** (2026-08-09): GitHub Actions workflow
+  `.github/workflows/nightly-rebuild.yml` pushes an empty commit at 17:00 UTC
+  (3am AEST) daily, triggering the normal Cloudflare build. Health check:
+  `/build-info.json` shows the last build time — stale >1 day = cron broken.
 - NSA CNAME not yet added; on it going live: make townsville.bahai.org.au
   canonical (301 from bahaitownsville.org.au, update `site` in astro.config,
   re-point sitemap/canonical), and update site contact email to the confirmed
