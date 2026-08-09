@@ -3,8 +3,15 @@
 # It must stay in sync with src/content.config.ts (the build-time validation).
 
 media:
-  input: src/assets/uploads
-  output: ../../assets/uploads
+  - name: images
+    label: Images
+    input: src/assets/uploads
+    output: ../../assets/uploads
+  - name: documents
+    label: Documents
+    input: public/files
+    output: /files
+    extensions: [pdf, doc, docx]
 
 content:
   - name: homepage
@@ -389,9 +396,12 @@ content:
       - { name: address, label: Address, type: string, required: true }
       - { name: facebook, label: Facebook page link (optional), type: string }
       - name: hirePolicyUrl
-        label: Centre Hire Policy link
-        description: Where "Please read our Centre Hire Policy" on the hire form points (a web address or an uploaded document link).
-        type: string
+        label: Centre Hire Policy file
+        description: The document "Please read our Centre Hire Policy" on the hire form links to. Upload a new PDF here to replace it.
+        type: file
+        options:
+          media: documents
+          extensions: [pdf]
       - name: footer
         label: Footer
         type: object
