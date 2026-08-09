@@ -53,7 +53,7 @@ sections:
       - Consultation is an essential skill for peaceful problem solving
 
     image: ../../assets/uploads/PSEC.jpg
-    imageAlt: Decorative dark teal banner with a gold nine-pointed star
+    imageAlt: Four grades of the Children's Class — Richard St — 18 April 2026
     imageCaption: Four grades of the Children's Class — Richard St — 18 April 2026
     imageSide: left
   - heading: Junior youth groups
