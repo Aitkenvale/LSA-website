@@ -1,9 +1,13 @@
 ---
-title: "Birth of Bahá’u’lláh "
-start: 2026-11-10T19:00
-end: 2026-11-10T22:00
+title: "Twin Holy Birthdays — The Báb & Bahá’u’lláh "
+start: 2026-11-11T19:00
+end: 2026-11-11T22:00
 location: Bahá'í Centre, Townsville
 ---
-Born into wealth and privilege in Tehran in 1817, He turned down a life at court — and spent forty years in prison, exile and banishment for a message the world wasn't ready to hear: that humanity is one family, and the time had come to live like it. On Tuesday 10 November the Townsville's Bahá'í community warmly invites you to celebrate the Birth of Bahá'u'lláh, whose vision of the oneness of humankind now animates communities in almost every country on earth.
+Two births, two years apart, celebrated as one festival. The Báb was born in Shíráz in 1819, Bahá'u'lláh in Tehran in 1817 — and on the old lunar calendar their birthdays fell on consecutive days. So Bahá'ís mark them together: the herald and the one he foretold.
+
+They're days for joy, not solemnity. Prayers, music, stories, shared food — and everyone is welcome, whatever you believe. That's the whole point of a faith built on the oneness of humanity.
+
+In 2026 they fall on **Tuesday 10 and Wednesday 11 November**, each beginning at sunset the evening before.
 
 *Event details to be finalised*
