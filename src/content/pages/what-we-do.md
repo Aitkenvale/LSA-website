@@ -104,7 +104,8 @@ sections:
       and ensure the environment of the study circle is characterised by
       inclusion, respect and unity.
     image: ../../assets/uploads/SC.jpg
-    imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageAlt: Mothers gather to study "Reflections on the Life of the Spirit" — 7
+      August 2026
     imageCaption: Mothers gather to study "Reflections on the Life of the Spirit" —
       7 August 2026
     imageSide: left
