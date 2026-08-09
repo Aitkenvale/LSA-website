@@ -13,7 +13,6 @@ sections:
       citizens.
     image: ../../assets/uploads/townsville-bahai-logo.png
     imageAlt: Decorative teal banner with a gold nine-pointed star
-    imageStyle: emblem
     imageSide: left
   - heading: One unfolding faith
     text: Bahá'ís believe that God has guided humanity throughout history through
@@ -21,15 +20,13 @@ sections:
       Christ and Muhammad. Bahá'u'lláh is the most recent of these divine
       educators, bringing teachings for the needs of our age.
     image: ../../assets/uploads/townsville-bahai-logo.png
-    imageStyle: emblem
-    imageSide: left
+    imageSide: right
   - heading: Faith in action
     text: Worship and service belong together. Bahá'ís everywhere work alongside
       their neighbours — of all beliefs and none — to build communities marked
       by unity, justice and the equality of women and men.
     image: ../../assets/uploads/townsville-bahai-logo.png
     imageAlt: Decorative teal banner with a gold nine-pointed star
-    imageStyle: emblem
     imageSide: left
   - heading: Education of Children
     text: >-
@@ -42,6 +39,5 @@ sections:
       learn in that early stage of their development will leave its traces upon
       their whole life. It becomes part of their nature.” — Bahá’í Writings
     image: ../../assets/uploads/townsville-bahai-logo.png
-    imageStyle: emblem
-    imageSide: left
+    imageSide: right
 ---
