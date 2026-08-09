@@ -76,6 +76,10 @@ content:
           - name: imageAlt
             label: Photo description
             type: string
+          - name: imageCaption
+            label: Photo caption (optional)
+            description: A small light line shown under the photo.
+            type: string
           - name: imageSide
             label: Photo position (desktop)
             description: Which side of the text the photo sits on for desktop screens. On phones it always stacks below the text.
@@ -126,6 +130,10 @@ content:
             type: image
           - name: imageAlt
             label: Photo description
+            type: string
+          - name: imageCaption
+            label: Photo caption (optional)
+            description: A small light line shown under the photo.
             type: string
           - name: imageSide
             label: Photo position (desktop)
@@ -178,6 +186,10 @@ content:
             type: image
           - name: imageAlt
             label: Photo description
+            type: string
+          - name: imageCaption
+            label: Photo caption (optional)
+            description: A small light line shown under the photo.
             type: string
           - name: imageSide
             label: Photo position (desktop)
@@ -248,6 +260,10 @@ content:
             type: image
           - name: imageAlt
             label: Photo description
+            type: string
+          - name: imageCaption
+            label: Photo caption (optional)
+            description: A small light line shown under the photo.
             type: string
           - name: imageSide
             label: Photo position (desktop)

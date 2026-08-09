@@ -8,9 +8,10 @@ interface Props {
   text: string;
   image?: ImageMetadata;
   imageAlt?: string;
+  imageCaption?: string;
   flip?: boolean;
 }
-const { heading, text, image, imageAlt = '', flip = false } = Astro.props;
+const { heading, text, image, imageAlt = '', imageCaption, flip = false } = Astro.props;
 // breaks:true — a single Enter in the editor shows as a line break on the page
 const html = marked.parse(text, { breaks: true });
 ---
@@ -29,13 +30,18 @@ const html = marked.parse(text, { breaks: true });
     </div>
     {
       image && (
-        <Image
-          src={image}
-          alt={imageAlt}
-          widths={[480, 800, 1200]}
-          sizes="(min-width: 768px) 50vw, 100vw"
-          class="aspect-[3/2] w-full rounded-2xl object-cover shadow-lg shadow-teal-900/10"
-        />
+        <figure>
+          <Image
+            src={image}
+            alt={imageAlt}
+            widths={[480, 800, 1200]}
+            sizes="(min-width: 768px) 50vw, 100vw"
+            class="aspect-[3/2] w-full rounded-2xl object-cover shadow-lg shadow-teal-900/10"
+          />
+          {imageCaption && (
+            <figcaption class="mt-2 text-center text-xs text-ink/45">{imageCaption}</figcaption>
+          )}
+        </figure>
       )
     }
   </div>
