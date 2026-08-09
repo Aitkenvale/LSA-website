@@ -24,6 +24,7 @@ sections:
       service to humankind.
     image: ../../assets/uploads/placeholder-teal.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageSide: right
   - heading: Children's classes
     text: >-
       The goal of spiritual education is to cultivate in participants spiritual
@@ -53,6 +54,7 @@ sections:
       — Consultation is an essential skill for peaceful problem solving
     image: ../../assets/uploads/placeholder-deep.jpg
     imageAlt: Decorative dark teal banner with a gold nine-pointed star
+    imageSide: left
   - heading: Junior youth groups
     text: >+
       The Junior Youth Spiritual Empowerment Programme is for young people aged
@@ -82,6 +84,7 @@ sections:
 
     image: ../../assets/uploads/placeholder-warm.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageSide: right
   - heading: Study circles
     text: >-
       The courses produced by the Ruhi Training Institute are studied by people
@@ -100,4 +103,5 @@ sections:
       inclusion, respect and unity.
     image: ../../assets/uploads/placeholder-teal-light.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
+    imageSide: left
 ---
