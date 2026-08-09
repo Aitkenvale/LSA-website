@@ -1,0 +1,24 @@
+# Nightly rebuild: the home page decides "what's upcoming" at build time, so the
+# site must rebuild daily for past events and expired news to drop off.
+# An empty commit to main triggers Cloudflare's normal git-connected build.
+name: Nightly rebuild
+
+on:
+  schedule:
+    - cron: '0 17 * * *' # 17:00 UTC = 3:00 am AEST (Queensland has no DST)
+  workflow_dispatch: {} # allows manual runs for testing
+
+permissions:
+  contents: write
+
+jobs:
+  trigger-rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push empty commit to trigger Cloudflare build
+        run: |
+          git config user.name "nightly-rebuild"
+          git config user.email "actions@github.com"
+          git commit --allow-empty -m "chore: nightly site rebuild"
+          git push
