@@ -74,11 +74,6 @@ sections:
       community.
 
 
-      Junior youth groups are guided by a youth role-model, also known as an
-      animator. Groups meet on a regular basis, giving participants a sense of
-      belonging within the community and fostering an environment of mutual
-      support. The programme comprises activities including arts, drama, sports,
-      and exploration of spiritual concepts by means of the study of stories.
       With the help of their animator, the junior youth are empowered to become
       agents of positive social change by developing:
 
