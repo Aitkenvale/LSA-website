@@ -2,15 +2,12 @@ siteName: Bahá'í Community of Townsville
 tagline: Building vibrant community life in North Queensland
 contactEmail: lsatownsville@gmail.com
 bookingEmail: lsatownsville@gmail.com
-phone: ''
 address: Bahá'í Centre, Townsville QLD
-facebook: ''
-hirePolicyUrl: /files/centre-use-policy.pdf
+hirePolicyUrl: /files/Baha'i Centre Policy.pdf
 footer:
-  text: >-
-    The Bahá'í community of Townsville warmly welcomes people of all
+  text: The Bahá'í community of Townsville warmly welcomes people of all
     backgrounds to join us in worship, service and community building.
-  acknowledgement: >-
-    We acknowledge the Wulgurukaba and Bindal peoples, Traditional Owners of
-    the land on which we meet, and pay our respects to Elders past and present.
-sitePassword: '1844'
+  acknowledgement: We acknowledge the Wulgurukaba and Bindal peoples, Traditional
+    Owners of the land on which we meet, and pay our respects to Elders past and
+    present.
+sitePassword: "1844"
