@@ -18,8 +18,15 @@ sections:
       grades.
 
       Grade 1 develops the language of spiritual qualities such as a purity of
-      heart, love for humanity,
-       
+      heart, truthfulness and selflessness.
+
+      Grade 2 considers the source of spiritual qualities, developing love for
+      the Creator's beauty through prayer, adhering to God's laws, and seeking
+      knowledge, and love for humanity through living in harmony, dignity for
+      human beings, and being a good friend.
+
+      Grade 3 
+
       Free classes that nurture qualities like kindness, honesty and generosity
       in children through stories, songs, games and art. Families of all
       backgrounds are warmly welcome.
