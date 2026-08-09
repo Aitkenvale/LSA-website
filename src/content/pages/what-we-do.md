@@ -14,8 +14,7 @@ sections:
     imageAlt: Decorative teal banner with a gold nine-pointed star
   - heading: Children's classes
     text: >-
-      The programme for the spiritual education of children comprises many
-      grades.
+      The programme for the education of children comprises many grades.  
 
       **Grade 1** develops the language of spiritual qualities such as a purity
       of heart, truthfulness and selflessness.
