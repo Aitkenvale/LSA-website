@@ -109,9 +109,21 @@ sections:
     image: ../../assets/uploads/placeholder-warm.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
   - heading: Study circles
-    text: Small groups that study together and put what they learn into practice —
-      exploring themes such as the life of the spirit, service to humanity and
-      the education of children. Open to all, at times that suit participants.
+    text: >-
+      The courses produced by the Ruhi Training Institute are studied by people
+      all over the world. They offer an opportunity for participants to deepen
+      their understanding of spiritual concepts drawn from the Bahá’í writings,
+      explore life’s purpose, and to gain practical skills required to
+      contribute to building vibrant united communities.
+
+
+      A core component of the Ruhi Training Institute is a study circle. A study
+      circle is comprised of a small group of people who come together to
+      participate in one or more courses. The courses are provided free of
+      charge, are open to all, and are facilitated by a trained tutor. The
+      primary role of the tutor is to guide discussion among the participants
+      and ensure the environment of the study circle is characterised by
+      inclusion, respect and unity.
     image: ../../assets/uploads/placeholder-teal-light.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
 ---
