@@ -12,4 +12,4 @@ Mr Mphahlele is internationally recognised for his remarkable journey from armed
 
 The evening will explore themes of reconciliation, healing, restorative justice, ethical leadership and building peace across our deepest divides. Our hope is to create a welcoming space where members of the Townsville community can reflect, learn and engage in meaningful dialogue together.
 
-Facilitated by Amiel Nubaha
+**Facilitated by Amiel Nubaha**
