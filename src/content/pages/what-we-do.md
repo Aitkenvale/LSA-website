@@ -41,9 +41,7 @@ sections:
 
       - We are all loved by the same God
 
-      - We are all one human family
-
-      - Diversity is valuable
+      - We are all one human family, and diversity is valuable
 
       - Women and men are equal
 
