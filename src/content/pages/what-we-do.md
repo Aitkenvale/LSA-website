@@ -7,9 +7,21 @@ heroImage: ../../assets/uploads/placeholder-teal-light.jpg
 heroImageAlt: Decorative teal banner with a gold nine-pointed star
 sections:
   - heading: Devotional gatherings
-    text: Simple gatherings in homes and at the Bahá'í Centre where people of all
-      backgrounds pray, sing, and reflect. There is no ritual or clergy — just
-      an uplifting time of worship followed by friendship.
+    text: >-
+      Devotional gatherings are held in a variety of settings including homes,
+      parks, houses of worship, and public halls. They may include spoken or
+      sung sacred scripture from any of the world religions. There are no set
+      rituals or clergy which guide these opportunities for collective prayer
+      and meditation, and all participants are welcome to contribute to the
+      collective experience.
+
+
+      Prayer is the essential spiritual conversation of the soul with its Maker.
+      It is the spiritual food that sustains the life of the spirit and enhances
+      spiritual understanding. Prayer begets mindfulness and heavenly feelings,
+      and awakens the higher intelligence. Prayer increases capacity to enjoy
+      spiritual gifts, to experience true happiness. It inspires selfless
+      service to humankind.
     image: ../../assets/uploads/placeholder-teal.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
   - heading: Children's classes
