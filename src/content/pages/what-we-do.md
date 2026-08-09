@@ -50,9 +50,9 @@ sections:
       dignity for human beings, and being a good friend.  
 
       **Grade 3** shares the history of God's prophets Adam, Krishna, Abraham,
-      Zoroaster, Moses, Buddha, Christ, Muhammad and The Báb (The Gate) have all
-      lived similar lives, delivering a book to humanity to inform of humanity's
-      potential and create unity.  
+      Zoroaster, Moses, Buddha, Christ, Muhammad and The Báb (The Gate) which
+      have all lived parallel lives, delivering a book to humanity to inform of
+      humanity's potential.  
 
       **Grade 4** shares the history of Bahá'u'lláh (the Glory of God), the
       manifestation of God for this age, heralding humanity towards its
