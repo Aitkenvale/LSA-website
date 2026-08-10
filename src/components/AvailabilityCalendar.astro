@@ -97,6 +97,8 @@
     let html = `<p class="font-semibold text-teal-900">${nice}</p>`;
     if (state === 'available') {
       html += `<p class="mt-1 text-teal-800">✓ Available all day (${OPEN_HOUR}am – ${CLOSE_HOUR - 12}pm)</p>`;
+    } else if (state === 'booked') {
+      html += `<p class="mt-1 text-ink/80">✕ Booked all day.</p>`;
     } else {
       html += `<p class="mt-1 text-ink/80">Booked times:</p><ul class="mt-1 space-y-0.5 text-ink/80">`;
       for (const [s, e] of ranges) html += `<li>• ${fmtTime(s)} – ${fmtTime(e)}</li>`;
