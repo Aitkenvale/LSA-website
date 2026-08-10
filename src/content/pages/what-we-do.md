@@ -28,26 +28,23 @@ sections:
       The goal of spiritual education is to cultivate in participants spiritual
       qualities such as love, forgiveness and justice, and to help them manifest
       these qualities in all interactions with all people. Classes draw on the
-      elements of prayer, understanding and memorisation of the Word of God,
-      stories, songs, art, cooperative games, and music. Families are welcome to
-      participate in classes and associated activities.
+      elements of prayer, memorisation of the Word of God, stories, songs, art,
+      games, and music.
 
 
-      These classes are empowering children to contribute to the creation of a
-      peaceful world through exploration of universal themes such as:
+      These classes empower children to contribute to the creation of a united
+      world through exploration of universal themes such as:
 
 
       - We are all loved by the same God
 
-      - We are all one human family, and diversity is valuable
+      - We are all one human family
 
       - Women and men are equal
 
       - All forms of prejudice must be eliminated
 
-      - The natural environment is a sacred trust
-
-      - Consultation is an essential skill for peaceful problem solving
+      - Consultation is an essential for peaceful problem solving
 
     image: ../../assets/uploads/PSEC.jpg
     imageAlt: Four grades of the Children's Class — Richard St — 18 April 2026
