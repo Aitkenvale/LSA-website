@@ -52,30 +52,25 @@ sections:
     imageSide: left
   - heading: Junior youth groups
     text: >+
-      The Junior Youth Spiritual Empowerment Programme is for young people aged
-      12 to 15. This period of life is a time of rapid development of spiritual,
-      intellectual, and physical capacities. The programme instils in junior
-      youth a sense of moral purpose, which helps channel their inherent
-      capacity for justice and altruism into meaningful contributions to their
-      community.
+      The Junior Youth Spiritual Empowerment Programme is for 12- to
+      15-year-olds, an age of rapid spiritual, intellectual, and physical
+      development. It instils a sense of moral purpose, channelling their innate
+      capacity for justice and altruism into meaningful contribution to their
+      community. With an animator's guidance, junior youth become agents of
+      positive social change by developing:
 
 
-      With the help of their animator, the junior youth are empowered to become
-      agents of positive social change by developing:
+      - The ability to critically analyse social forces shaping their lives,
+      such as targeted media propaganda
 
+      - An understanding and practice of spiritual qualities such as honesty and
+      humility
 
-      - The ability to critically analyse the positive and negative social
-      forces that exert an influence on their lives, such as targeted propaganda
-      through media
+      - Confidence and clarity in expressing themselves
 
-      - The ability to understand and practice spiritual qualities such as
-      honesty and humility
+      - A strong moral framework for decisions and actions
 
-      - The ability to express themselves with confidence and clarity
-
-      - A strong moral framework upon which to base decisions and actions
-
-      - An attitude of service expressed in action within their communities
+      - An attitude of service expressed in their communities
 
     image: ../../assets/uploads/JYSEP.jpg
     imageAlt: "Junior Youth Groups — Townsville Women's Centre — 2 May 2026 "
