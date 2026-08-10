@@ -78,20 +78,16 @@ sections:
     imageSide: right
   - heading: Study circles
     text: >-
-      The courses produced by the Ruhi Institute are studied by people all over
-      the world. They offer an opportunity for participants to deepen their
-      understanding of spiritual concepts drawn from the Bahá’í writings,
-      explore life’s purpose, and to gain practical skills required to
-      contribute to building vibrant united communities.
+      The Ruhi Institute's courses are studied worldwide. They offer
+      participants a chance to deepen their understanding of spiritual concepts
+      from the Bahá'í writings, explore life's purpose, and gain practical
+      skills for building vibrant, united communities.
 
 
-      A core component of the Ruhi Institute is a study circle. A study circle
-      is comprised of a small group of people who come together to participate
-      in one or more courses. The courses are provided free of charge, are open
-      to all, and are facilitated by a trained tutor. The primary role of the
-      tutor is to guide discussion among the participants and ensure the
-      environment of the study circle is characterised by inclusion, respect and
-      unity.
+      A core component is the study circle: a small group who come together for
+      one or more courses. The courses are free, open to all, and facilitated by
+      a trained tutor, whose primary role is to guide discussion and ensure an
+      environment characterised by inclusion, respect, and unity.
     image: ../../assets/uploads/SC.jpg
     imageAlt: Mothers gather to study "Reflections on the Life of the Spirit" — 7
       August 2026
