@@ -8,20 +8,17 @@ heroImageAlt: Decorative teal banner with a gold nine-pointed star
 sections:
   - heading: Devotional gatherings
     text: >-
-      Devotional gatherings are held in a variety of settings including homes,
-      parks, houses of worship, and public halls. They may include spoken or
-      sung sacred scripture from any of the world religions. There are no set
-      rituals or clergy which guide these opportunities for collective prayer
-      and meditation, and all participants are welcome to contribute to the
-      collective experience.
+      Devotional gatherings are held in homes, parks, houses of worship, and
+      public halls, and may include sacred scripture, spoken or sung, from any
+      world religion. With no set rituals or clergy, all are welcome to
+      contribute.
 
 
-      Prayer is the essential spiritual conversation of the soul with its Maker.
-      It is the spiritual food that sustains the life of the spirit and enhances
-      spiritual understanding. Prayer begets mindfulness and heavenly feelings,
-      and awakens the higher intelligence. Prayer increases capacity to enjoy
-      spiritual gifts, to experience true happiness. It inspires selfless
-      service to humankind.
+      Prayer is the soul's conversation with its Maker — spiritual food that
+      sustains the spirit and deepens understanding. It begets mindfulness and
+      heavenly feelings, awakens the higher intelligence, opens capacity for
+      spiritual gifts and true happiness, and inspires selfless service to
+      humankind.
     image: ../../assets/uploads/placeholder-teal.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
     imageCaption: Who's in the photo and when was it taken
