@@ -25,10 +25,17 @@ const {
 const html = marked.parse(text, { breaks: true });
 ---
 
-<section class="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+<section
+  class:list={[
+    'mx-auto max-w-6xl px-4 sm:px-6 sm:py-14',
+    // emblem: no bottom padding on mobile so text→icon and icon→next-section match
+    image && imageStyle === 'emblem' ? 'pt-10 pb-0' : 'py-10',
+  ]}
+>
   <div
     class:list={[
-      'grid items-center gap-8 sm:gap-12',
+      'grid items-center sm:gap-12',
+      image && imageStyle === 'emblem' ? 'gap-10' : 'gap-8',
       image ? 'md:grid-cols-2' : 'md:max-w-3xl',
     ]}
   >
