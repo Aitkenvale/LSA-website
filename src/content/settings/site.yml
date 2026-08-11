@@ -9,4 +9,11 @@ footer:
   acknowledgement: We acknowledge the Wulgurukaba and Bindal peoples, Traditional
     Owners of the land on which we meet, and pay our respects to Elders past and
     present.
+  links:
+    - name: Bahá'í Horizons
+      url: https://horizons.bahai.org.au
+    - name: Australian Bahá'í Community
+      url: https://www.bahai.org.au
+    - name: Bahá'ís of the world
+      url: https://www.bahai.org
 sitePassword: "1844"

@@ -125,6 +125,7 @@ const settings = defineCollection({
     footer: z.object({
       text: z.string(),
       acknowledgement: z.string(),
+      links: z.array(z.object({ name: z.string(), url: z.string() })).default([]),
     }),
     // Non-empty = pre-launch gate active (casual deterrent, not security)
     sitePassword: z.string().default(''),

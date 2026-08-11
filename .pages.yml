@@ -451,6 +451,23 @@ content:
             label: Acknowledgement of Country
             type: text
             required: true
+          - name: links
+            label: Explore links
+            description: The link list in the footer's Explore column.
+            type: object
+            list:
+              collapsible:
+                collapsed: true
+                summary: '{fields.name}'
+            fields:
+              - name: name
+                label: Name
+                type: string
+                required: true
+              - name: url
+                label: Web address
+                type: string
+                required: true
       - name: sitePassword
         label: Pre-launch access code
         description: While this has a value, visitors must enter it to view the site. CLEAR THIS FIELD TO LAUNCH the site publicly.
