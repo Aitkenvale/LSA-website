@@ -16,8 +16,8 @@ sections:
       houses of worship, and public halls, and may include sacred scripture,
       spoken or sung, from any world religion and in a myriad forms.
     image: ../../assets/uploads/placeholder-teal.jpg
-    imageAlt: Community Devotions at the Smith residence
-    imageCaption: Community Devotions at the Smith residence
+    imageAlt: Community Devotions at the Smith residence — September 2025
+    imageCaption: Community Devotions at the Smith residence — September 2025
     imageStyle: photo
     imageSide: right
   - heading: Children's classes
@@ -69,8 +69,8 @@ sections:
       place where there is desire to participate, facilitated by a tutor. The
       courses are free and open to all youth and adults.
     image: ../../assets/uploads/WhatsApp Image 2026-08-26 at 19.21.26.jpeg
-    imageAlt: Friends gather to study "Teaching Children's Classes"
-    imageCaption: Friends gather to study "Teaching Children's Classes"
+    imageAlt: Friends gather to study "Teaching Children's Classes" — March 2025
+    imageCaption: Friends gather to study "Teaching Children's Classes" — March 2025
     imageStyle: photo
     imageSide: left
 ---
