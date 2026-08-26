@@ -16,8 +16,8 @@ sections:
       houses of worship, and public halls, and may include sacred scripture,
       spoken or sung, from any world religion and in a myriad forms.
     image: ../../assets/uploads/placeholder-teal.jpg
-    imageAlt: Decorative teal banner with a gold nine-pointed star
-    imageCaption: Who's in the photo and when was it taken
+    imageAlt: Community Devotions at the Smith residence
+    imageCaption: Community Devotions at the Smith residence
     imageStyle: photo
     imageSide: right
   - heading: Children's classes
