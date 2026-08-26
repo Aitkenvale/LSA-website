@@ -8,46 +8,29 @@ heroImage: ../../assets/uploads/placeholder-deep.jpg
 heroImageAlt: Decorative teal banner with a gold nine-pointed star
 sections:
   - heading: Devotional gatherings
-    text: >-
-      Devotional gatherings are held in homes, parks, houses of worship, and
-      public halls, and may include sacred scripture, spoken or sung, from any
-      world religion. With no set rituals or clergy, all are welcome to
-      contribute.
-
-
-      Prayer is the soul's conversation with its Maker — spiritual food that
-      sustains the spirit and deepens understanding. It begets mindfulness and
-      heavenly feelings, awakens the higher intelligence, opens capacity for
-      spiritual gifts and true happiness, and inspires selfless service to
-      humankind.
+    text: Prayer — when sincere and freed from empty man-made rituals — can serve as
+      a conversation between a soul and its Creator. Such a conversation can
+      become spiritual food that sustains the spirit,  deepens understanding of
+      spiritual reality, and fosters love, unity and selfless service to
+      humanity. Collective gatherings for prayer are held in homes, parks,
+      houses of worship, and public halls, and may include sacred scripture,
+      spoken or sung, from any world religion and in a myriad forms.
     image: ../../assets/uploads/placeholder-teal.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
     imageCaption: Who's in the photo and when was it taken
     imageStyle: photo
     imageSide: right
   - heading: Children's classes
-    text: >+
-      The goal of spiritual education is to cultivate in participants spiritual
+    text: The goal of spiritual education is to cultivate in participants spiritual
       qualities such as love, forgiveness and justice, and to help them manifest
       these qualities in all interactions with all people. Classes draw on the
       elements of prayer, memorisation of the Word of God, stories, songs, art,
-      games, and music.
-
-
-      These classes empower children to contribute to the creation of a united
-      world through exploration of universal themes such as:
-
-
-      - We are all loved by the same God
-
-      - We are all one human family
-
-      - Women and men are equal
-
-      - All forms of prejudice must be eliminated
-
-      - Consultation is an essential for peaceful problem solving
-
+      games, and music. These classes empower children to contribute to the
+      creation of a united world through exploration of universal themes such as
+      the oneness of God, religion and humanity; the equality of women and men;
+      the imperative of eliminating all forms of prejudice; the use of
+      consultation for peaceful exploration of reality and collective decision
+      making.
     image: ../../assets/uploads/PSEC.jpg
     imageAlt: Four grades of the Children's Class — Richard St — 18 April 2026
     imageCaption: Four grades of the Children's Class — Richard St — 18 April 2026
@@ -55,25 +38,23 @@ sections:
     imageSide: left
   - heading: Junior youth groups
     text: >+
-      The Junior Youth Spiritual Empowerment Programme is for 12- to
-      15-year-olds, an age of rapid spiritual, intellectual, and physical
-      development. It instils a sense of moral purpose, channelling their innate
-      capacity for justice and altruism into meaningful contribution to their
-      community. With an animator's guidance, junior youth become agents of
-      positive social change by developing:
+      The Junior Youth Spiritual Empowerment Programme supports 12- to
+      15-year-olds to transition from childhood to adolescence. At this time of
+       rapid spiritual, intellectual, and physical development participants in
+      the programme have opportunity to strengthen their innate capacity for
+      justice, altruism and service and channel this into active service to
+      their communities. Guided by a youth mentor, known as an animator, junior
+      youth are supported to strengthen their 
 
 
-      - The ability to critically analyse social forces shaping their lives,
-      such as targeted media propaganda
+      - power of expression
 
-      - An understanding and practice of spiritual qualities such as honesty and
-      humility
+      - capacity for critical analysis of the messages they receive from their
+      environment
 
-      - Confidence and clarity in expressing themselves
+      - moral framework for decision making
 
-      - A strong moral framework for decisions and actions
-
-      - An attitude of service expressed in their communities
+      - attitude of and commitment to systematic service to the community
 
     image: ../../assets/uploads/JYSEP.jpg
     imageAlt: "Junior Youth Groups — Townsville Women's Centre — 2 May 2026 "
@@ -81,17 +62,12 @@ sections:
     imageStyle: photo
     imageSide: right
   - heading: Study circles
-    text: >-
-      The Ruhi Institute's courses are studied worldwide. They offer
-      participants a chance to deepen their understanding of spiritual concepts
-      from the Bahá'í writings, explore life's purpose, and gain practical
-      skills for building vibrant, united communities.
-
-
-      A core component is the study circle: a small group who come together for
-      one or more courses. The courses are free, open to all, and facilitated by
-      a trained tutor, whose primary role is to guide discussion and ensure an
-      environment characterised by inclusion, respect, and unity.
+    text: The courses of the Ruhi Institute build capacity for systematic service to
+      humanity through the fostering of necessary spiritual qualities,
+      attitudes, knowledge and skills. The courses are offered in the format of
+      a study circle - a group of individuals who can form at any time in any
+      place where there is desire to participate, facilitated by a tutor. The
+      courses are free and open to all youth and adults.
     image: ../../assets/uploads/SC.jpg
     imageAlt: Mothers gather to study "Reflections on the Life of the Spirit" — 7
       August 2026
