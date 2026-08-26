@@ -68,11 +68,9 @@ sections:
       a study circle - a group of individuals who can form at any time in any
       place where there is desire to participate, facilitated by a tutor. The
       courses are free and open to all youth and adults.
-    image: ../../assets/uploads/SC.jpg
-    imageAlt: Mothers gather to study "Reflections on the Life of the Spirit" — 7
-      August 2026
-    imageCaption: Mothers gather to study "Reflections on the Life of the Spirit" —
-      7 August 2026
+    image: ../../assets/uploads/WhatsApp Image 2026-08-26 at 19.21.26.jpeg
+    imageAlt: Friends gather to study "Teaching Children's Classes"
+    imageCaption: Friends gather to study "Teaching Children's Classes"
     imageStyle: photo
     imageSide: left
 ---
