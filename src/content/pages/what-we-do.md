@@ -1,8 +1,9 @@
 ---
 title: What We Do
-intro: Across Townsville, Bahá'ís and their friends take part in activities that
-  are open to everyone — building friendship, spiritual life, and service to the
-  wider community.
+intro: Bahá'ís collaborate with all who share a vision of a united humanity, and
+  strive, through systematic collective action informed by a global process of
+  learning to foster cohesive communities based on a commitment to truth,
+  justice, and service. 
 heroImage: ../../assets/uploads/placeholder-deep.jpg
 heroImageAlt: Decorative teal banner with a gold nine-pointed star
 sections:
@@ -22,6 +23,7 @@ sections:
     image: ../../assets/uploads/placeholder-teal.jpg
     imageAlt: Decorative teal banner with a gold nine-pointed star
     imageCaption: Who's in the photo and when was it taken
+    imageStyle: photo
     imageSide: right
   - heading: Children's classes
     text: >+
@@ -49,6 +51,7 @@ sections:
     image: ../../assets/uploads/PSEC.jpg
     imageAlt: Four grades of the Children's Class — Richard St — 18 April 2026
     imageCaption: Four grades of the Children's Class — Richard St — 18 April 2026
+    imageStyle: photo
     imageSide: left
   - heading: Junior youth groups
     text: >+
@@ -75,6 +78,7 @@ sections:
     image: ../../assets/uploads/JYSEP.jpg
     imageAlt: "Junior Youth Groups — Townsville Women's Centre — 2 May 2026 "
     imageCaption: "Junior Youth Groups — Townsville Women's Centre — 2 May 2026 "
+    imageStyle: photo
     imageSide: right
   - heading: Study circles
     text: >-
@@ -93,5 +97,6 @@ sections:
       August 2026
     imageCaption: Mothers gather to study "Reflections on the Life of the Spirit" —
       7 August 2026
+    imageStyle: photo
     imageSide: left
 ---
