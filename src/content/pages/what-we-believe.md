@@ -38,23 +38,11 @@ sections:
     imageStyle: emblem
     imageSide: left
   - heading: Education of Children
-    text: >-
-      Baha’is attach great importance to the training and education of children,
+    text: Baha’is attach great importance to the training and education of children,
       recognising that they are the most precious treasure a community can
       possess, who bear the seeds of the character of future society. Whatever
       they learn in the early stage of their development will leave its traces
       on the lives of the individuals and on humanity as a whole.
-
-
-      Across Townsville, Bahá'ís and their friends take part in activities that
-      are open to everyone — building friendship, spiritual life, and service to
-      the wider community.
-
-
-      Bahá'ís collaborate with all who share a vision of a united humanity, and
-      strive, through systematic collective action informed by a global process
-      of learning to foster cohesive communities based on a commitment to truth,
-      justice, and service. 
     image: ../../assets/uploads/townsville-bahai-logo.png
     imageStyle: emblem
     imageSide: right
