@@ -15,7 +15,7 @@ sections:
       humanity. Collective gatherings for prayer are held in homes, parks,
       houses of worship, and public halls, and may include sacred scripture,
       spoken or sung, from any world religion and in a myriad forms.
-    image: ../../assets/uploads/placeholder-teal.jpg
+    image: ../../assets/uploads/WhatsApp Image 2026-08-26 at 19.21.27-1.jpeg
     imageAlt: Community Devotions at the Smith residence — September 2025
     imageCaption: Community Devotions at the Smith residence — September 2025
     imageStyle: photo
