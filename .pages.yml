@@ -7,7 +7,7 @@ media:
     label: Images
     input: src/assets/uploads
     output: ../../assets/uploads
-    extensions: [jpg, jpeg, png, webp, gif]
+    extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
   - name: documents
     label: Documents
     input: public/files
@@ -60,7 +60,7 @@ content:
         label: Banner photo
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
       - name: heroImageAlt
         label: Banner photo description
         type: string
@@ -84,7 +84,7 @@ content:
             label: Photo (optional)
             type: image
             options:
-              extensions: [jpg, jpeg, png, webp, gif]
+              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
           - name: imageAlt
             label: Photo description
             type: string
@@ -128,7 +128,7 @@ content:
         label: Banner photo
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
       - name: heroImageAlt
         label: Banner photo description
         type: string
@@ -152,7 +152,7 @@ content:
             label: Photo (optional)
             type: image
             options:
-              extensions: [jpg, jpeg, png, webp, gif]
+              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
           - name: imageAlt
             label: Photo description
             type: string
@@ -197,7 +197,7 @@ content:
         label: Banner photo
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
       - name: heroImageAlt
         label: Banner photo description
         type: string
@@ -221,7 +221,7 @@ content:
             label: Photo (optional)
             type: image
             options:
-              extensions: [jpg, jpeg, png, webp, gif]
+              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
           - name: imageAlt
             label: Photo description
             type: string
@@ -291,7 +291,7 @@ content:
         label: Banner photo
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
       - name: heroImageAlt
         label: Banner photo description
         type: string
@@ -315,7 +315,7 @@ content:
             label: Photo (optional)
             type: image
             options:
-              extensions: [jpg, jpeg, png, webp, gif]
+              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
           - name: imageAlt
             label: Photo description
             type: string
@@ -356,7 +356,7 @@ content:
         label: Photo
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
         required: true
       - name: caption
         label: Caption
@@ -397,7 +397,7 @@ content:
         label: Photo
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
       - name: imageAlt
         label: Photo description
         description: Describe the photo for people using screen readers.
@@ -432,7 +432,7 @@ content:
         label: Photo (optional)
         type: image
         options:
-          extensions: [jpg, jpeg, png, webp, gif]
+          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
       - name: imageAlt
         label: Photo description
         type: string
