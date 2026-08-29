@@ -19,8 +19,8 @@ sections:
       gatherings and community activities throughout the week — and we love
       seeing it used by neighbours, community groups and local organisations
       too.
-    image: ../../assets/uploads/placeholder-teal.jpg
-    imageAlt: Decorative teal banner with a gold nine-pointed star
+    image: ../../assets/uploads/centre-4932.jpg
+    imageAlt: Main entrance
     imageStyle: photo
     imageSide: right
 hireHeading: Hire the Centre
