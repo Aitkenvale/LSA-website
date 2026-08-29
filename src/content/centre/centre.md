@@ -12,7 +12,8 @@ sections:
       The Centre offers a spacious air-conditioned main hall seating up to 80, a
       meeting room for smaller groups, a well-equipped domestic kitchen,
       accessible bathrooms and entrance, and ample street parking. It suits
-      meetings, classes, workshops, celebrations and community events.
+      meetings, classes, workshops, celebrations and community events. Wireless
+      microphones, bluetooth receiver, and projector available.
 
 
       As a place dedicated to community building, the Centre hosts devotional
