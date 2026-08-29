@@ -33,9 +33,8 @@ Changes appear on the live website about **2 minutes** after you save.
 
 1. **Events** → **Add an entry**.
 2. Fill in the name, when it starts and ends, and the location.
-3. Optionally add a photo (photos straight from your phone are fine — the
-   website shrinks them) and a short photo description (read aloud to visitors
-   using screen readers).
+3. Optionally add a photo and a short photo description (read aloud to
+   visitors using screen readers).
 4. **Save.** It appears within a couple of minutes and disappears by itself
    once it's over.
 
@@ -43,6 +42,15 @@ Changes appear on the live website about **2 minutes** after you save.
 
 Same as events: **News → Add an entry**. Newest first on the home page. An
 optional "Hide after" date removes it automatically.
+
+## Uploading photos — the size rule
+
+The editor accepts photos up to about **3 MB**. Photos straight from a camera
+are often bigger and fail with an error mentioning "413". Fix: send yourself
+the photo at reduced size (sharing via Mail on iPhone offers "Medium/Large"),
+shrink it at squoosh.app, or on a Mac use Preview → Tools → Adjust Size →
+width 2000 pixels. Once uploaded, the website compresses photos further
+automatically.
 
 ## Changing page text or photos
 
