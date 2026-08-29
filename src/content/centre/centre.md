@@ -21,7 +21,7 @@ sections:
       seeing it used by neighbours, community groups and local organisations
       too.
     image: ../../assets/uploads/centre-4932.jpg
-    imageAlt: Morey St entrance (accessibility entrance on Bell St)
+    imageAlt: Morey St entrance. Accessibility entrance on Bell St.
     imageCaption: Main entrance
     imageStyle: photo
     imageSide: right
