@@ -1,9 +1,9 @@
 ---
 title: Community Centre
 intro: The Baha’i Centre, located in South Townsville, is one of the sites where
-  the above activities and many other types of gatherings are held. The centre
-  is equipped with a kitchen, toilets and air conditioned meeting halls and is
-  available for hire. 
+  the educational activities and many other types of gatherings are held. The
+  centre is equipped with a kitchen, toilets and air conditioned meeting halls
+  and is available for hire. 
 heroImage: ../../assets/uploads/placeholder-deep.jpg
 heroImageAlt: Decorative dark teal banner with a gold nine-pointed star
 sections:
