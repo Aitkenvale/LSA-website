@@ -9,20 +9,23 @@ const photos = (await getEntry('gallery', 'gallery'))?.data.photos ?? [];
 <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" id="gallery">
   {
     photos.map((photo, i) => (
-      <button
-        type="button"
-        class="group overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-        data-lightbox-index={i}
-        aria-label={`View photo: ${photo.caption}`}
-      >
-        <Image
-          src={photo.image}
-          alt={photo.caption}
-          widths={[320, 640]}
-          sizes="(min-width: 1024px) 25vw, 50vw"
-          class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-      </button>
+      <figure>
+        <button
+          type="button"
+          class="group block w-full overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+          data-lightbox-index={i}
+          aria-label={`View photo: ${photo.caption}`}
+        >
+          <Image
+            src={photo.image}
+            alt={photo.caption}
+            widths={[320, 640]}
+            sizes="(min-width: 1024px) 25vw, 50vw"
+            class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </button>
+        <figcaption class="mt-2 text-center text-xs text-ink/45">{photo.caption}</figcaption>
+      </figure>
     ))
   }
 </div>
