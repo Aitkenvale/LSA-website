@@ -344,28 +344,29 @@ content:
 
   - name: gallery
     label: Centre photo gallery
-    description: Photos of the inside of the Community Centre.
-    type: collection
-    path: src/content/gallery
-    format: yaml
-    view:
-      fields: [caption, order]
-      sort: [order]
+    description: Photos of the inside of the Community Centre, in display order — drag the handle on each row to reorder.
+    type: file
+    path: src/content/gallery/gallery.yml
     fields:
-      - name: image
-        label: Photo
-        type: image
-        options:
-          extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
-        required: true
-      - name: caption
-        label: Caption
-        description: Also read aloud by screen readers — describe the photo.
-        type: string
-        required: true
-      - name: order
-        label: Position (1 = first)
-        type: number
+      - name: photos
+        label: Photos
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: '{fields.caption}'
+        fields:
+          - name: image
+            label: Photo
+            type: image
+            required: true
+            options:
+              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
+          - name: caption
+            label: Caption
+            description: Shown under the photo and read aloud by screen readers.
+            type: string
+            required: true
 
   - name: events
     label: Events

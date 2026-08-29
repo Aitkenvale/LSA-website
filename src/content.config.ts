@@ -86,12 +86,10 @@ const centre = defineCollection({
 });
 
 const gallery = defineCollection({
-  loader: glob({ pattern: '**/*.{yml,yaml}', base: './src/content/gallery' }),
+  loader: glob({ pattern: 'gallery.yml', base: './src/content/gallery' }),
   schema: ({ image }) =>
     z.object({
-      image: image(),
-      caption: z.string(),
-      order: z.number().default(99),
+      photos: z.array(z.object({ image: image(), caption: z.string() })).default([]),
     }),
 });
 

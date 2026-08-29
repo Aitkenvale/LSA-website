@@ -1,8 +1,9 @@
 ---
 import { Image } from 'astro:assets';
-import { getCollection } from 'astro:content';
+import { getEntry } from 'astro:content';
 
-const photos = (await getCollection('gallery')).sort((a, b) => a.data.order - b.data.order);
+// Single gallery entry; array order = display order (drag-sorted in the CMS)
+const photos = (await getEntry('gallery', 'gallery'))?.data.photos ?? [];
 ---
 
 <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" id="gallery">
@@ -12,11 +13,11 @@ const photos = (await getCollection('gallery')).sort((a, b) => a.data.order - b.
         type="button"
         class="group overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
         data-lightbox-index={i}
-        aria-label={`View photo: ${photo.data.caption}`}
+        aria-label={`View photo: ${photo.caption}`}
       >
         <Image
-          src={photo.data.image}
-          alt={photo.data.caption}
+          src={photo.image}
+          alt={photo.caption}
           widths={[320, 640]}
           sizes="(min-width: 1024px) 25vw, 50vw"
           class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
