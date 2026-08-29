@@ -22,7 +22,7 @@ sections:
       too.
     image: ../../assets/uploads/centre-4932.jpg
     imageAlt: Morey St entrance. Accessibility entrance on Bell St.
-    imageCaption: Main entrance
+    imageCaption: Morey St entrance. Accessibility entrance on Bell St.
     imageStyle: photo
     imageSide: right
 hireHeading: Hire the Centre
