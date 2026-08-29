@@ -271,6 +271,32 @@ content:
         type: string
         list: true
 
+  - name: gallery
+    label: Community Centre gallery
+    description: Photos of the inside of the Community Centre, in display order — drag the handle on each row to reorder.
+    type: file
+    path: src/content/gallery/gallery.yml
+    fields:
+      - name: photos
+        label: Photos
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: '{fields.caption}'
+        fields:
+          - name: image
+            label: Photo
+            type: image
+            required: true
+            options:
+              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
+          - name: caption
+            label: Caption
+            description: Shown under the photo and read aloud by screen readers.
+            type: string
+            required: true
+
   - name: pages
     label: Pages
     description: Extra pages that are not in the menu. A page created here appears on the website at /its-file-name/ — link to it from other pages or share the address directly.
@@ -341,32 +367,6 @@ content:
               values:
                 - { value: right, label: Right }
                 - { value: left, label: Left }
-
-  - name: gallery
-    label: Centre photo gallery
-    description: Photos of the inside of the Community Centre, in display order — drag the handle on each row to reorder.
-    type: file
-    path: src/content/gallery/gallery.yml
-    fields:
-      - name: photos
-        label: Photos
-        type: object
-        list:
-          collapsible:
-            collapsed: true
-            summary: '{fields.caption}'
-        fields:
-          - name: image
-            label: Photo
-            type: image
-            required: true
-            options:
-              extensions: [jpg, jpeg, png, webp, gif, JPG, JPEG, PNG, WEBP, GIF]
-          - name: caption
-            label: Caption
-            description: Shown under the photo and read aloud by screen readers.
-            type: string
-            required: true
 
   - name: events
     label: Events
