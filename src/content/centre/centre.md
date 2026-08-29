@@ -21,6 +21,7 @@ sections:
       too.
     image: ../../assets/uploads/centre-4932.jpg
     imageAlt: Main entrance
+    imageCaption: Main entrance
     imageStyle: photo
     imageSide: right
 hireHeading: Hire the Centre
