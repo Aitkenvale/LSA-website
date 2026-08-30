@@ -29,6 +29,9 @@ This repo is public so other communities can build the same thing. Click
 
 No secrets live in this repo; all credentials are Cloudflare Worker secrets.
 
+**Licence:** the code is [MIT-licensed](LICENSE) — use it freely. The
+Townsville photos, logo, and page text are not; replace them with your own.
+
 ## Stack
 
 | Piece | Choice |
