@@ -20,7 +20,7 @@ sections:
       gatherings and community activities throughout the week — and we love
       seeing it used by neighbours, community groups and local organisations
       too.
-    image: ../../assets/uploads/centre-4932.jpg
+    image: ../../assets/uploads/centre-4945.jpg
     imageAlt: Morey St entrance. Accessibility entrance on Bell St.
     imageCaption: Morey St entrance. Accessibility entrance on Bell St.
     imageStyle: photo
