@@ -1,5 +1,5 @@
 # Copy to .dev.vars for local development (never commit .dev.vars).
-# In production these are set as encrypted secrets on the Cloudflare Pages project.
+# In production these are set as encrypted secrets on the Cloudflare Worker.
 
 # Google service account (calendar availability)
 GOOGLE_SA_EMAIL="venue-calendar@your-project.iam.gserviceaccount.com"

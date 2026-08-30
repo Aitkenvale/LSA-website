@@ -4,9 +4,15 @@ One-time setup checklist for the developer/administrator. Target: $0/month.
 
 ## 1. GitHub
 
-- Create a **private repo** under an account/org controlled by the committee
-  (use a committee email, not a personal one) and push this project.
+- Create a repo under an account/org controlled by the committee (use a
+  committee email, not a personal one) and push this project. Public or private
+  both work — everything secret lives in Cloudflare, never in the repo. This
+  repo is public so other communities can reuse it.
 - The repo is the source of truth and the backup; Pages CMS commits into it.
+- Starting from this repo? Click **"Use this template"** on GitHub for a clean
+  copy, then replace the Townsville content: everything under `src/content/`,
+  the photos in `src/assets/uploads/`, the files in `public/files/`, the logo
+  (`src/components/Logo.astro`), and `site` in `astro.config.mjs`.
 
 ## 2. Cloudflare (hosting)
 
@@ -29,14 +35,15 @@ One-time setup checklist for the developer/administrator. Target: $0/month.
 - Invite each editor by **email** (Settings → Collaborators). Editors sign in
   with a one-time email code; they never need GitHub accounts.
 
-## 4. Google Calendar availability (one-time, needs Workspace admin)
+## 4. Google Calendar availability (one-time; a free Gmail account is fine)
 
 1. In [Google Cloud Console](https://console.cloud.google.com): create a project
    (e.g. "townsville-website") → enable the **Google Calendar API**.
 2. Create a **service account** (no roles needed) → create a **JSON key** and
    download it.
-   - If key creation is blocked, a Workspace super-admin must lift the
-     `iam.disableServiceAccountKeyCreation` org policy for this project.
+   - If key creation is blocked (Google Workspace accounts only), a Workspace
+     super-admin must lift the `iam.disableServiceAccountKeyCreation` org
+     policy for this project.
 3. In Google Calendar, as the owner of the **venue calendar**: Settings →
    Share with specific people → add the service account's email with
    **"See only free/busy (hide details)"**.
@@ -67,22 +74,14 @@ One-time setup checklist for the developer/administrator. Target: $0/month.
 ## 7. Daily rebuild (required — events expire at build time)
 
 The home page decides "what's upcoming" when the site builds, so it must be
-rebuilt daily:
+rebuilt daily. This repo already includes the mechanism — a GitHub Actions
+workflow, `.github/workflows/nightly-rebuild.yml`, which pushes an empty commit
+at `0 17 * * *` (17:00 UTC = 3:00am AEST), triggering the normal
+Cloudflare git-connected build. Nothing to configure beyond adjusting the cron
+time for your timezone.
 
-1. Cloudflare Worker project → Settings → **Build hooks** (or Deploy hooks) →
-   create one; copy the URL.
-2. Create a tiny scheduled Worker (dashboard → Workers → Create → "Cron"):
-
-   ```js
-   export default {
-     async scheduled(_event, env) {
-       await fetch(env.DEPLOY_HOOK_URL, { method: 'POST' });
-     },
-   };
-   ```
-
-   Add `DEPLOY_HOOK_URL` as a secret on that Worker and set the cron trigger to
-   `0 17 * * *` (17:00 UTC = 3:00am AEST).
+Health check: `/build-info.json` on the live site shows the last build time —
+if it's more than a day old, the cron is broken (check the repo's Actions tab).
 
 ## 8. Local development
 
