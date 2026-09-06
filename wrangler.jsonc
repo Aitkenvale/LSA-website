@@ -1,24 +1,33 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "lsa-website",
+
+  // NOTE: on this branch the default Worker name is deliberately DIFFERENT from
+  // the one on main.
+  //
+  // Cloudflare Workers Builds runs a project's deploy command for whatever
+  // branch it is told to build. The website project's command is a plain
+  // `npx wrangler deploy`, which takes the name from this file — so when this
+  // branch was built by that project, it deployed the calendar over the live
+  // website and put a password in front of the public site.
+  //
+  // Naming the default environment "lsa-calendar" here makes that impossible:
+  // whichever command runs, and whichever project runs it, this branch can only
+  // ever deploy to the calendar Worker. Disabling non-production branch builds
+  // on the website project is still worth doing, but this is the safeguard that
+  // does not depend on a dashboard setting staying correct.
+  //
+  // The cost is one conflicting line when this branch is eventually merged into
+  // main: keep main's name, "lsa-website".
+  "name": "lsa-calendar",
+
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
   },
-  // A second, completely separate Worker built from the same repository.
-  //
-  // The community calendar is developed on its own branch and deployed to its
-  // own Worker, so the live website never contains work in progress. Both
-  // branches share this one file — the Cloudflare project decides which Worker
-  // it is by its deploy command:
-  //
-  //   website   npx wrangler deploy
-  //   calendar  npx wrangler deploy --env calendar
-  //
-  // Keeping it in one file this way means the branches never conflict here.
-  // Secrets are per-environment: the calendar Worker needs its own copy of
-  // CALENDAR_ADMIN_CODE, set on that Worker in the Cloudflare dashboard.
+
+  // Kept so that `npx wrangler deploy --env calendar` also works and targets the
+  // same Worker, whichever form the Cloudflare project is configured with.
   "env": {
     "calendar": {
       "name": "lsa-calendar",
