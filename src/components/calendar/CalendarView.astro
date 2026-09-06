@@ -26,9 +26,10 @@
     additionally depend on the viewer's privileges.
   -->
   <nav class="cal-views" aria-label="Calendar view">
-    <button type="button" class="cal-view is-current" aria-current="true">Gregorian</button>
-    <button type="button" class="cal-view" disabled aria-disabled="true" title="Not built yet">Badí‘</button>
-    <button type="button" class="cal-view" disabled aria-disabled="true" title="Not built yet">Cycle</button>
+    <button type="button" class="cal-view is-current" data-view="gregorian" aria-current="true">Gregorian</button>
+    <button type="button" class="cal-view" data-view="badi" aria-current="false">Badí‘</button>
+    <button type="button" class="cal-view" data-view="cycle" disabled aria-disabled="true"
+      title="Not built yet — and will need a community sign-in">Cycle</button>
   </nav>
 
   <header class="cal-bar">
@@ -245,7 +246,17 @@
   } from '../../lib/calendar/registry';
   import type { StoredCalendar, StoredConfig, VisibleCalendar } from '../../lib/calendar/config-store';
   import { TIERS, TIER_LABELS, type Tier } from '../../lib/calendar/tiers';
-  import { gregorianToBadi, formatBadiDate, nawRuz } from '../../lib/calendar/badi';
+  import {
+    BADI_MONTHS,
+    badiMonth,
+    badiMonthLength,
+    badiToGregorian,
+    formatBadiDate,
+    gregorianToBadi,
+    nawRuz,
+    stepBadiMonth,
+    type BadiMonthRef,
+  } from '../../lib/calendar/badi';
   import { addDays, isoDate, parseIso, weekday } from '../../lib/calendar/astronomy';
   import type { Occurrence } from '../../lib/calendar/types';
   import type { IcsEvent } from '../../lib/calendar/ics';
@@ -278,6 +289,10 @@
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
+  const MONTH_SHORT = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
   const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   /** Calendars that have a symbol to sit beside their entries. */
@@ -309,8 +324,15 @@
   /** Which kind of Bahá'í observance an evening leads into. */
   type EveKind = 'holy' | 'feast';
 
+  type View = 'gregorian' | 'badi' | 'cycle';
+
   function init(root: HTMLElement) {
     const prefs = loadPrefs();
+    let view: View = 'gregorian';
+    let badiCursor: BadiMonthRef = (() => {
+      const today = gregorianToBadi(todayIso());
+      return { year: today.year, month: today.month };
+    })();
     /** What the server says this reader may see. Refreshed when the tier changes. */
     let server: ConfigResponse = { tier: 'public', admin: false, calendars: [] };
 
@@ -378,18 +400,31 @@
     const status = root.querySelector<HTMLElement>('[data-status]')!;
 
     // ---- navigation -------------------------------------------------------
-    root.querySelector('[data-nav="prev"]')!.addEventListener('click', () => {
-      cursor = shiftMonth(cursor, -1);
+    function step(delta: number) {
+      if (view === 'badi') badiCursor = stepBadiMonth(badiCursor, delta);
+      else cursor = shiftMonth(cursor, delta);
       void render();
-    });
-    root.querySelector('[data-nav="next"]')!.addEventListener('click', () => {
-      cursor = shiftMonth(cursor, 1);
-      void render();
-    });
+    }
+    root.querySelector('[data-nav="prev"]')!.addEventListener('click', () => step(-1));
+    root.querySelector('[data-nav="next"]')!.addEventListener('click', () => step(1));
     root.querySelector('[data-nav="today"]')!.addEventListener('click', () => {
       cursor = startOfMonth(todayIso());
+      const today = gregorianToBadi(todayIso());
+      badiCursor = { year: today.year, month: today.month };
       void render();
     });
+
+    for (const button of root.querySelectorAll<HTMLButtonElement>('[data-view]')) {
+      button.addEventListener('click', () => {
+        if (button.disabled) return;
+        view = button.dataset.view as View;
+        for (const other of root.querySelectorAll('[data-view]')) {
+          other.classList.toggle('is-current', other === button);
+          other.setAttribute('aria-current', String(other === button));
+        }
+        void render();
+      });
+    }
 
     // ---- drawer -----------------------------------------------------------
     const drawer = root.querySelector<HTMLElement>('[data-drawer]')!;
@@ -879,26 +914,60 @@
     });
 
     // ---- rendering ---------------------------------------------------------
-    async function render() {
+    /**
+     * What the grid is showing: the span of days, whether a day belongs to the
+     * period on display or is spilling in from the one either side, and how to
+     * head each cell.
+     *
+     * Both views draw the same seven-column grid of the same entries. They
+     * differ only in where the period starts and ends, and in which of the two
+     * dates a cell leads with — the Gregorian view leads with the Gregorian
+     * numeral, the Badí‘ view with the Badí‘ day, because that is what a reader
+     * came to that view for.
+     */
+    function currentPeriod() {
+      if (view === 'badi') {
+        const first = badiToGregorian(badiCursor.year, badiCursor.month, 1);
+        const last = addDays(first, badiMonthLength(badiCursor) - 1);
+        const month = badiMonth(badiCursor.month);
+        return {
+          first,
+          last,
+          title: badiCursor.month === 0 ? month.name : `${month.name} · ${month.meaning}`,
+          subtitle:
+            `${badiCursor.year} B.E. · ${formatLongDate(first)} – ${formatLongDate(last)}`,
+        };
+      }
       const { year, month } = parseIso(cursor);
-      title.textContent = `${MONTH_NAMES[month - 1]} ${year}`;
-
       const first = cursor;
-      const gridStart = addDays(first, -weekday(first));
-      const gridEnd = addDays(gridStart, 41);
-
       const badiStart = gregorianToBadi(first);
-      badiYearEl.textContent = `${badiStart.year} B.E. · Naw-Rúz ${formatLongDate(nawRuz(badiStart.year))}`;
+      return {
+        first,
+        last: addDays(shiftMonth(first, 1), -1),
+        title: `${MONTH_NAMES[month - 1]} ${year}`,
+        subtitle: `${badiStart.year} B.E. · Naw-Rúz ${formatLongDate(nawRuz(badiStart.year))}`,
+      };
+    }
+
+    async function render() {
+      const period = currentPeriod();
+      title.textContent = period.title;
+      badiYearEl.textContent = period.subtitle;
+
+      // Whole weeks either side, so a period that starts mid-week still reads
+      // as weeks rather than as a ragged block.
+      const gridStart = addDays(period.first, -weekday(period.first));
+      const lastCell = addDays(period.last, 6 - weekday(period.last));
+      const gridEnd = lastCell;
 
       // Paint the grid immediately so navigation feels instant, then fill it in.
-      const byDate = new Map<string, Entry[]>();
-      paint(gridStart, gridEnd, first, byDate, new Map());
+      paint(gridStart, gridEnd, period, new Map(), new Map());
 
       status.textContent = 'Loading…';
       try {
         const entries = await loadEntries(gridStart, gridEnd);
         status.textContent = entries.warning ?? '';
-        paint(gridStart, gridEnd, first, entries.byDate, entries.eve);
+        paint(gridStart, gridEnd, period, entries.byDate, entries.eve);
       } catch {
         status.textContent = 'Could not load calendar dates.';
       }
@@ -1006,11 +1075,10 @@
     function paint(
       gridStart: string,
       gridEnd: string,
-      monthFirst: string,
+      period: { first: string; last: string },
       byDate: Map<string, Entry[]>,
       eve: Map<string, EveKind>,
     ) {
-      const { month } = parseIso(monthFirst);
       const today = todayIso();
       const parts: string[] = [];
 
@@ -1021,7 +1089,9 @@
       let day = gridStart;
       while (day <= gridEnd) {
         const d = parseIso(day);
-        const inMonth = d.month === month;
+        // Days either side of the period are shown tinted back rather than
+        // blank, so a week that straddles two months still reads as a week.
+        const inMonth = day >= period.first && day <= period.last;
         const entries = byDate.get(day) ?? [];
         const holy = entries.some((e) => e.kind === 'holy-day');
         // A Bahá'í month beginning carries the same weight as the Feast that
@@ -1045,6 +1115,9 @@
         if (evening) classes.push(`to-${evening}`);
 
         const badi = gregorianToBadi(day);
+        // The Badí' view leads with the Badí' day and carries the Gregorian
+        // date as the secondary one; the Gregorian view does the reverse.
+        const leadNumber = view === 'badi' ? String(badi.day) : String(d.day);
         const holyEntry = entries.find((e) => e.kind === 'holy-day');
         const feastEntry = entries.find((e) => e.kind === 'feast');
         const headTip = holyEntry?.tip ?? feastEntry?.tip ??
@@ -1054,6 +1127,12 @@
         // On a Holy Day the Badí' date is replaced by the Holy Day's name —
         // the name is what matters on that day.
         const badiLine = holyEntry ? holyEntry.name : formatBadiDate(badi);
+        // In the Badí' view the Badí' date is already the large numeral, so the
+        // second line carries the Gregorian date instead — except on a Holy Day,
+        // where the name is worth more than either number.
+        const secondLine = view === 'badi'
+          ? (holyEntry ? holyEntry.name : `${d.day} ${MONTH_SHORT[d.month - 1]}`)
+          : badiLine;
 
         const badges = entries
           .filter((e) => e.badge)
@@ -1085,8 +1164,8 @@
         parts.push(`
           <div class="${classes.join(' ')}" role="gridcell">
             <div class="cal-day-head">
-              <span class="cal-greg">${d.day}</span>
-              <span class="cal-badi"${headTip ? ` tabindex="0" data-tip="${escapeHtml(headTip)}"` : ''}>${escapeHtml(keepNameWhole(badiLine))}${holyEntry?.workSuspended ? ' *' : ''}</span>
+              <span class="cal-greg">${leadNumber}</span>
+              <span class="cal-badi"${headTip ? ` tabindex="0" data-tip="${escapeHtml(headTip)}"` : ''}>${escapeHtml(keepNameWhole(secondLine))}${holyEntry?.workSuspended ? ' *' : ''}</span>
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}

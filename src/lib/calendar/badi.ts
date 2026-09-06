@@ -258,3 +258,41 @@ export function ayyamIHaRange(badiYear: number): { start: string; end: string; l
 export function fastRange(badiYear: number): { start: string; end: string } {
   return { start: badiToGregorian(badiYear, 19, 1), end: addDays(nawRuz(badiYear + 1), -1) };
 }
+
+/**
+ * Stepping through the months of the Badí‘ calendar.
+ *
+ * Ayyám-i-Há is not one of the nineteen: it falls between Mulk, the
+ * eighteenth, and ‘Alá’, the nineteenth and the month of the Fast. So the
+ * order months are visited in is not simply 1 to 19, and cannot be got by
+ * incrementing a number — which is why it lives here, with the calendar, and
+ * is tested.
+ */
+export const BADI_MONTH_ORDER: number[] = [
+  ...Array.from({ length: 18 }, (_, i) => i + 1),
+  0, // Ayyám-i-Há
+  19, // ‘Alá’
+];
+
+export interface BadiMonthRef {
+  year: number;
+  /** 1–19, or 0 for Ayyám-i-Há. */
+  month: number;
+}
+
+/** Days in a Bahá'í month. Only Ayyám-i-Há varies, at four or five. */
+export function badiMonthLength(ref: BadiMonthRef): number {
+  return ref.month === 0 ? ayyamIHaLength(ref.year) : 19;
+}
+
+/** The next or previous month, rolling over the Bahá'í year at Naw-Rúz. */
+export function stepBadiMonth(ref: BadiMonthRef, delta: number): BadiMonthRef {
+  const index = BADI_MONTH_ORDER.indexOf(ref.month) + delta;
+  if (index < 0) {
+    return { year: ref.year - 1, month: BADI_MONTH_ORDER[BADI_MONTH_ORDER.length - 1] };
+  }
+  if (index >= BADI_MONTH_ORDER.length) {
+    return { year: ref.year + 1, month: BADI_MONTH_ORDER[0] };
+  }
+  return { year: ref.year, month: BADI_MONTH_ORDER[index] };
+}

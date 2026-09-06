@@ -23,6 +23,7 @@ import {
 import {
   nawRuz, badiMonthStarts, badiHolyDays, ayyamIHaRange, fastRange,
   gregorianToBadi, nawRuzConfidence, equinoxSunsetMarginMinutes,
+  stepBadiMonth, badiMonthLength, badiToGregorian, BADI_MONTH_ORDER,
 } from '../src/lib/calendar/badi.ts';
 import { westernEaster, orthodoxEaster } from '../src/lib/calendar/christian.ts';
 import { roshHashanah, jewishHolyDays } from '../src/lib/calendar/hebrew.ts';
@@ -587,4 +588,51 @@ test('Queensland: the show holiday is Townsville’s, not Brisbane’s', () => {
   for (const o of queenslandHolidays(2026)) {
     assert.ok(!/Royal Queensland|Ekka/i.test(o.name), 'the Brisbane show holiday does not apply here');
   }
+});
+
+test('Badí‘: stepping months puts Ayyám-i-Há between Mulk and the Fast', () => {
+  // Not simply 1 to 19: Ayyám-i-Há falls between the eighteenth month and the
+  // nineteenth, so incrementing a number would step straight past it.
+  assert.deepEqual(BADI_MONTH_ORDER.slice(-3), [18, 0, 19]);
+
+  const walk = [];
+  let ref = { year: 183, month: 17 };
+  for (let i = 0; i < 4; i += 1) {
+    ref = stepBadiMonth(ref, 1);
+    walk.push(`${ref.year}:${ref.month}`);
+  }
+  assert.deepEqual(walk, ['183:18', '183:0', '183:19', '184:1'],
+    'Mulk, then Ayyám-i-Há, then ‘Alá’, then Naw-Rúz into the new year');
+
+  // And the same in reverse.
+  let back = { year: 184, month: 1 };
+  const backwards = [];
+  for (let i = 0; i < 3; i += 1) {
+    back = stepBadiMonth(back, -1);
+    backwards.push(`${back.year}:${back.month}`);
+  }
+  assert.deepEqual(backwards, ['183:19', '183:0', '183:18']);
+});
+
+test('Badí‘: month lengths, and the periods they cover, match the official sheet', () => {
+  // Nineteen days each, except Ayyám-i-Há.
+  for (const month of [1, 9, 18, 19]) {
+    assert.equal(badiMonthLength({ year: 183, month }), 19);
+  }
+  assert.equal(badiMonthLength({ year: 183, month: 0 }), 4, '183 B.E. has four intercalary days');
+  assert.equal(badiMonthLength({ year: 182, month: 0 }), 5, '182 B.E. has five');
+
+  // Walking every month of 183 B.E. must tile the year exactly, with no gap
+  // and no overlap, ending the day before the next Naw-Rúz.
+  let ref = { year: 183, month: 1 };
+  let day = badiToGregorian(183, 1, 1);
+  for (let i = 0; i < BADI_MONTH_ORDER.length; i += 1) {
+    assert.equal(badiToGregorian(ref.year, ref.month, 1), day, `month ${ref.month} starts where the last ended`);
+    const length = badiMonthLength(ref);
+    const [y, m, d] = day.split('-').map(Number);
+    day = new Date(Date.UTC(y, m - 1, d + length)).toISOString().slice(0, 10);
+    ref = stepBadiMonth(ref, 1);
+  }
+  assert.equal(day, badiToGregorian(184, 1, 1), 'the year ends exactly at the next Naw-Rúz');
+  assert.deepEqual(ref, { year: 184, month: 1 });
 });
