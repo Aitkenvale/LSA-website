@@ -83,11 +83,18 @@ On the **`lsa-calendar`** Worker → Settings → Variables and Secrets → add 
 
 | Name | Value |
 |---|---|
-| `CALENDAR_ADMIN_CODE` | a long phrase of your choosing |
+| `SESSION_SECRET` | a long random string — changing it signs everyone out |
+| `CODE_COMMUNITY` | shared code for community members |
+| `CODE_HOODS` | shared code for neighbourhood coordinators |
+| `CODE_ASSEMBLY` | shared code for the Assembly and Secretariat |
+| `ADMIN_CODE` | a long phrase of your choosing |
 
-This opens the calendar's administrator settings. It is deliberately not in the
-repository — **this repository is public**, so anything committed to it can be
-read by anyone.
+These set up the viewer tiers and the administrator settings. They are
+deliberately not in the repository — **this repository is public**, so anything
+committed to it can be read by anyone.
+
+The names carry no `CALENDAR_` prefix: the Cloudflare dashboard truncates long
+names in its list, which made them impossible to tell apart at a glance.
 
 Set it on `lsa-website` too if and when the calendar merges into the live site.
 
@@ -136,7 +143,7 @@ in the calendar project changes only the calendar deployment.
    under each Gregorian date.
 3. Open the menu icon at the top right. **Anyone** can switch calendars on and
    off here; the choice is remembered in that person's browser.
-4. Expand **Administrator settings** and enter `CALENDAR_ADMIN_CODE`. Names,
+4. Expand **Administrator settings** and enter `ADMIN_CODE`. Names,
    view labels, Google calendars and **Dates to confirm** should unlock.
 
 If the password prompt does not appear, the CMS change has not built yet — each
@@ -155,13 +162,13 @@ npm test                  # the calendar's date calculations
 Every push to `calendar` redeploys the calendar Worker and nothing else.
 
 For local development copy `.dev.vars.example` to `.dev.vars` and set
-`CALENDAR_ADMIN_CODE` in it. `.dev.vars` is gitignored and must stay that way.
+`ADMIN_CODE` in it. `.dev.vars` is gitignored and must stay that way.
 
 ## Merging into the website, later
 
 When the Assembly approves it:
 
-1. Set `CALENDAR_ADMIN_CODE` on the `lsa-website` Worker.
+1. Set `ADMIN_CODE` on the `lsa-website` Worker.
 2. `git checkout main && git merge calendar`
 3. In Site settings, clear **Pre-launch access code** and — if the calendar
    should stay private a while longer while the rest of the site is public — set

@@ -25,9 +25,9 @@ export const prerender = false;
  * value, the holder gets the lower privilege rather than the higher.
  */
 const CODE_SECRETS: { tier: Tier; secretName: string }[] = [
-  { tier: 'community', secretName: 'CALENDAR_CODE_COMMUNITY' },
-  { tier: 'hoods', secretName: 'CALENDAR_CODE_HOODS' },
-  { tier: 'assembly', secretName: 'CALENDAR_CODE_ASSEMBLY' },
+  { tier: 'community', secretName: 'CODE_COMMUNITY' },
+  { tier: 'hoods', secretName: 'CODE_HOODS' },
+  { tier: 'assembly', secretName: 'CODE_ASSEMBLY' },
 ];
 
 /**
@@ -48,7 +48,7 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
 }
 
 function signingSecret(): string {
-  return (env as Record<string, unknown>).CALENDAR_SESSION_SECRET as string || '';
+  return (env as Record<string, unknown>).SESSION_SECRET as string || '';
 }
 
 /** Count a failed attempt, and report whether this address is now locked out. */

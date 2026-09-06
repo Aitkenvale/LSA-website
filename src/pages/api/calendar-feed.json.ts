@@ -43,7 +43,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     return json({ error: 'id, from and to are required.' }, 400);
   }
 
-  const tier = await readSession(sessionCookie(request), env.CALENDAR_SESSION_SECRET ?? '');
+  const tier = await readSession(sessionCookie(request), env.SESSION_SECRET ?? '');
   const config = await readConfig((env as Record<string, unknown>).SESSION as KVNamespace | undefined);
   const entitled = feedFor(config, tier, id);
   if (!entitled) {

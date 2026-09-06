@@ -18,11 +18,11 @@ PUBLIC_TURNSTILE_SITE_KEY="0x..."
 
 # Community calendar administrator code (opens the settings drawer).
 # Never put this in site settings — this repository is public.
-CALENDAR_ADMIN_CODE="choose-something-long"
+ADMIN_CODE="choose-something-long"
 
 # Community calendar tiers. Each is a shared code; the signing secret must be
 # long and random, and changing it signs everyone out.
-CALENDAR_SESSION_SECRET="a-long-random-string"
-CALENDAR_CODE_COMMUNITY="..."
-CALENDAR_CODE_HOODS="..."
-CALENDAR_CODE_ASSEMBLY="..."
+SESSION_SECRET="a-long-random-string"
+CODE_COMMUNITY="..."
+CODE_HOODS="..."
+CODE_ASSEMBLY="..."

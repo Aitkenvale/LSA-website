@@ -154,7 +154,7 @@ const settings = defineCollection({
     // approves. Like sitePassword this is a casual deterrent, not access
     // control — this repository is public, so treat the code as visible.
     // The administrator code is deliberately NOT here: it lives in the
-    // CALENDAR_ADMIN_CODE Worker secret and is checked server-side.
+    // ADMIN_CODE Worker secret and is checked server-side.
     calendarAccessCode: z.string().default(''),
   }),
 });

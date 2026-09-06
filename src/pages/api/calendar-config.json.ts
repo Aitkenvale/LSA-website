@@ -32,7 +32,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const GET: APIRoute = async ({ request }) => {
-  const tier = await readSession(sessionCookie(request), env.CALENDAR_SESSION_SECRET ?? '');
+  const tier = await readSession(sessionCookie(request), env.SESSION_SECRET ?? '');
   const config = await readConfig(kv());
 
   if (meetsTier(tier, 'admin')) {
@@ -43,7 +43,7 @@ export const GET: APIRoute = async ({ request }) => {
 };
 
 export const PUT: APIRoute = async ({ request }) => {
-  const tier = await readSession(sessionCookie(request), env.CALENDAR_SESSION_SECRET ?? '');
+  const tier = await readSession(sessionCookie(request), env.SESSION_SECRET ?? '');
   if (!meetsTier(tier, 'admin')) {
     // Deliberately the same answer whether or not the document exists.
     return json({ ok: false, error: 'Not permitted.' }, 403);
@@ -68,7 +68,7 @@ export const PUT: APIRoute = async ({ request }) => {
 
 /** Reset to the calendars a community starts with. Administrators only. */
 export const DELETE: APIRoute = async ({ request }) => {
-  const tier = await readSession(sessionCookie(request), env.CALENDAR_SESSION_SECRET ?? '');
+  const tier = await readSession(sessionCookie(request), env.SESSION_SECRET ?? '');
   if (!meetsTier(tier, 'admin')) return json({ ok: false, error: 'Not permitted.' }, 403);
   const store = kv();
   if (!store) return json({ ok: false, error: 'No configuration store is bound.' }, 503);

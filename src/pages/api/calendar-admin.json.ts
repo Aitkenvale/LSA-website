@@ -7,7 +7,7 @@ export const prerender = false;
 /**
  * Checks the calendar administrator code.
  *
- * The code lives in the CALENDAR_ADMIN_CODE Worker secret and is compared here,
+ * The code lives in the ADMIN_CODE Worker secret and is compared here,
  * on the server. It is deliberately never placed in site settings: this
  * repository is public, so anything committed to it is readable by anyone, and
  * anything passed into the page is readable in the browser.
@@ -18,7 +18,7 @@ export const prerender = false;
  * server rather than hidden by the page.
  */
 export const POST: APIRoute = async ({ request }) => {
-  const expected = env.CALENDAR_ADMIN_CODE;
+  const expected = env.ADMIN_CODE;
   if (!expected) {
     return json({ ok: false, error: 'No administrator code is configured for this site.' }, 503);
   }
@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Issue a session rather than only answering yes, so that later requests can
   // be judged the same way as every other tier: one signed cookie, one
   // comparison. Administrator sessions are deliberately short.
-  const signing = env.CALENDAR_SESSION_SECRET;
+  const signing = env.SESSION_SECRET;
   if (!signing) {
     return json({ ok: false, error: 'Sign-in is not configured for this site.' }, 503);
   }
