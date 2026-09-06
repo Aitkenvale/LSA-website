@@ -571,7 +571,7 @@
         // A calendar with a view label shows that label instead of the real name.
         const name = o.name;
 
-        if (o.startsPreviousEvening && (kind === 'holy-day' || kind === 'feast')) {
+        if (o.startsPreviousEvening && (kind === 'holy-day' || kind === 'month')) {
           const evening = addDays(o.date, -1);
           // A Holy Day's evening outranks a Feast's where both fall together.
           if (kind === 'holy-day' || !eve.has(evening)) {
@@ -661,8 +661,12 @@
         const d = parseIso(day);
         const inMonth = d.month === month;
         const entries = byDate.get(day) ?? [];
-        const special = entries.some((e) => e.kind === 'holy-day' || e.kind === 'feast');
         const holy = entries.some((e) => e.kind === 'holy-day');
+        // A Bahá'í month beginning carries the same weight as the Feast that
+        // normally falls on it, and is a computed fact rather than something a
+        // community has to enter, so it keeps the tint and the month's badge.
+        const monthStart = entries.some((e) => e.kind === 'month');
+        const special = holy || monthStart;
 
         const classes = ['cal-day'];
         if (!inMonth) classes.push('is-out');
@@ -673,7 +677,7 @@
         //   `from` — what this day already is, having begun last night;
         //   `to`   — what its own evening leads into.
         // The band is then drawn left to right across the pair.
-        const from = holy ? 'holy' : special ? 'feast' : null;
+        const from = holy ? 'holy' : monthStart ? 'feast' : null;
         const evening = eve.get(day) ?? null;
         if (from) classes.push(`from-${from}`);
         if (evening) classes.push(`to-${evening}`);
@@ -883,7 +887,14 @@
       const m = /\(([^)]+)\)\s*$/.exec(o.name);
       return m ? m[1] : 'Feast';
     }
-    if (kind === 'month' && o.name.startsWith('Ayyám-i-Há')) return 'Ayyám-i-Há';
+    if (kind === 'month') {
+      if (o.name.startsWith('Ayyám-i-Há')) return 'Ayyám-i-Há';
+      if (o.name.startsWith('The Fast')) return undefined;
+      // "Núr (Light)" -> "Light": the month's meaning is more use to a reader
+      // than repeating its name, which is already on the date line.
+      const m = /\(([^)]+)\)\s*$/.exec(o.name);
+      return m ? m[1] : undefined;
+    }
     return undefined;
   }
 
@@ -1208,7 +1219,8 @@
   }
   .cal-badge-holy-day { background: var(--cal-holy-ink); }
   .cal-badge-feast { background: var(--cal-feast-ink); }
-  .cal-badge-month { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
+  .cal-badge-month { background: var(--cal-feast-ink); }
+  .cal-badge-event { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
 
   .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; position: relative; }
   /* Every other tradition shares one quiet style — no tint, no badge. */
@@ -1241,7 +1253,13 @@
     flex: none;
     width: 1.05rem;
     height: 1.05rem;
-    margin-top: 0.02rem;
+    /*
+     * The icon is taller than the line of text beside it (1.05rem against a
+     * 0.825rem line), so aligning their tops leaves it hanging low. Pull it up
+     * by half the difference to centre it on the first line, while keeping
+     * flex-start alignment so it stays with that line when a name wraps.
+     */
+    margin-top: -0.11rem;
     background-repeat: no-repeat;
     background-position: center;
     background-size: contain;
