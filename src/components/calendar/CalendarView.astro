@@ -379,6 +379,7 @@
     boundariesFromTerms,
     canLoadTerms,
     cycleWeekStarts,
+    cyclesFromBoundaries,
     isAuState,
     pastelValue,
     phaseRuns,
@@ -584,7 +585,7 @@
       if (!allowed && view === 'cycle') {
         root.querySelector<HTMLButtonElement>('[data-view="gregorian"]')!.click();
       }
-      if (allowed && cycleStart === null) cycleStart = planningCycles()[0]?.start ?? null;
+      if (allowed && cycleStart === null) cycleStart = currentCycle()?.start ?? null;
     }
 
     /**
@@ -630,16 +631,30 @@
       return (prefs.weekStart[v] ?? DEFAULT_WEEK_START[v]) as WeekDay;
     }
 
-    /** The cycles worth planning: the one running, and eight ahead. */
-    function planningCycles(): Cycle[] {
+    /**
+     * Every cycle the stored dates describe, finished ones included.
+     *
+     * Not the same list the administrator edits. A cycle that has passed
+     * cannot be planned and is not worth adjusting, which is why it drops off
+     * the settings; but it can certainly be looked at, the same as any past
+     * month in the other views. Reading back is how a cycle gets reviewed.
+     */
+    function allCycles(): Cycle[] {
       const settings = server.config?.cycles ?? server.cycles;
-      return settings ? upcomingCycles(settings.boundaries, todayIso(), CYCLES_SHOWN) : [];
+      return settings ? cyclesFromBoundaries(settings.boundaries) : [];
+    }
+
+    /** The cycle running today, which is where the view opens. */
+    function currentCycle(): Cycle | null {
+      const settings = server.config?.cycles ?? server.cycles;
+      if (!settings) return null;
+      return upcomingCycles(settings.boundaries, todayIso(), CYCLES_SHOWN)[0] ?? null;
     }
 
     function activeCycle(): Cycle | null {
-      const cycles = planningCycles();
+      const cycles = allCycles();
       if (!cycles.length) return null;
-      return cycles.find((c) => c.start === cycleStart) ?? cycles[0];
+      return cycles.find((c) => c.start === cycleStart) ?? currentCycle() ?? cycles[0];
     }
     /*
      * Whether the administrator panel is open is the server's answer, not a
@@ -656,9 +671,9 @@
     // ---- navigation -------------------------------------------------------
     function step(delta: number) {
       if (view === 'cycle') {
-        // Only the cycles on the planner are reachable. A finished cycle
-        // cannot be planned, so there is nowhere useful to step back to.
-        const cycles = planningCycles();
+        // Stepping walks every cycle the stored dates cover, back as well as
+        // forward. It stops at the ends of that series rather than wrapping.
+        const cycles = allCycles();
         const at = cycles.findIndex((c) => c.start === (activeCycle()?.start ?? ''));
         const next = cycles[Math.min(cycles.length - 1, Math.max(0, at + delta))];
         if (next) cycleStart = next.start;
@@ -672,7 +687,7 @@
       cursor = startOfMonth(todayIso());
       const today = gregorianToBadi(todayIso());
       badiCursor = { year: today.year, month: today.month };
-      cycleStart = planningCycles()[0]?.start ?? null;
+      cycleStart = currentCycle()?.start ?? null;
       void render();
     });
 
@@ -1951,22 +1966,23 @@
          * What the small second line carries, which differs by view.
          *
          * Badí': the Gregorian date, since the Badí' day is already the large
-         * numeral. Gregorian: the Badí' date. Cycle: neither — it is a planning
-         * grid, and a Badí' date on every one of its eighty-odd cells is noise
-         * against the weeks. What it shows instead is the month, on the first
-         * of each: twelve weeks span four months, and a bare "1" gives no clue
-         * which one has just begun.
+         * numeral. Gregorian: the Badí' date.
          *
-         * A Holy Day overrides all three. Its name is worth more than any
+         * Cycle: the Gregorian date too, written the same way as in the Badí'
+         * view. A planning grid runs twelve weeks or more across three or four
+         * months, and a column of bare numerals leaves the reader counting
+         * back to work out which month a week sits in. Naming the month only
+         * where it changed was not enough — the answer has to be in the cell
+         * being looked at, not in one further up the column.
+         *
+         * A Holy Day overrides all of them. Its name is worth more than any
          * number, in any view.
          */
         const secondLine = holyEntry
           ? holyEntry.name
-          : view === 'badi'
+          : view === 'badi' || view === 'cycle'
             ? `${d.day} ${MONTH_SHORT[d.month - 1]}`
-            : view === 'cycle'
-              ? (d.day === 1 ? MONTH_NAMES[d.month - 1] : '')
-              : badiLine;
+            : badiLine;
 
         const badges = entries
           .filter((e) => e.badge)
