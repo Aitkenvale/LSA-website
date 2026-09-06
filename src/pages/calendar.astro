@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import PageHero from '../components/PageHero.astro';
 import CalendarView from '../components/calendar/CalendarView.astro';
 import { getSiteSettings } from '../lib/site';
 
@@ -35,12 +34,13 @@ const settings = await getSiteSettings();
     )
   }
 
-  <PageHero
-    title="Community calendar"
-    intro="Bahá'í Holy Days and Feasts, community events, and the holy days of other faiths."
-  />
-
-  <div class="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+  <!--
+    No page hero here, deliberately. The calendar is the page: a full-width
+    image band would push the grid below the fold on a laptop, and the first
+    thing a reader wants is to see this month.
+  -->
+  <div class="mx-auto w-full max-w-6xl px-4 pt-6 pb-10 sm:px-6">
+    <h1 class="cal-page-title">Bahá’í Community Calendar</h1>
     <CalendarView />
   </div>
 </Base>

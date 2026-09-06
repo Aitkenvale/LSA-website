@@ -22,20 +22,43 @@ const calendars = GENERATED_CALENDARS;
 ---
 
 <div class="calendar">
+  <!--
+    The three views the calendar will offer. Only the Gregorian one exists so
+    far; the others are shown disabled rather than hidden so the shape of the
+    thing is visible, and so nobody wonders where they went. The cycle view will
+    additionally depend on the viewer's privileges.
+  -->
+  <nav class="cal-views" aria-label="Calendar view">
+    <button type="button" class="cal-view is-current" aria-current="true">Gregorian</button>
+    <button type="button" class="cal-view" disabled aria-disabled="true" title="Not built yet">Badí‘</button>
+    <button type="button" class="cal-view" disabled aria-disabled="true" title="Not built yet">Cycle</button>
+  </nav>
+
   <header class="cal-bar">
     <div class="cal-nav">
       <button type="button" class="cal-btn" data-nav="prev" aria-label="Previous month">‹</button>
       <button type="button" class="cal-btn cal-btn-text" data-nav="today">Today</button>
       <button type="button" class="cal-btn" data-nav="next" aria-label="Next month">›</button>
     </div>
-    <h2 class="cal-title" data-title aria-live="polite">&nbsp;</h2>
-    <button type="button" class="cal-burger" data-open-drawer aria-expanded="false" aria-controls="cal-drawer">
+    <div class="cal-heading">
+      <h2 class="cal-title" data-title aria-live="polite">&nbsp;</h2>
+      <p class="cal-badi-year" data-badi-year></p>
+    </div>
+    <div class="cal-actions">
+      <button type="button" class="cal-icon-btn" disabled aria-disabled="true" title="Signing in is not available yet">
+        <span class="sr-only">Sign in</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.6" />
+          <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+        </svg>
+      </button>
+      <button type="button" class="cal-burger" data-open-drawer aria-expanded="false" aria-controls="cal-drawer">
       <span class="sr-only">Choose calendars</span>
-      <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
-    </button>
+        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+      </button>
+    </div>
   </header>
-
-  <p class="cal-badi-year" data-badi-year></p>
 
   <div class="cal-grid-wrap">
     <div class="cal-grid" data-grid role="grid" aria-label="Month view"></div>
@@ -993,21 +1016,66 @@ const calendars = GENERATED_CALENDARS;
     position: relative;
   }
 
-  .cal-bar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.25rem;
+  /* The page title, in place of the hero the calendar used to sit beneath. */
+  .cal-page-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 600;
+    color: var(--color-teal-900);
+    text-align: center;
+    margin: 0 0 0.85rem;
   }
+
+  .cal-views {
+    display: flex;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-bottom: 1.1rem;
+  }
+  .cal-view {
+    border: 1px solid var(--cal-line);
+    background: white;
+    color: var(--color-teal-800);
+    border-radius: 999px;
+    padding: 0.35rem 1rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  .cal-view.is-current {
+    background: var(--color-teal-800);
+    border-color: var(--color-teal-800);
+    color: white;
+  }
+  .cal-view:disabled {
+    color: color-mix(in srgb, var(--color-ink) 35%, transparent);
+    background: var(--color-sand-100);
+    cursor: not-allowed;
+  }
+
+  /*
+   * Three equal columns, so the month sits in the middle of the calendar rather
+   * than in the middle of the gap the controls happen to leave. With a flex
+   * title the heading drifted right, because the navigation is wider than the
+   * two buttons opposite it.
+   */
+  .cal-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas: 'nav heading actions';
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .cal-heading { grid-area: heading; text-align: center; min-width: 0; }
   .cal-title {
     font-family: var(--font-display);
-    font-size: clamp(1.35rem, 3vw, 1.9rem);
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
     color: var(--color-teal-900);
     margin: 0;
-    flex: 1;
-    text-align: center;
+    white-space: nowrap;
   }
-  .cal-nav { display: flex; gap: 0.25rem; }
+  .cal-nav { grid-area: nav; display: flex; gap: 0.25rem; justify-self: start; }
+  .cal-actions { grid-area: actions; display: flex; gap: 0.35rem; justify-self: end; }
   .cal-btn {
     border: 1px solid var(--cal-line);
     background: white;
@@ -1022,7 +1090,7 @@ const calendars = GENERATED_CALENDARS;
   .cal-btn-text { font-size: 0.85rem; padding: 0 0.7rem; }
   .cal-btn:hover { background: var(--color-teal-50); }
 
-  .cal-burger {
+  .cal-burger, .cal-icon-btn {
     border: 1px solid var(--cal-line);
     background: white;
     border-radius: 0.5rem;
@@ -1032,6 +1100,13 @@ const calendars = GENERATED_CALENDARS;
     place-content: center;
     gap: 4px;
     cursor: pointer;
+    color: var(--color-teal-800);
+  }
+  .cal-icon-btn svg { width: 1.15rem; height: 1.15rem; }
+  .cal-icon-btn:disabled {
+    color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+    background: var(--color-sand-100);
+    cursor: not-allowed;
   }
   .cal-burger span {
     display: block;
@@ -1042,10 +1117,10 @@ const calendars = GENERATED_CALENDARS;
   }
 
   .cal-badi-year {
-    text-align: center;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: color-mix(in srgb, var(--color-ink) 62%, transparent);
-    margin: 0 0 0.75rem;
+    margin: 0.1rem 0 0;
+    white-space: nowrap;
   }
 
   /* The grid scrolls inside its own box rather than the page. */
@@ -1089,7 +1164,19 @@ const calendars = GENERATED_CALENDARS;
   .cal-day.is-out.is-feast { background: color-mix(in srgb, var(--cal-feast-tint) 45%, white); }
   .cal-day.is-today { box-shadow: inset 0 0 0 2px var(--color-teal-600); }
 
-  .cal-day-head { display: flex; align-items: baseline; gap: 0.4rem; }
+  /*
+   * Gregorian numeral pinned left, Badí' date centred across the cell. The
+   * outer columns are equal, so the Badí' date lines up down the week whatever
+   * width the numeral takes.
+   */
+  .cal-day-head {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: 0.25rem;
+  }
+  .cal-day-head .cal-greg { justify-self: start; }
+  .cal-day-head .cal-badi { grid-column: 2; text-align: center; }
   .cal-greg {
     font-family: var(--font-display);
     font-size: 1.05rem;
@@ -1098,7 +1185,7 @@ const calendars = GENERATED_CALENDARS;
     line-height: 1;
   }
   .cal-badi {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     color: color-mix(in srgb, var(--color-ink) 68%, transparent);
     line-height: 1.15;
   }
@@ -1362,7 +1449,30 @@ const calendars = GENERATED_CALENDARS;
   }
 
   @media (max-width: 640px) {
-    .cal-grid { grid-template-columns: repeat(7, minmax(4.6rem, 1fr)); min-width: 33rem; }
+    .cal-grid { grid-template-columns: repeat(7, minmax(4.9rem, 1fr)); min-width: 34.5rem; }
     .cal-day { min-height: 5rem; }
+    .cal-title { font-size: 1.15rem; white-space: normal; }
+    .cal-badi-year { font-size: 0.68rem; white-space: normal; }
+    .cal-views { flex-wrap: wrap; }
+
+    /*
+     * Three columns do not fit across a phone: the month, the navigation and
+     * the two buttons together overflowed the viewport and pushed the page into
+     * a sideways scroll, with the menu button off the edge. Stack them instead —
+     * month above, controls below.
+     */
+    .cal-bar {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        'heading heading'
+        'nav actions';
+      gap: 0.6rem;
+    }
+
+    /* In a cell this narrow the Badí' date cannot sit beside the numeral
+       without breaking across lines, so it takes its own line under it. */
+    .cal-day-head { grid-template-columns: 1fr; gap: 0; }
+    .cal-day-head .cal-greg { justify-self: start; }
+    .cal-day-head .cal-badi { grid-column: 1; text-align: center; }
   }
 </style>
