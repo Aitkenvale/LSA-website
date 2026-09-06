@@ -1,23 +1,22 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
 
-  // NOTE: on this branch the default Worker name is deliberately DIFFERENT from
-  // the one on main.
+  // NOTE: on this branch the default Worker name is deliberately DIFFERENT
+  // from the one on main.
   //
-  // Cloudflare Workers Builds runs a project's deploy command for whatever
-  // branch it is told to build. The website project's command is a plain
-  // `npx wrangler deploy`, which takes the name from this file — so when this
-  // branch was built by that project, it deployed the calendar over the live
-  // website and put a password in front of the public site.
+  // WHAT THIS DOES PROTECT: an accidental `npx wrangler deploy` run by hand
+  // from this branch. It targets lsa-calendar, not the live website.
   //
-  // Naming the default environment "lsa-calendar" here makes that impossible:
-  // whichever command runs, and whichever project runs it, this branch can only
-  // ever deploy to the calendar Worker. Disabling non-production branch builds
-  // on the website project is still worth doing, but this is the safeguard that
-  // does not depend on a dashboard setting staying correct.
+  // WHAT IT DOES NOT PROTECT: Cloudflare Workers Builds. A build project is
+  // bound to its own Worker and deploys there regardless of the name in this
+  // file — twice, the website project built this branch and served it as the
+  // live site, putting a password in front of the public website. The only
+  // thing that prevents that is turning OFF "Builds for non-production
+  // branches" on the website project (Settings -> Builds -> Branch control).
+  // That is now off; do not turn it back on while this branch exists.
   //
-  // The cost is one conflicting line when this branch is eventually merged into
-  // main: keep main's name, "lsa-website".
+  // The cost of the rename is one conflicting line when this branch is merged
+  // into main: keep main's name, "lsa-website".
   "name": "lsa-calendar",
 
   "compatibility_date": "2026-08-01",

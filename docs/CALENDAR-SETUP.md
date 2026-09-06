@@ -60,9 +60,21 @@ the only difference, so the two branches never conflict over it.
 The Worker is reachable at `https://lsa-calendar.<your-subdomain>.workers.dev`.
 No custom domain is needed while it is private.
 
-**Then check the existing website Worker**: open `lsa-website` → Settings →
-Builds, and make sure its branch is still `main` and that it is not also
-building other branches. Otherwise pushing to `calendar` would trigger it too.
+### Turn off non-production builds on the website Worker — do this FIRST
+
+Open `lsa-website` → **Settings → Builds → Branch control**, and make sure
+**"Builds for non-production branches" is unchecked**, with the production
+branch set to `main`.
+
+This is not a tidiness measure. A Workers Builds project deploys to the Worker
+it belongs to, whatever branch it built and whatever name is in
+`wrangler.jsonc`. With that box ticked, every push to `calendar` is published as
+the live website — which happened twice during setup, putting a password in
+front of the public site and marking every page `noindex` until `main` was
+rebuilt.
+
+Renaming the Worker on the calendar branch does **not** prevent this. It only
+protects against an accidental `npx wrangler deploy` run by hand.
 
 ## 3. Add the secret
 
