@@ -9,15 +9,19 @@
  * Tiers are a ladder: each includes everything below it. A neighbourhood
  * coordinator is also a community member, and an Assembly member is both.
  *
- * The three signed-in tiers share one code each rather than having accounts.
- * That is deliberate. The community tier could run to hundreds of people, which
- * no per-person system does for free, and what it protects — which home a Feast
- * is at, by family name and not by address — is a publication boundary rather
- * than a secret. The administrator tier, which can change configuration and see
- * calendar addresses, gets real per-person passkeys instead.
+ * The middle tiers share one code each rather than having accounts. That is
+ * deliberate. The community tier could run to hundreds of people, which no
+ * per-person system does for free, and what it protects — which home a Feast is
+ * at, by family name and not by address — is a publication boundary rather than
+ * a secret.
+ *
+ * Administrator sits on the same ladder but has a different door. It can change
+ * what everyone else sees and can read every calendar's address, so it will be
+ * per-person passkeys. It is on the ladder so that entitlement is one
+ * comparison everywhere; only the way in differs.
  */
 
-export const TIERS = ['public', 'community', 'hoods', 'assembly'] as const;
+export const TIERS = ['public', 'community', 'hoods', 'assembly', 'admin'] as const;
 export type Tier = (typeof TIERS)[number];
 
 export const TIER_LABELS: Record<Tier, string> = {
@@ -25,6 +29,7 @@ export const TIER_LABELS: Record<Tier, string> = {
   community: 'Community member',
   hoods: 'Neighbourhood',
   assembly: 'Assembly and Secretariat',
+  admin: 'Administrator',
 };
 
 /** Position on the ladder; higher sees more. */
@@ -56,6 +61,9 @@ const SESSION_DAYS: Record<Tier, number> = {
   // Shortest of the three: it sees everything, so a forgotten session on a
   // shared or lost device matters most here.
   assembly: 30,
+  // Shorter still. This tier can change what everyone else sees and can read
+  // every calendar's address, so a session left open is the worst case.
+  admin: 1,
 };
 
 interface SessionPayload {

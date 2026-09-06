@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
+import { sessionCookieHeader, signSession, TIER_LABELS } from '../../lib/calendar/tiers';
 
 export const prerender = false;
 
@@ -33,7 +34,22 @@ export const POST: APIRoute = async ({ request }) => {
   if (!timingSafeEqual(submitted, expected)) {
     return json({ ok: false }, 401);
   }
-  return json({ ok: true });
+
+  // Issue a session rather than only answering yes, so that later requests can
+  // be judged the same way as every other tier: one signed cookie, one
+  // comparison. Administrator sessions are deliberately short.
+  const signing = env.CALENDAR_SESSION_SECRET;
+  if (!signing) {
+    return json({ ok: false, error: 'Sign-in is not configured for this site.' }, 503);
+  }
+  const token = await signSession('admin', signing);
+  return new Response(JSON.stringify({ ok: true, tier: 'admin', label: TIER_LABELS.admin }), {
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+      'set-cookie': sessionCookieHeader(token, 'admin'),
+    },
+  });
 };
 
 /**

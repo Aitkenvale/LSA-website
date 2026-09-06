@@ -218,14 +218,18 @@
           </section>
 
           <section>
-            <h4>Saving these settings</h4>
+            <h4>How these settings are stored</h4>
             <p class="cal-help">
-              These settings are held <strong>in this browser only</strong> — nobody
-              else sees them, and clearing your browser data will reset them. Copy
-              the configuration to keep a record of it, or to hand it over so it can
-              be made the shared default for everyone.
+              Changes here are saved <strong>for everyone</strong>, straight away.
+              Calendar names, addresses, colours, order and who may see what are
+              the community's settings, not this device's.
             </p>
-            <button type="button" class="cal-secondary" data-copy-config>Copy configuration</button>
+            <p class="cal-help">
+              A reader's own choices — which calendars they have switched on, and
+              which sections they have collapsed — stay on their own device and
+              affect nobody else.
+            </p>
+            <button type="button" class="cal-secondary" data-copy-config>Copy configuration as a backup</button>
             <span class="cal-copied" data-copied hidden>Copied</span>
           </section>
         </div>
@@ -238,22 +242,39 @@
   import {
     CALENDAR_COLOURS,
     CALENDAR_SECTIONS,
-    GENERATED_CALENDARS,
     calendarColour,
     isSeededCalendar,
-    listedCalendars,
-    mergeConfig,
-    defaultConfig,
-    type CalendarConfig,
-    type GoogleCalendarConfig,
   } from '../../lib/calendar/registry';
+  import type { StoredCalendar, StoredConfig, VisibleCalendar } from '../../lib/calendar/config-store';
+  import { TIERS, TIER_LABELS, type Tier } from '../../lib/calendar/tiers';
   import { gregorianToBadi, formatBadiDate, nawRuz } from '../../lib/calendar/badi';
   import { addDays, isoDate, parseIso, weekday } from '../../lib/calendar/astronomy';
   import type { Occurrence } from '../../lib/calendar/types';
   import type { IcsEvent } from '../../lib/calendar/ics';
 
-  const STORAGE_KEY = 'townsville-calendar-config';
-  const ADMIN_KEY = 'townsville-calendar-admin';
+  /**
+   * Only preferences live here now.
+   *
+   * Which calendars exist, what they are called and who may see them is the
+   * community's, not this device's — it comes from the server and an
+   * administrator sets it once for everyone. What stays local is which
+   * calendars this reader has switched on and which sections they have
+   * collapsed: nobody else is affected by either.
+   */
+  const PREFS_KEY = 'townsville-calendar-prefs';
+
+  interface Prefs {
+    enabled: Record<string, boolean>;
+    sectionsOpen: Record<string, boolean>;
+  }
+
+  /** What the configuration endpoint returns, depending on who is asking. */
+  interface ConfigResponse {
+    tier: Tier;
+    admin: boolean;
+    calendars?: VisibleCalendar[];
+    config?: StoredConfig;
+  }
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -291,9 +312,60 @@
   type EveKind = 'holy' | 'feast';
 
   function init(root: HTMLElement) {
-    let config = loadConfig();
+    const prefs = loadPrefs();
+    /** What the server says this reader may see. Refreshed when the tier changes. */
+    let server: ConfigResponse = { tier: 'public', admin: false, calendars: [] };
+
+    /** The calendars this reader may see, in the order the community set. */
+    const listed = (): VisibleCalendar[] => server.calendars ?? [];
+    const linkedCalendars = () => listed().filter((c) => c.kind === 'linked');
+
+    /**
+     * Whether a reader has this calendar switched on. Their own choice wins;
+     * otherwise the calendar's own default, so a first visit is not blank.
+     */
+    const isEnabled = (id: string): boolean =>
+      prefs.enabled[id] ?? listed().find((c) => c.id === id)?.defaultOn ?? false;
+
+    async function loadServerConfig(): Promise<void> {
+      try {
+        const res = await fetch('/api/calendar-config.json');
+        const body = (await res.json()) as ConfigResponse;
+        // An administrator receives the whole document, including addresses;
+        // everyone else receives only what their tier may know. Both are
+        // normalised to the same list for rendering.
+        server = body.admin && body.config
+          ? { ...body, calendars: adminView(body.config) }
+          : body;
+      } catch {
+        server = { tier: 'public', admin: false, calendars: [] };
+      }
+    }
+
+    /** An administrator's full document, shaped like the reader's list. */
+    function adminView(config: StoredConfig): VisibleCalendar[] {
+      return [...config.calendars]
+        .sort((a, b) => a.position - b.position)
+        .map((c) => ({
+          id: c.id,
+          kind: c.kind,
+          name: c.name ?? c.id,
+          defaultOn: true,
+          colour: c.colour,
+          section: c.section ?? 'bahai',
+          showsDetail: true,
+          viewLabel: c.viewLabel,
+          after: c.after,
+          position: c.position,
+        }));
+    }
     let cursor = startOfMonth(todayIso());
-    let unlocked = sessionStorage.getItem(ADMIN_KEY) === '1';
+    /*
+     * Whether the administrator panel is open is the server's answer, not a
+     * flag this page keeps. Previously a value in sessionStorage decided it,
+     * which meant the page could show itself the panel; now it can only show
+     * what a session the server recognises entitles it to.
+     */
 
     const grid = root.querySelector<HTMLElement>('[data-grid]')!;
     const title = root.querySelector<HTMLElement>('[data-title]')!;
@@ -345,11 +417,17 @@
     });
 
     function syncLock() {
-      lock.hidden = unlocked;
-      panel.hidden = !unlocked;
-      if (unlocked) {
-        renderGoogleList();
-        void renderVerifyList();
+      lock.hidden = server.admin;
+      panel.hidden = !server.admin;
+      if (server.admin) {
+        // The administrator's document — with addresses — only arrives once the
+        // server has recognised the session, so re-ask before drawing it.
+        void loadServerConfig().then(() => {
+          renderGoogleList();
+          syncPublicToggles();
+          void renderVerifyList();
+          void render();
+        });
       }
     }
 
@@ -425,9 +503,10 @@
           adminError.hidden = false;
           return;
         }
-        unlocked = true;
-        sessionStorage.setItem(ADMIN_KEY, '1');
         adminInput.value = '';
+        // The cookie the server just set is what makes this an administrator;
+        // asking again is how the page finds out.
+        await loadServerConfig();
         syncLock();
       } catch {
         adminError.textContent = 'Could not check the code just now.';
@@ -451,22 +530,22 @@
     const publicList = root.querySelector<HTMLElement>('[data-public-list]')!;
 
     function syncPublicToggles() {
-      const entries = listedCalendars(config);
+      const entries = listed();
       publicList.innerHTML = '';
 
       for (const section of CALENDAR_SECTIONS) {
         const inSection = entries.filter((e) => e.section === section.id);
         const block = document.createElement('details');
         block.className = 'cal-section';
-        block.open = config.sectionsOpen[section.id] !== false;
+        block.open = prefs.sectionsOpen[section.id] !== false;
         block.dataset.section = section.id;
         block.innerHTML =
           `<summary>${escapeHtml(section.label)}` +
           `<span class="cal-section-count">${inSection.length}</span></summary>` +
           '<div class="cal-list" data-drop></div>';
         block.addEventListener('toggle', () => {
-          config.sectionsOpen[section.id] = block.open;
-          saveConfig(config);
+          prefs.sectionsOpen[section.id] = block.open;
+          savePrefs(prefs);
         });
 
         const list = block.querySelector<HTMLElement>('[data-drop]')!;
@@ -476,30 +555,21 @@
         }
 
         for (const entry of inSection) {
-          const on =
-            entry.kind === 'generated'
-              ? (config.generated[entry.id]?.enabled ??
-                 GENERATED_CALENDARS.find((c) => c.id === entry.id)!.defaultOn)
-              : (config.google.find((g) => g.id === entry.id)?.enabled ?? false);
+          const on = isEnabled(entry.id);
 
           const row = document.createElement('div');
           row.className = 'cal-item cal-toggle-row';
-          row.draggable = true;
+          row.draggable = server.admin;
           row.dataset.id = entry.id;
           row.innerHTML =
-            '<span class="cal-grip" aria-hidden="true">⠿</span>' +
+            (server.admin ? '<span class="cal-grip" aria-hidden="true">⠿</span>' : '') +
             `<label class="cal-toggle"><input type="checkbox" ${on ? 'checked' : ''} />` +
             `<span class="cal-toggle-name">${escapeHtml(entry.name)}</span></label>` +
             (entry.confidence === 'approximate' ? '<span class="cal-tag">approximate</span>' : '');
 
           row.querySelector('input')!.addEventListener('change', (e) => {
-            const checked = (e.target as HTMLInputElement).checked;
-            if (entry.kind === 'generated') config.generated[entry.id] = { enabled: checked };
-            else {
-              const g = config.google.find((c) => c.id === entry.id);
-              if (g) g.enabled = checked;
-            }
-            saveConfig(config);
+            prefs.enabled[entry.id] = (e.target as HTMLInputElement).checked;
+            savePrefs(prefs);
             void render();
           });
           list.appendChild(row);
@@ -519,6 +589,8 @@
     let dragging: string | null = null;
 
     function wireDragging() {
+      // Only an administrator may rearrange, so only they get the handles.
+      if (!server.admin) return;
       for (const row of publicList.querySelectorAll<HTMLElement>('[data-id]')) {
         row.addEventListener('dragstart', (e) => {
           dragging = row.dataset.id!;
@@ -541,7 +613,7 @@
           row.classList.remove('is-over');
           if (!dragging || dragging === row.dataset.id) return;
           const section = row.closest<HTMLElement>('[data-section]')!.dataset.section!;
-          dropOnto(dragging, row.dataset.id!, section);
+          void dropOnto(dragging, row.dataset.id!, section);
         });
       }
       // Dropping on the section itself appends to its end, which is the only
@@ -550,22 +622,52 @@
         block.addEventListener('dragover', (e) => e.preventDefault());
         block.addEventListener('drop', (e) => {
           e.preventDefault();
-          if (dragging) dropOnto(dragging, null, block.dataset.section!);
+          if (dragging) void dropOnto(dragging, null, block.dataset.section!);
         });
       }
     }
 
-    function dropOnto(movedId: string, beforeId: string | null, section: string) {
-      const ids = listedCalendars(config).map((e) => e.id);
+    /**
+     * Reordering is an administrator's act, not a reader's: the order and the
+     * sections are how the community presents its calendars, the same for
+     * everyone. Readers choose only what to switch on.
+     */
+    async function dropOnto(movedId: string, beforeId: string | null, section: string) {
+      if (!server.admin || !server.config) return;
+      const ids = listed().map((e) => e.id);
       const without = ids.filter((id) => id !== movedId);
       const at = beforeId ? without.indexOf(beforeId) : -1;
       without.splice(at === -1 ? without.length : at, 0, movedId);
 
-      config.order = without;
-      config.sections[movedId] = section as 'bahai' | 'interfaith' | 'secular';
-      saveConfig(config);
+      const config = server.config;
+      without.forEach((id, index) => {
+        const entry = config.calendars.find((c) => c.id === id);
+        if (entry) entry.position = (index + 1) * 10;
+      });
+      const moved = config.calendars.find((c) => c.id === movedId);
+      if (moved) moved.section = section as 'bahai' | 'interfaith' | 'secular';
+
+      await saveServerConfig(config);
       syncPublicToggles();
       void render();
+    }
+
+    /** Write the shared document back. Refused by the server below admin. */
+    async function saveServerConfig(config: StoredConfig): Promise<boolean> {
+      try {
+        const res = await fetch('/api/calendar-config.json', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        if (!res.ok) return false;
+        const body = (await res.json()) as { ok: boolean; config: StoredConfig };
+        if (!body.ok) return false;
+        server = { ...server, config: body.config, calendars: adminView(body.config) };
+        return true;
+      } catch {
+        return false;
+      }
     }
 
 
@@ -575,45 +677,65 @@
 
     function renderGoogleList() {
       googleList.innerHTML = '';
-      if (!config.google.length) {
+      const config = server.config;
+      if (!config) {
+        googleList.innerHTML = '<p class="cal-help">Sign in as an administrator to manage calendars.</p>';
+        return;
+      }
+      const linked = config.calendars.filter((c) => c.kind === 'linked');
+      if (!linked.length) {
         googleList.innerHTML = '<p class="cal-help">No calendars linked yet.</p>';
         return;
       }
-      for (const cal of config.google) {
+
+      for (const cal of linked) {
         const fixed = isSeededCalendar(cal.id);
         const row = document.createElement('details');
         row.className = 'cal-item';
         row.innerHTML = `
           <summary>
             <span class="cal-dot" data-g-dot style="--dot:${calendarColour(cal.colour)}"></span>
-            <span class="cal-toggle-name">${escapeHtml(cal.name)}</span>
-            <span class="cal-tag">${cal.icsUrl.trim() ? 'connected' : 'no address'}</span>
+            <span class="cal-toggle-name">${escapeHtml(cal.name ?? cal.id)}</span>
+            <span class="cal-tag">${cal.icsUrl?.trim() ? 'connected' : 'no address'}</span>
           </summary>
           <label class="cal-field">
             Display name
-            <input type="text" data-g-name value="${escapeHtml(cal.name)}" />
+            <input type="text" data-g-name value="${escapeHtml(cal.name ?? '')}" />
           </label>
           <label class="cal-field">
             View label
-            <input type="text" data-g-view value="${escapeHtml(cal.viewLabel)}" placeholder="Show full detail" />
-            <small>Shown instead of each event's real title. Leave empty to show real titles.</small>
+            <input type="text" data-g-view value="${escapeHtml(cal.viewLabel ?? '')}" placeholder="Show full detail" />
+            <small>Shown instead of each event's real title, to anyone below the detail tier.</small>
+          </label>
+          <label class="cal-field">
+            Private iCal address
+            <input type="url" data-g-url value="${escapeHtml(cal.icsUrl ?? '')}"
+              placeholder="https://calendar.google.com/… or https://outlook.office365.com/…" />
+          </label>
+          <label class="cal-field">
+            Who can see this calendar
+            <select data-g-visibility>
+              ${TIERS.map((t) => `<option value="${t}"${cal.visibility === t ? ' selected' : ''}>${TIER_LABELS[t]}</option>`).join('')}
+            </select>
+          </label>
+          <label class="cal-field">
+            Who sees real event titles
+            <select data-g-detail>
+              ${TIERS.map((t) => `<option value="${t}"${cal.detailFrom === t ? ' selected' : ''}>${TIER_LABELS[t]}</option>`).join('')}
+            </select>
+            <small>Below this, the view label is sent instead — the real title never leaves the server.</small>
           </label>
           <div class="cal-field">
             Colour
             <div class="cal-swatches" data-g-colours>
               ${CALENDAR_COLOURS.map(
                 (c) =>
-                  `<button type="button" class="cal-swatch${(cal.colour ?? 'teal') === c.id ? ' is-current' : ''}"` +
+                  `<button type="button" class="cal-swatch${(cal.colour ?? 'blue') === c.id ? ' is-current' : ''}"` +
                   ` data-colour="${c.id}" style="background:${c.value}" title="${c.label}">` +
                   `<span class="sr-only">${c.label}</span></button>`,
               ).join('')}
             </div>
           </div>
-          <label class="cal-field">
-            Private iCal address
-            <input type="url" data-g-url value="${escapeHtml(cal.icsUrl)}"
-              placeholder="https://calendar.google.com/… or https://outlook.office365.com/…" />
-          </label>
           <p class="cal-error" data-g-error hidden></p>
           ${
             fixed
@@ -628,19 +750,7 @@
         const summaryTag = row.querySelector<HTMLElement>('.cal-tag')!;
         const summaryDot = row.querySelector<HTMLElement>('[data-g-dot]')!;
 
-        row.querySelector('[data-g-colours]')!.addEventListener('click', (e) => {
-          const swatch = (e.target as HTMLElement).closest<HTMLElement>('[data-colour]');
-          if (!swatch) return;
-          cal.colour = swatch.dataset.colour!;
-          for (const other of row.querySelectorAll('.cal-swatch')) {
-            other.classList.toggle('is-current', other === swatch);
-          }
-          summaryDot.style.setProperty('--dot', calendarColour(cal.colour));
-          saveConfig(config);
-          void render();
-        });
-
-        const commit = () => {
+        const commit = async () => {
           const url = urlInput.value.trim();
           err.hidden = true;
           if (url && !isSupportedFeedUrl(url)) {
@@ -649,42 +759,52 @@
             err.hidden = false;
             return;
           }
-          const hadNoUrl = !cal.icsUrl.trim();
           cal.name = row.querySelector<HTMLInputElement>('[data-g-name]')!.value.trim() || cal.name;
           cal.viewLabel = row.querySelector<HTMLInputElement>('[data-g-view]')!.value.trim();
           cal.icsUrl = url;
-          // Switching a calendar on is the obvious intent of pasting in its
-          // address, so do not make that a second step.
-          if (hadNoUrl && url) cal.enabled = true;
-          saveConfig(config);
+          cal.visibility = row.querySelector<HTMLSelectElement>('[data-g-visibility]')!.value as Tier;
+          cal.detailFrom = row.querySelector<HTMLSelectElement>('[data-g-detail]')!.value as Tier;
 
-          // Update this row in place rather than rebuilding the list. Rebuilding
-          // replaced the element being edited, which collapsed the row and threw
-          // away focus the moment you tabbed from one field to the next.
-          summaryName.textContent = cal.name;
+          // Updated in place rather than by rebuilding the list, which would
+          // replace the row being edited and throw away focus mid-edit.
+          summaryName.textContent = cal.name ?? cal.id;
           summaryTag.textContent = cal.icsUrl.trim() ? 'connected' : 'no address';
 
+          if (!(await saveServerConfig(config))) {
+            err.textContent = 'Could not save. Your administrator session may have expired.';
+            err.hidden = false;
+            return;
+          }
           syncPublicToggles();
           void render();
         };
-        for (const input of row.querySelectorAll<HTMLInputElement>('input')) {
-          input.addEventListener('change', commit);
+        for (const input of row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
+          input.addEventListener('change', () => void commit());
         }
 
-        row.querySelector('[data-g-remove]')?.addEventListener('click', () => {
-          // Worth a confirmation: the row carries the address, and losing it
-          // means fetching it from Google or Outlook again. Nothing happens to
-          // the calendar itself, which is what the wording needs to make clear.
+        row.querySelector('[data-g-colours]')!.addEventListener('click', (e) => {
+          const swatch = (e.target as HTMLElement).closest<HTMLElement>('[data-colour]');
+          if (!swatch) return;
+          cal.colour = swatch.dataset.colour!;
+          for (const other of row.querySelectorAll('.cal-swatch')) {
+            other.classList.toggle('is-current', other === swatch);
+          }
+          summaryDot.style.setProperty('--dot', calendarColour(cal.colour));
+          void saveServerConfig(config).then(() => {
+            syncPublicToggles();
+            void render();
+          });
+        });
+
+        row.querySelector('[data-g-remove]')?.addEventListener('click', async () => {
           const ok = window.confirm(
-            `Remove “${cal.name}” from this calendar?\n\n` +
+            `Remove \u201c${cal.name}\u201d from this calendar?\n\n` +
               'The calendar itself is not deleted — it stays in Google or Outlook. ' +
               'Only the link to it is removed from here, along with its address.',
           );
           if (!ok) return;
-          config.google = config.google.filter((c) => c.id !== cal.id);
-          delete config.sections[cal.id];
-          config.order = config.order.filter((id) => id !== cal.id);
-          saveConfig(config);
+          config.calendars = config.calendars.filter((c) => c.id !== cal.id);
+          await saveServerConfig(config);
           renderGoogleList();
           syncPublicToggles();
           void render();
@@ -693,13 +813,14 @@
       }
     }
 
-    root.querySelector('[data-add-google]')!.addEventListener('click', () => {
+    root.querySelector('[data-add-google]')!.addEventListener('click', async () => {
       const nameEl = root.querySelector<HTMLInputElement>('[data-new-name]')!;
       const urlEl = root.querySelector<HTMLInputElement>('[data-new-url]')!;
       const viewEl = root.querySelector<HTMLInputElement>('[data-new-view-label]')!;
       const name = nameEl.value.trim();
       const icsUrl = urlEl.value.trim();
       googleError.hidden = true;
+      if (!server.config) return;
       if (!name || !icsUrl) {
         googleError.textContent = 'A name and an iCal address are both needed.';
         googleError.hidden = false;
@@ -711,15 +832,26 @@
         googleError.hidden = false;
         return;
       }
-      config.google.push({
-        id: `g${Date.now().toString(36)}`,
+      const config = server.config;
+      config.calendars.push({
+        id: `c${Date.now().toString(36)}`,
+        kind: 'linked',
         name,
         icsUrl,
-        enabled: true,
         viewLabel: viewEl.value.trim(),
-        colour: 'teal',
+        colour: 'blue',
+        section: 'bahai',
+        // A newly linked calendar starts closed. Opening it up has to be a
+        // decision, not something that happens by pasting an address.
+        visibility: 'assembly',
+        detailFrom: 'assembly',
+        position: Math.max(0, ...config.calendars.map((c) => c.position)) + 10,
       });
-      saveConfig(config);
+      if (!(await saveServerConfig(config))) {
+        googleError.textContent = 'Could not save. Your administrator session may have expired.';
+        googleError.hidden = false;
+        return;
+      }
       nameEl.value = '';
       urlEl.value = '';
       viewEl.value = '';
@@ -731,7 +863,9 @@
     root.querySelector('[data-copy-config]')!.addEventListener('click', async () => {
       const copied = root.querySelector<HTMLElement>('[data-copied]')!;
       try {
-        await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+        // The whole shared document, addresses included — an administrator can
+        // already see those, and a backup without them would be no use.
+        await navigator.clipboard.writeText(JSON.stringify(server.config ?? {}, null, 2));
         copied.hidden = false;
         setTimeout(() => (copied.hidden = true), 2000);
       } catch {
@@ -777,7 +911,7 @@
       const data = (await res.json()) as { occurrences: Occurrence[] };
 
       for (const o of data.occurrences) {
-        if (!config.generated[o.calendarId]?.enabled) continue;
+        if (!isEnabled(o.calendarId)) continue;
         const kind =
           o.calendarId === 'bahai-holy-days' ? 'holy-day'
           : o.calendarId === 'bahai-feast' ? 'feast'
@@ -816,10 +950,13 @@
 
       const failures: string[] = [];
       await Promise.all(
-        config.google.filter((c) => c.enabled).map(async (cal) => {
+        // Asked for by id, never by address. The server holds the address, checks
+        // this reader is entitled to the calendar, and applies the view label
+        // before answering — so a title this reader may not see never arrives.
+        linkedCalendars().filter((c) => isEnabled(c.id)).map(async (cal) => {
           try {
-            const q = new URLSearchParams({ url: cal.icsUrl, from, to });
-            const r = await fetch(`/api/google-calendar.json?${q}`);
+            const q = new URLSearchParams({ id: cal.id, from, to });
+            const r = await fetch(`/api/calendar-feed.json?${q}`);
             const body = (await r.json()) as { events?: IcsEvent[]; error?: string };
             if (!r.ok || !body.events) {
               failures.push(cal.name);
@@ -829,15 +966,16 @@
               for (const day of spanDays(ev.date, ev.endDate)) {
                 push(byDate, day, {
                   calendarId: cal.id,
-                  // The view label replaces the real title wholesale.
-                  name: cal.viewLabel || ev.summary,
+                  // Already substituted server-side where this reader is not
+                  // entitled to the real title, so there is nothing to hide here.
+                  name: ev.summary,
                   group: 'community',
                   kind: 'event',
-                  time: cal.viewLabel ? undefined : ev.startTime,
-                  note: cal.viewLabel ? undefined : ev.location,
+                  time: ev.startTime,
+                  note: ev.location,
                   colour: calendarColour(cal.colour),
-                  tip: cal.viewLabel
-                    ? `title|${cal.viewLabel}`
+                  tip: !cal.showsDetail
+                    ? `title|${ev.summary}`
                     : [
                         `title|${ev.summary}`,
                         `when|${formatEventTime(ev)}`,
@@ -954,8 +1092,16 @@
     }
 
     setUpHoverCard(root, grid);
-    setUpSignIn(root, () => void render());
-    void render();
+    // Signing in or out changes what may be seen, so the configuration is
+    // fetched again rather than filtered locally.
+    setUpSignIn(root, () => {
+      void loadServerConfig().then(() => {
+        syncPublicToggles();
+        void render();
+      });
+    });
+
+    void loadServerConfig().then(() => void render());
   }
 
   /**
@@ -1306,20 +1452,24 @@
     );
   }
 
-  function loadConfig(): CalendarConfig {
+  function loadPrefs(): Prefs {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return mergeConfig(raw ? (JSON.parse(raw) as Partial<CalendarConfig>) : null);
+      const raw = localStorage.getItem(PREFS_KEY);
+      const parsed = raw ? (JSON.parse(raw) as Partial<Prefs>) : null;
+      return {
+        enabled: parsed?.enabled ?? {},
+        sectionsOpen: parsed?.sectionsOpen ?? {},
+      };
     } catch {
-      return defaultConfig();
+      return { enabled: {}, sectionsOpen: {} };
     }
   }
 
-  function saveConfig(config: CalendarConfig) {
+  function savePrefs(prefs: Prefs) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     } catch {
-      /* private browsing — settings simply will not persist */
+      /* private browsing — preferences simply will not persist */
     }
   }
 

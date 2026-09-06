@@ -8,8 +8,10 @@ import {
 const SECRET = 'a-long-random-signing-secret-for-tests';
 
 test('tiers form a ladder, each seeing everything below', () => {
-  assert.deepEqual([...TIERS], ['public', 'community', 'hoods', 'assembly']);
+  assert.deepEqual([...TIERS], ['public', 'community', 'hoods', 'assembly', 'admin']);
   assert.ok(meetsTier('assembly', 'public'));
+  assert.ok(meetsTier('admin', 'assembly'), 'an administrator sees everything too');
+  assert.ok(!meetsTier('assembly', 'admin'), 'but the Assembly tier is not an administrator');
   assert.ok(meetsTier('assembly', 'community'));
   assert.ok(meetsTier('hoods', 'community'), 'a coordinator is also a community member');
   assert.ok(meetsTier('community', 'community'));
