@@ -18,8 +18,10 @@
 
 import type { CalendarSection } from './registry.ts';
 import { CALENDAR_SECTIONS, GENERATED_CALENDARS, SEEDED_GOOGLE_CALENDARS } from './registry.ts';
+import type { Plan } from './plans.ts';
+import { DEFAULT_PLANS, sortPlans } from './plans.ts';
 import type {
-  AuStateId, PhaseColours, PhasePlan, SchoolTerm, TermSource,
+  AuStateId, PhaseColours, PhasePlan, SchoolTerm, TermSource, WeekDay,
 } from './school-terms.ts';
 import {
   BUNDLED_TERMS, DEFAULT_PHASE_COLOURS, DEFAULT_PHASE_PLAN, PASTEL_COLOURS, PHASES,
@@ -91,6 +93,17 @@ export interface CycleSettings {
   /** How many weeks the two fixed phases take; consolidation gets the rest. */
   phases: PhasePlan;
   phaseColours: PhaseColours;
+  /**
+   * The day the cycle grid opens a week on.
+   *
+   * Unlike the month views, this is the Assembly's rather than the reader's.
+   * A cycle is a shared plan, and two people discussing "week 7" need the same
+   * seven days in mind; the reader still sees the setting, greyed, so the grid
+   * is not simply mysterious.
+   */
+  weekStart: WeekDay;
+  /** The global Plans, oldest first. Past ones are kept so history reads right. */
+  plans: Plan[];
 }
 
 export function defaultCycleSettings(state: AuStateId = 'qld'): CycleSettings {
@@ -102,6 +115,9 @@ export function defaultCycleSettings(state: AuStateId = 'qld'): CycleSettings {
     boundaries: terms ? boundariesFromTerms(terms) : [],
     phases: { ...DEFAULT_PHASE_PLAN },
     phaseColours: { ...DEFAULT_PHASE_COLOURS },
+    // Saturday: a cycle opens with the weekend the holidays begin on.
+    weekStart: 6,
+    plans: DEFAULT_PLANS.map((p) => ({ ...p })),
   };
 }
 
@@ -213,6 +229,24 @@ function asPhaseColours(value: unknown): PhaseColours {
   return colours;
 }
 
+/**
+ * Plans are only as good as their dates, so a nameless or undated one is
+ * dropped rather than kept as an entry that would silently name cycles after
+ * nothing.
+ */
+function asPlans(value: unknown, fallback: Plan[]): Plan[] {
+  if (!Array.isArray(value)) return fallback.map((p) => ({ ...p }));
+  const plans: Plan[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const p = raw as Partial<Plan>;
+    if (typeof p.name !== 'string' || !p.name.trim()) continue;
+    if (typeof p.start !== 'string' || !ISO_DATE.test(p.start)) continue;
+    plans.push({ name: p.name.trim(), start: p.start });
+  }
+  return sortPlans(plans);
+}
+
 function asCycles(value: unknown): CycleSettings {
   const base = defaultCycleSettings();
   if (!value || typeof value !== 'object') return base;
@@ -228,6 +262,10 @@ function asCycles(value: unknown): CycleSettings {
     boundaries: 'boundaries' in (c as object) ? asIsoDates(c.boundaries) : base.boundaries,
     phases: asPhasePlan(c.phases),
     phaseColours: asPhaseColours(c.phaseColours),
+    weekStart: ([0, 1, 2, 3, 4, 5, 6] as const).includes(c.weekStart as WeekDay)
+      ? (c.weekStart as WeekDay)
+      : base.weekStart,
+    plans: 'plans' in (c as object) ? asPlans(c.plans, base.plans) : base.plans,
   };
 }
 

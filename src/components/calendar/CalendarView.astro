@@ -151,6 +151,10 @@
             <option value="1">Monday</option>
           </select>
         </label>
+        <p class="cal-help cal-week-note" data-week-start-note hidden>
+          Set by the Assembly, so that a week number means the same to everyone
+          planning to it.
+        </p>
         <div class="cal-list" data-public-list></div>
       </section>
 
@@ -267,6 +271,33 @@
 
             <div class="cal-list" data-cycle-list></div>
 
+            <label class="cal-field">
+              A cycle week begins on
+              <select data-cycle-week-start>
+                <option value="6">Saturday</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+              </select>
+              <small>Everyone sees the cycle grid this way, so a week number
+                means the same to all who plan by it.</small>
+            </label>
+
+            <h5>Plans</h5>
+            <p class="cal-help">
+              Cycles are numbered from the beginning of each Plan, which is why
+              this one is spoken of as 183–18. A Plan begins at Riḍván and runs
+              until the next does, so a name and a start date are enough.
+              Finished Plans stay on the list, so that looking back at an
+              earlier cycle names the Plan it actually belonged to.
+            </p>
+            <div class="cal-list" data-plan-list></div>
+            <div class="cal-plan-add">
+              <input type="text" data-new-plan-name placeholder="Ten Year Plan" />
+              <input type="date" data-new-plan-start />
+              <button type="button" class="cal-secondary" data-add-plan>Add</button>
+            </div>
+            <p class="cal-error" data-plan-error hidden></p>
+
             <h5>Phases</h5>
             <p class="cal-help">
               Expansion opens the cycle and Planning &amp; Reflection closes it.
@@ -336,6 +367,8 @@
   import type {
     Cycle, PhaseId, SchoolTerm, TermSource, WeekDay,
   } from '../../lib/calendar/school-terms';
+  import type { Plan } from '../../lib/calendar/plans';
+  import { nameCycle, planEnd, sortPlans } from '../../lib/calendar/plans';
   import {
     AU_STATES,
     BUNDLED_TERMS,
@@ -582,6 +615,21 @@
     /** Which cycle the planner is looking at, by its start date. */
     let cycleStart: string | null = null;
 
+    /**
+     * Which day a week opens on.
+     *
+     * The reader's own choice in the month views; the Assembly's in the cycle
+     * view, where "week 7" has to mean the same seven days to everyone
+     * discussing the plan.
+     */
+    function weekStartFor(v: View): WeekDay {
+      if (v === 'cycle') {
+        const settings = server.config?.cycles ?? server.cycles;
+        return (settings?.weekStart ?? DEFAULT_WEEK_START.cycle) as WeekDay;
+      }
+      return (prefs.weekStart[v] ?? DEFAULT_WEEK_START[v]) as WeekDay;
+    }
+
     /** The cycles worth planning: the one running, and eight ahead. */
     function planningCycles(): Cycle[] {
       const settings = server.config?.cycles ?? server.cycles;
@@ -775,6 +823,8 @@
     const cycleError = root.querySelector<HTMLElement>('[data-cycle-error]')!;
     const cycleList = root.querySelector<HTMLElement>('[data-cycle-list]')!;
     const phaseGrid = root.querySelector<HTMLElement>('[data-phase-grid]')!;
+    const planList = root.querySelector<HTMLElement>('[data-plan-list]')!;
+    const cycleWeekStart = root.querySelector<HTMLSelectElement>('[data-cycle-week-start]')!;
 
     for (const state of AU_STATES) {
       cycleState.insertAdjacentHTML(
@@ -820,8 +870,54 @@
       cycleState.value = settings.state;
       cycleSource.textContent = describeSource(settings);
       cycleLoad.hidden = !canLoadTerms(settings.state);
+      cycleWeekStart.value = String(settings.weekStart);
       renderCycleList(settings);
+      renderPlanList(settings);
       renderPhaseFields(settings);
+    }
+
+    /**
+     * The Plans, oldest first, each closed by the one after it.
+     *
+     * A Plan is removable because one can be entered wrongly, but removing the
+     * Plan a cycle belongs to leaves that cycle named by the Plan before it —
+     * so the list says which one is running rather than leaving it to be
+     * inferred from the dates.
+     */
+    function renderPlanList(settings: CycleSettings) {
+      const plans = sortPlans(settings.plans);
+      planList.innerHTML = '';
+      if (!plans.length) {
+        planList.innerHTML =
+          '<p class="cal-help cal-empty">No Plans. Cycles will be numbered only by date.</p>';
+        return;
+      }
+
+      const today = todayIso();
+      for (const plan of plans) {
+        const ends = planEnd(plan, plans);
+        const running = plan.start <= today && (!ends || ends >= today);
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-plan';
+        if (running) row.classList.add('is-current-cycle');
+        row.innerHTML =
+          `<span class="cal-plan-name">${escapeHtml(plan.name)}` +
+          `<small>${escapeHtml(formatLongDate(plan.start))} — ` +
+          `${ends ? escapeHtml(formatLongDate(ends)) : 'continuing'}` +
+          `${running ? ' · running' : ''}</small></span>` +
+          `<button type="button" class="cal-remove" data-drop-plan="${escapeHtml(plan.start)}">Remove</button>`;
+        planList.appendChild(row);
+      }
+
+      for (const button of planList.querySelectorAll<HTMLButtonElement>('[data-drop-plan]')) {
+        button.addEventListener('click', () => {
+          const settingsNow = cycleSettings();
+          void saveCycles({
+            ...settingsNow,
+            plans: settingsNow.plans.filter((p) => p.start !== button.dataset.dropPlan),
+          });
+        });
+      }
     }
 
     /**
@@ -942,6 +1038,34 @@
         });
       }
     }
+
+    cycleWeekStart.addEventListener('change', () => {
+      void saveCycles({ ...cycleSettings(), weekStart: Number(cycleWeekStart.value) as WeekDay });
+    });
+
+    root.querySelector('[data-add-plan]')!.addEventListener('click', () => {
+      const nameInput = root.querySelector<HTMLInputElement>('[data-new-plan-name]')!;
+      const startInput = root.querySelector<HTMLInputElement>('[data-new-plan-start]')!;
+      const error = root.querySelector<HTMLElement>('[data-plan-error]')!;
+      const name = nameInput.value.trim();
+      const start = startInput.value;
+      error.hidden = true;
+
+      if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+        error.textContent = 'A Plan needs both a name and the Riḍván it begins on.';
+        error.hidden = false;
+        return;
+      }
+      const settings = cycleSettings();
+      if (settings.plans.some((p) => p.start === start)) {
+        error.textContent = 'A Plan already begins on that day.';
+        error.hidden = false;
+        return;
+      }
+      nameInput.value = '';
+      startInput.value = '';
+      void saveCycles({ ...settings, plans: sortPlans([...settings.plans, { name, start }]) });
+    });
 
     cycleState.addEventListener('change', () => {
       const state = cycleState.value;
@@ -1087,6 +1211,9 @@
 
     const weekStartSelect = root.querySelector<HTMLSelectElement>('[data-week-start]')!;
     weekStartSelect.addEventListener('change', () => {
+      // The cycle view's is the Assembly's setting; the control is disabled
+      // there, and this guard keeps that true however the event arrived.
+      if (view === 'cycle') return;
       prefs.weekStart[view] = Number(weekStartSelect.value);
       savePrefs(prefs);
       void render();
@@ -1096,7 +1223,12 @@
       const entries = listed();
       root.querySelector<HTMLElement>('[data-show-heading]')!.textContent =
         `Show Calendars for ${VIEW_LABELS[view]} View`;
-      weekStartSelect.value = String(prefs.weekStart[view] ?? DEFAULT_WEEK_START[view]);
+      weekStartSelect.value = String(weekStartFor(view));
+      // Shown rather than hidden in the cycle view, so the grid's shape is
+      // explained instead of merely fixed.
+      weekStartSelect.disabled = view === 'cycle';
+      const weekNote = root.querySelector<HTMLElement>('[data-week-start-note]')!;
+      weekNote.hidden = view !== 'cycle';
       publicList.innerHTML = '';
 
       for (const section of CALENDAR_SECTIONS) {
@@ -1459,10 +1591,12 @@
           const first = startOfMonth(todayIso());
           return { first, last: addDays(shiftMonth(first, 1), -1), title: 'Cycle', subtitle: 'No cycle dates have been set.' };
         }
+        const settings = server.config?.cycles ?? server.cycles;
+        const naming = nameCycle(cycle.start, cycle.end, settings?.plans ?? []);
         return {
           first: cycle.start,
           last: cycle.end,
-          title: `Cycle ${cycle.number}`,
+          title: naming.label,
           subtitle:
             `${formatLongDate(cycle.start)} – ${formatLongDate(cycle.end)} · ${cycle.weeks} weeks`,
         };
@@ -1500,7 +1634,7 @@
       // the reader's, and differs between the views. A cycle begins when the
       // holidays do, which can be any day, so its first row reaches back to
       // whichever day the reader starts a week on.
-      const ws = prefs.weekStart[view] ?? DEFAULT_WEEK_START[view];
+      const ws = weekStartFor(view);
       grid.classList.toggle('is-cycle', view === 'cycle');
       const gridStart = addDays(period.first, -(((weekday(period.first) - ws) % 7 + 7) % 7));
       const lastCell = addDays(period.last, ((ws + 6 - weekday(period.last)) % 7 + 7) % 7);
@@ -1704,7 +1838,7 @@
       const shown = new Set<string>();
       const parts: string[] = [];
 
-      const ws = prefs.weekStart[view] ?? DEFAULT_WEEK_START[view];
+      const ws = weekStartFor(view);
 
       /*
        * The cycle view carries two slim columns down its left: the phase, and
@@ -2809,6 +2943,27 @@
   }
   .cal-grid.is-cycle .cal-corner {
     font-size: 0.55rem; letter-spacing: 0.02em; padding-inline: 0;
+  }
+
+  /* ---- plans -------------------------------------------------------------- */
+  .cal-plan { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; }
+  .cal-plan-name { flex: 1; }
+  .cal-plan-name small {
+    display: block; font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+  }
+  .cal-plan .cal-remove { margin-top: 0; }
+  .cal-plan-add { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .cal-plan-add input {
+    flex: 1 1 7rem; min-width: 0;
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.3rem 0.45rem; font-size: 0.8rem; background: white;
+  }
+  .cal-week-note { margin: -0.4rem 0 0.7rem; font-size: 0.7rem; }
+  .cal-week-start select:disabled {
+    background: color-mix(in srgb, var(--color-ink) 5%, white);
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    cursor: not-allowed;
   }
 
   /* ---- phase settings ---------------------------------------------------- */
