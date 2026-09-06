@@ -1347,6 +1347,7 @@
   }
   .cal-event {
     font-size: 0.68rem;
+    gap: 0.3rem;
     line-height: 1.25;
     color: var(--color-teal-900);
     display: flex;
@@ -1354,7 +1355,9 @@
     gap: 0.2rem;
   }
   .cal-dot {
-    width: 5px; height: 5px; border-radius: 50%;
+    /* A touch larger than a typographic bullet: below about 6px a colour stops
+       being identifiable and just reads as a dark speck. */
+    width: 7px; height: 7px; border-radius: 50%;
     background: var(--color-teal-600); flex: none; translate: 0 -1px;
   }
   .cal-time { font-variant-numeric: tabular-nums; opacity: 0.7; }

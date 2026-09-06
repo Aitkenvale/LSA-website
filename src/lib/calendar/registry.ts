@@ -194,7 +194,9 @@ export const SEEDED_GOOGLE_CALENDARS: GoogleCalendarConfig[] = [
     icsUrl: '',
     enabled: false,
     viewLabel: '',
-    colour: 'teal',
+    // Deliberately not teal: these events land on the teal Feast wash, where a
+    // teal dot disappears.
+    colour: 'blue',
     after: 'bahai-months',
   },
   {
@@ -203,30 +205,44 @@ export const SEEDED_GOOGLE_CALENDARS: GoogleCalendarConfig[] = [
     icsUrl: '',
     enabled: false,
     viewLabel: '',
-    colour: 'gold',
+    // Likewise not gold, which is the Holy Day wash these sit on.
+    colour: 'violet',
     after: 'bahai-holy-days',
   },
 ];
 
 /**
  * Colours an administrator can give a linked calendar, shown as the dot beside
- * its events. A fixed set rather than a free colour picker: these have to sit
- * against white, sand and two tint washes without disappearing or shouting, and
- * they need to stay distinguishable from each other.
+ * its events.
+ *
+ * A fixed set rather than a free picker, because these have to stay
+ * distinguishable from one another and read clearly against white, sand, and
+ * the gold and teal sunset washes. They are strongly saturated on purpose: at
+ * the size of a dot, muted colours turn to grey mush and stop carrying any
+ * information at all.
  */
 export const CALENDAR_COLOURS: { id: string; label: string; value: string }[] = [
-  { id: 'teal', label: 'Teal', value: '#0e6e6b' },
-  { id: 'gold', label: 'Gold', value: '#a98721' },
-  { id: 'plum', label: 'Plum', value: '#7c4a72' },
-  { id: 'clay', label: 'Clay', value: '#a8563c' },
-  { id: 'moss', label: 'Moss', value: '#5c7a3f' },
-  { id: 'slate', label: 'Slate', value: '#4a5c6a' },
-  { id: 'berry', label: 'Berry', value: '#9c3f56' },
-  { id: 'ink', label: 'Ink', value: '#1e2528' },
+  { id: 'red', label: 'Red', value: '#e03131' },
+  { id: 'orange', label: 'Orange', value: '#f76707' },
+  // Darker than a pure amber on purpose: #f59f00 measured only 1.8 against the
+  // gold sunset wash, where the dot all but disappeared. This holds 2.9.
+  { id: 'amber', label: 'Amber', value: '#c77800' },
+  { id: 'green', label: 'Green', value: '#2f9e44' },
+  { id: 'teal', label: 'Teal', value: '#0ca678' },
+  { id: 'cyan', label: 'Cyan', value: '#1098ad' },
+  { id: 'blue', label: 'Blue', value: '#1c7ed6' },
+  { id: 'indigo', label: 'Indigo', value: '#4263eb' },
+  { id: 'violet', label: 'Violet', value: '#7048e8' },
+  { id: 'pink', label: 'Pink', value: '#d6336c' },
 ];
 
+/** Used when a calendar has no colour, or one saved before the palette changed. */
+export const DEFAULT_CALENDAR_COLOUR = 'blue';
+
 export function calendarColour(id: string | undefined): string {
-  return CALENDAR_COLOURS.find((c) => c.id === id)?.value ?? CALENDAR_COLOURS[0].value;
+  const found = CALENDAR_COLOURS.find((c) => c.id === id);
+  if (found) return found.value;
+  return CALENDAR_COLOURS.find((c) => c.id === DEFAULT_CALENDAR_COLOUR)!.value;
 }
 
 export interface CalendarConfig {
