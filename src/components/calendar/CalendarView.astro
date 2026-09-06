@@ -545,7 +545,7 @@
         row.className = 'cal-item';
         row.innerHTML = `
           <summary>
-            <span class="cal-dot" data-g-dot style="background:${calendarColour(cal.colour)}"></span>
+            <span class="cal-dot" data-g-dot style="--dot:${calendarColour(cal.colour)}"></span>
             <span class="cal-toggle-name">${escapeHtml(cal.name)}</span>
             <span class="cal-tag">${cal.icsUrl.trim() ? 'connected' : 'no address'}</span>
           </summary>
@@ -595,7 +595,7 @@
           for (const other of row.querySelectorAll('.cal-swatch')) {
             other.classList.toggle('is-current', other === swatch);
           }
-          summaryDot.style.background = calendarColour(cal.colour);
+          summaryDot.style.setProperty('--dot', calendarColour(cal.colour));
           saveConfig(config);
           void render();
         });
@@ -894,7 +894,7 @@
           .filter((e) => e.group === 'community')
           .map(
             (e) => `<li class="cal-event" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
-              `<span class="cal-dot"${e.colour ? ` style="background:${escapeHtml(e.colour)}"` : ''}></span>` +
+              `<span class="cal-dot"${e.colour ? ` style="--dot:${escapeHtml(e.colour)}"` : ''}></span>` +
               `<span>${escapeHtml(keepNameWhole(e.name))}</span></li>`,
           )
           .join('');
@@ -1431,12 +1431,26 @@
 
   .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; position: relative; }
   /* Every other tradition shares one quiet style — no tint, no badge. */
-  .cal-other {
-    font-size: 0.66rem;
+
+  /*
+   * Entries line up in a column whatever leads them.
+   *
+   * A coloured dot and a faith symbol are different sizes, so giving each its
+   * own width started their labels at different x positions and set them on
+   * different lines. Both now sit in a slot of the same size, with the marker
+   * centred inside it, so only the marker differs and the text does not move.
+   */
+  .cal-entries { --marker: 1.05rem; }
+  .cal-other,
+  .cal-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.3rem;
+    font-size: 0.68rem;
     line-height: 1.25;
-    color: color-mix(in srgb, var(--color-ink) 72%, transparent);
+    cursor: default;
   }
-  .cal-other { display: flex; align-items: flex-start; gap: 0.25rem; cursor: default; }
+  .cal-other { color: color-mix(in srgb, var(--color-ink) 72%, transparent); }
   .cal-other.is-approx > span:last-child {
     border-bottom: 1px dotted color-mix(in srgb, var(--color-ink) 35%, transparent);
   }
@@ -1458,15 +1472,15 @@
    */
   .faith-icon {
     flex: none;
-    width: 1.05rem;
-    height: 1.05rem;
+    width: var(--marker, 1.05rem);
+    height: var(--marker, 1.05rem);
     /*
-     * The icon is taller than the line of text beside it (1.05rem against a
-     * 0.825rem line), so aligning their tops leaves it hanging low. Pull it up
-     * by half the difference to centre it on the first line, while keeping
-     * flex-start alignment so it stays with that line when a name wraps.
+     * The marker is taller than the line of text beside it, so aligning their
+     * tops leaves it hanging low. Pulled up by half the difference to centre it
+     * on the first line, while keeping flex-start so it stays with that line
+     * when a name wraps. The dot uses the same offset, so the two agree.
      */
-    margin-top: -0.11rem;
+    margin-top: -0.1rem;
     background-repeat: no-repeat;
     background-position: center;
     background-size: contain;
@@ -1486,21 +1500,22 @@
     background: color-mix(in srgb, var(--color-teal-700) 10%, transparent);
     border-radius: 0.2rem;
   }
-  .cal-event {
-    font-size: 0.68rem;
-    line-height: 1.25;
-    color: var(--color-teal-900);
-    display: flex;
-    /* Not baseline: a dot this size overhangs a baseline-aligned row. */
-    align-items: flex-start;
-    gap: 0.3rem;
-  }
+  .cal-event { color: var(--color-teal-900); }
+  /* A slot the same size as a faith symbol, with the circle centred in it. */
   .cal-dot {
-    /* Large enough that the colour is what you notice, not the dot. */
-    width: 10.5px; height: 10.5px; border-radius: 50%;
-    background: var(--color-teal-600); flex: none;
-    /* Centred on the first line of the label. */
-    margin-top: 0.1rem;
+    flex: none;
+    width: var(--marker, 1.05rem);
+    height: var(--marker, 1.05rem);
+    display: grid;
+    place-items: center;
+    margin-top: -0.1rem;
+  }
+  .cal-dot::before {
+    content: '';
+    width: 10.5px;
+    height: 10.5px;
+    border-radius: 50%;
+    background: var(--dot, var(--color-teal-600));
   }
   .cal-time { font-variant-numeric: tabular-nums; opacity: 0.7; }
 
