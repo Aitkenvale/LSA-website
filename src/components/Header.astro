@@ -3,10 +3,18 @@ import Logo from './Logo.astro';
 import { getSiteSettings } from '../lib/site';
 
 const settings = await getSiteSettings();
+/*
+ * The calendar sits between "What We Do" and "Community Centre", shown as an
+ * icon with a divider before it. It is marked separately so both the desktop
+ * and mobile menus render it the same way — as a symbol on desktop, where the
+ * row is tight, and as a named link on mobile, where an unlabelled icon in a
+ * list of words would be a guess.
+ */
 const links = [
   { href: '/', label: 'Home' },
   { href: '/what-we-believe/', label: 'What We Believe' },
   { href: '/what-we-do/', label: 'What We Do' },
+  { href: '/calendar/', label: 'Calendar', icon: true },
   { href: '/community-centre/', label: 'Community Centre' },
 ];
 const path = Astro.url.pathname;
@@ -24,20 +32,50 @@ const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWit
 
     <nav class="hidden items-center gap-1 md:flex" aria-label="Main">
       {
-        links.map((link) => (
-          <a
-            href={link.href}
-            aria-current={isActive(link.href) ? 'page' : undefined}
-            class:list={[
-              'rounded-full px-4 py-2 text-sm font-medium transition-colors',
-              isActive(link.href)
-                ? 'bg-teal-700 text-white'
-                : 'text-teal-900 hover:bg-teal-100',
-            ]}
-          >
-            {link.label}
-          </a>
-        ))
+        links.map((link) =>
+          link.icon ? (
+            <>
+              <span class="mx-1 h-5 w-px bg-teal-900/20" aria-hidden="true" />
+              <a
+                href={link.href}
+                title={link.label}
+                aria-current={isActive(link.href) ? 'page' : undefined}
+                class:list={[
+                  'rounded-full p-2 transition-colors',
+                  isActive(link.href) ? 'bg-teal-700 text-white' : 'text-teal-900 hover:bg-teal-100',
+                ]}
+              >
+                <span class="sr-only">{link.label}</span>
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+                  <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+                  <path d="M8 13.5h2.5M13.5 13.5H16M8 17h2.5M13.5 17H16" />
+                </svg>
+              </a>
+            </>
+          ) : (
+            <a
+              href={link.href}
+              aria-current={isActive(link.href) ? 'page' : undefined}
+              class:list={[
+                'rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                isActive(link.href)
+                  ? 'bg-teal-700 text-white'
+                  : 'text-teal-900 hover:bg-teal-100',
+              ]}
+            >
+              {link.label}
+            </a>
+          ),
+        )
       }
     </nav>
 
