@@ -1152,9 +1152,21 @@
         //   `from` — what this day already is, having begun last night;
         //   `to`   — what its own evening leads into.
         // The band is then drawn left to right across the pair.
+        /*
+         * What this evening leads into is simply what tomorrow is, because a
+         * Bahá'í day begins at sunset.
+         *
+         * Taking it instead from "an observance starts tomorrow" broke any
+         * span longer than a day: every day of Ayyám-i-Há faded out to its own
+         * right-hand edge, so a continuous stretch rendered as stripes. Asking
+         * what tomorrow is makes the interior of a span solid and still hands
+         * over correctly at its end — the last day of Ayyám-i-Há gives way to
+         * the teal of ‘Alá'.
+         */
+        const tomorrow = spans.get(addDays(day, 1)) ?? null;
         const evening = eve.get(day) ?? null;
         if (from) classes.push(`from-${from}`);
-        if (evening) classes.push(`to-${evening.kind}`);
+        if (tomorrow) classes.push(`to-${tomorrow}`);
 
         const badi = gregorianToBadi(day);
         // The Badí' view leads with the Badí' day and carries the Gregorian
