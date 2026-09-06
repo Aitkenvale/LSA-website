@@ -42,7 +42,7 @@
       <p class="cal-badi-year" data-badi-year></p>
     </div>
     <div class="cal-actions">
-      <button type="button" class="cal-icon-btn" disabled aria-disabled="true" title="Signing in is not available yet">
+      <button type="button" class="cal-icon-btn" data-open-signin aria-haspopup="dialog" title="Sign in">
         <span class="sr-only">Sign in</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -74,6 +74,46 @@
     <li><span class="swatch swatch-month"></span> Bahá’í month begins</li>
     <li class="cal-legend-note">* work suspended</li>
   </ul>
+
+  <!--
+    Signing in.
+
+    The code is checked on the server and never reaches the page; what comes
+    back is a signed cookie naming a tier. A reader who is not signed in sees
+    the public calendar, which is the default rather than a fallback.
+  -->
+  <div class="cal-scrim" data-signin-scrim hidden></div>
+  <div class="cal-signin" data-signin hidden role="dialog" aria-modal="true" aria-labelledby="cal-signin-title">
+    <div class="cal-signin-head">
+      <h3 id="cal-signin-title">Sign in</h3>
+      <button type="button" class="cal-close" data-close-signin aria-label="Close">×</button>
+    </div>
+    <div class="cal-signin-body">
+      <p class="cal-help">
+        You are viewing as <strong data-tier-label>the public</strong>.
+      </p>
+
+      <div data-signin-form>
+        <p class="cal-help">
+          Enter the code for your group. Community members see where Feasts and
+          Holy Day events are held; neighbourhood and Assembly codes show more.
+        </p>
+        <label class="cal-field">
+          Access code
+          <input type="password" data-signin-code autocomplete="current-password" />
+        </label>
+        <button type="button" class="cal-primary" data-signin-submit>Sign in</button>
+        <p class="cal-error" data-signin-error hidden></p>
+      </div>
+
+      <div data-signout-form hidden>
+        <p class="cal-help">
+          Signing out returns this device to the public calendar.
+        </p>
+        <button type="button" class="cal-secondary" data-signout>Sign out</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Administrator drawer -->
   <div class="cal-scrim" data-scrim hidden></div>
@@ -914,7 +954,105 @@
     }
 
     setUpHoverCard(root, grid);
+    setUpSignIn(root, () => void render());
     void render();
+  }
+
+  /**
+   * Signing in and out.
+   *
+   * The tier lives in a signed, HttpOnly cookie, so the page cannot read it and
+   * cannot claim one it was not given. What tier the caller holds is asked of
+   * the server rather than remembered locally — the answer is the server's to
+   * give, and it is what every other request will be judged against.
+   */
+  function setUpSignIn(root: HTMLElement, onTierChange: () => void) {
+    const panel = root.querySelector<HTMLElement>('[data-signin]')!;
+    const scrim = root.querySelector<HTMLElement>('[data-signin-scrim]')!;
+    const openBtn = root.querySelector<HTMLButtonElement>('[data-open-signin]')!;
+    const tierLabel = root.querySelector<HTMLElement>('[data-tier-label]')!;
+    const signInForm = root.querySelector<HTMLElement>('[data-signin-form]')!;
+    const signOutForm = root.querySelector<HTMLElement>('[data-signout-form]')!;
+    const codeInput = root.querySelector<HTMLInputElement>('[data-signin-code]')!;
+    const error = root.querySelector<HTMLElement>('[data-signin-error]')!;
+
+    function show(tier: string, label: string) {
+      tierLabel.textContent = tier === 'public' ? 'the public' : label;
+      const signedIn = tier !== 'public';
+      signInForm.hidden = signedIn;
+      signOutForm.hidden = !signedIn;
+      openBtn.classList.toggle('is-signed-in', signedIn);
+      openBtn.title = signedIn ? `Signed in — ${label}` : 'Sign in';
+    }
+
+    async function refresh() {
+      try {
+        const res = await fetch('/api/calendar-session.json');
+        const body = (await res.json()) as { tier: string; label: string };
+        show(body.tier, body.label);
+      } catch {
+        show('public', 'Public');
+      }
+    }
+
+    function open() {
+      panel.hidden = false;
+      scrim.hidden = false;
+      error.hidden = true;
+      codeInput.value = '';
+      void refresh();
+      requestAnimationFrame(() => codeInput.focus());
+    }
+    function close() {
+      panel.hidden = true;
+      scrim.hidden = true;
+    }
+
+    openBtn.addEventListener('click', open);
+    scrim.addEventListener('click', close);
+    root.querySelector('[data-close-signin]')!.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) close();
+    });
+
+    async function submit() {
+      error.hidden = true;
+      try {
+        const res = await fetch('/api/calendar-session.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ code: codeInput.value }),
+        });
+        const body = (await res.json()) as { ok?: boolean; error?: string; tier?: string; label?: string };
+        if (!body.ok) {
+          error.textContent = body.error ?? 'That code was not recognised.';
+          error.hidden = false;
+          return;
+        }
+        show(body.tier!, body.label!);
+        codeInput.value = '';
+        close();
+        // What the calendar may show depends on the tier, so fetch it again.
+        onTierChange();
+      } catch {
+        error.textContent = 'Could not reach the server just now.';
+        error.hidden = false;
+      }
+    }
+
+    root.querySelector('[data-signin-submit]')!.addEventListener('click', () => void submit());
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void submit();
+    });
+
+    root.querySelector('[data-signout]')!.addEventListener('click', async () => {
+      await fetch('/api/calendar-session.json', { method: 'DELETE' });
+      show('public', 'Public');
+      close();
+      onTierChange();
+    });
+
+    void refresh();
   }
 
   /**
@@ -1724,6 +1862,36 @@
     font-size: 0.85rem;
     line-height: 1;
     flex: none;
+  }
+
+  /* ---- sign in ----------------------------------------------------------- */
+  .cal-signin {
+    position: fixed;
+    z-index: 55;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(22rem, calc(100vw - 2rem));
+    background: var(--color-sand-50);
+    border-radius: 0.6rem;
+    box-shadow: 0 12px 40px rgb(15 61 62 / 0.28);
+    overflow: hidden;
+  }
+  .cal-signin-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    background: var(--color-teal-900);
+    color: white;
+  }
+  .cal-signin-head h3 { font-family: var(--font-display); font-size: 1rem; margin: 0; }
+  .cal-signin-body { padding: 1rem; }
+  /* Signed in, the icon fills so the state is visible without opening it. */
+  .cal-icon-btn.is-signed-in {
+    background: var(--color-teal-800);
+    border-color: var(--color-teal-800);
+    color: white;
   }
 
   .cal-swatches { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
