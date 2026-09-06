@@ -135,11 +135,12 @@
         always available. Only configuration sits behind the code below.
       -->
       <section>
-        <h4>Show calendars</h4>
+        <h4 data-show-heading>Show calendars</h4>
         <p class="cal-help">
-          Choose which calendars appear, and drag them into the order you want.
-          Your choices are remembered on this device only, and do not change
-          what anyone else sees.
+          Choose which calendars appear in this view. Each view remembers its
+          own, so the Badí‘ view can stay uncluttered while the Gregorian one
+          shows everything. Your choices are remembered on this device only, and
+          do not change what anyone else sees.
         </p>
         <div class="cal-list" data-public-list></div>
       </section>
@@ -325,8 +326,27 @@
   const PREFS_KEY = 'townsville-calendar-prefs';
 
   interface Prefs {
-    enabled: Record<string, boolean>;
+    /**
+     * Which calendars are switched on, per view.
+     *
+     * The views are read for different reasons, so they want different
+     * calendars. Someone looking at the Badí‘ view is usually after the months
+     * and Holy Days and does not want eight other traditions in the way;
+     * looking at the Gregorian one they may well want them. Sharing a single
+     * set meant every switch had to be undone on the way back.
+     */
+    enabled: Record<View, Record<string, boolean>>;
     sectionsOpen: Record<string, boolean>;
+  }
+
+  const VIEW_LABELS: Record<View, string> = {
+    gregorian: 'Gregorian',
+    badi: 'Badí‘',
+    cycle: 'Cycle',
+  };
+
+  function emptyEnabled(): Record<View, Record<string, boolean>> {
+    return { gregorian: {}, badi: {}, cycle: {} };
   }
 
   /** What the configuration endpoint returns, depending on who is asking. */
@@ -411,7 +431,7 @@
      * otherwise the calendar's own default, so a first visit is not blank.
      */
     const isEnabled = (id: string): boolean =>
-      prefs.enabled[id] ?? listed().find((c) => c.id === id)?.defaultOn ?? false;
+      prefs.enabled[view]?.[id] ?? listed().find((c) => c.id === id)?.defaultOn ?? false;
 
     async function loadServerConfig(): Promise<void> {
       try {
@@ -516,6 +536,9 @@
           other.classList.toggle('is-current', other === button);
           other.setAttribute('aria-current', String(other === button));
         }
+        // The list is per-view, so it has to be redrawn even when the drawer is
+        // already open behind the switch.
+        syncPublicToggles();
         void render();
       });
     }
@@ -716,6 +739,8 @@
 
     function syncPublicToggles() {
       const entries = listed();
+      root.querySelector<HTMLElement>('[data-show-heading]')!.textContent =
+        `Show Calendars for ${VIEW_LABELS[view]} View`;
       publicList.innerHTML = '';
 
       for (const section of CALENDAR_SECTIONS) {
@@ -753,7 +778,8 @@
             (entry.confidence === 'approximate' ? '<span class="cal-tag">approximate</span>' : '');
 
           row.querySelector('input')!.addEventListener('change', (e) => {
-            prefs.enabled[entry.id] = (e.target as HTMLInputElement).checked;
+            // Recorded against the view being looked at, not globally.
+            (prefs.enabled[view] ??= {})[entry.id] = (e.target as HTMLInputElement).checked;
             savePrefs(prefs);
             void render();
           });
@@ -1792,13 +1818,29 @@
   function loadPrefs(): Prefs {
     try {
       const raw = localStorage.getItem(PREFS_KEY);
-      const parsed = raw ? (JSON.parse(raw) as Partial<Prefs>) : null;
+      const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      const stored = parsed?.enabled as Record<string, unknown> | undefined;
+      const enabled = emptyEnabled();
+
+      if (stored) {
+        // Choices were once kept as one flat set for every view. Carry those
+        // forward into each view rather than dropping them, so nobody has to
+        // rebuild a selection they already made.
+        const isPerView = Object.values(stored).every(
+          (v) => v !== null && typeof v === 'object',
+        );
+        for (const view of Object.keys(enabled) as View[]) {
+          enabled[view] = isPerView
+            ? ({ ...(stored[view] as Record<string, boolean>) } ?? {})
+            : { ...(stored as Record<string, boolean>) };
+        }
+      }
       return {
-        enabled: parsed?.enabled ?? {},
-        sectionsOpen: parsed?.sectionsOpen ?? {},
+        enabled,
+        sectionsOpen: (parsed?.sectionsOpen as Record<string, boolean>) ?? {},
       };
     } catch {
-      return { enabled: {}, sectionsOpen: {} };
+      return { enabled: emptyEnabled(), sectionsOpen: {} };
     }
   }
 
