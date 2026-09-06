@@ -9,10 +9,28 @@ import { generateChristian, generateOrthodox } from './christian.ts';
 import { generateJewish } from './hebrew.ts';
 import { generateIslamic } from './islamic.ts';
 import { generateBuddhist, generateHindu, generateJain, generateSikh } from './indic.ts';
+import { generateQueensland } from './queensland.ts';
 import { applyOverrides, type OverrideTable } from './overrides.ts';
 import type { Confidence, Occurrence } from './types.ts';
 
-export type CalendarGroup = 'bahai' | 'other-faith' | 'community';
+export type CalendarGroup = 'bahai' | 'other-faith' | 'community' | 'secular';
+
+/** The headings calendars are gathered under in the drawer. */
+export type CalendarSection = 'bahai' | 'interfaith' | 'secular';
+
+export const CALENDAR_SECTIONS: { id: CalendarSection; label: string }[] = [
+  { id: 'bahai', label: 'Bahá’í Calendars' },
+  { id: 'interfaith', label: 'Interfaith Calendars' },
+  { id: 'secular', label: 'Secular Calendars' },
+];
+
+/** Where a calendar sits by default; an administrator may move it. */
+export function defaultSection(group: CalendarGroup): CalendarSection {
+  if (group === 'other-faith') return 'interfaith';
+  if (group === 'secular') return 'secular';
+  // Bahá'í calendars and the community's own linked calendars sit together.
+  return 'bahai';
+}
 
 export interface GeneratedCalendar {
   id: string;
@@ -119,6 +137,16 @@ export const GENERATED_CALENDARS: GeneratedCalendar[] = [
     confidence: 'exact',
     description: 'The Hebrew calendar is fixed and arithmetic. Each festival begins the evening before.',
     generate: (from, to) => generateJewish(from, to),
+  },
+  {
+    id: 'queensland',
+    name: 'Queensland Public Holidays',
+    group: 'secular',
+    defaultOn: false,
+    confidence: 'exact',
+    description:
+      'Computed from the Holidays Act 1983, for Townsville — the Brisbane Ekka holiday does not apply here.',
+    generate: (from, to) => generateQueensland(from, to),
   },
   {
     id: 'sikhism',
@@ -248,12 +276,21 @@ export function calendarColour(id: string | undefined): string {
 export interface CalendarConfig {
   generated: Record<string, GeneratedCalendarSettings>;
   google: GoogleCalendarConfig[];
+  /** Calendar ids in display order. Anything absent keeps its registry order. */
+  order: string[];
+  /** Section overrides, where a calendar has been dragged out of its default. */
+  sections: Record<string, CalendarSection>;
 }
 
 export function defaultConfig(): CalendarConfig {
   const generated: Record<string, GeneratedCalendarSettings> = {};
   for (const c of GENERATED_CALENDARS) generated[c.id] = { enabled: c.defaultOn };
-  return { generated, google: SEEDED_GOOGLE_CALENDARS.map((c) => ({ ...c })) };
+  return {
+    generated,
+    google: SEEDED_GOOGLE_CALENDARS.map((c) => ({ ...c })),
+    order: [],
+    sections: {},
+  };
 }
 
 /** Merge a stored config over the defaults, so new calendars appear automatically. */
@@ -273,30 +310,58 @@ export function mergeConfig(stored: Partial<CalendarConfig> | null): CalendarCon
       ...stored.google.filter((c) => !SEEDED_GOOGLE_CALENDARS.some((s) => s.id === c.id)),
     ];
   }
+  base.order = stored.order ?? [];
+  base.sections = stored.sections ?? {};
   return base;
 }
 
-export type ListedCalendar =
-  | { kind: 'generated'; id: string; name: string; confidence: Confidence }
-  | { kind: 'google'; id: string; name: string };
+export type ListedCalendar = {
+  id: string;
+  name: string;
+  section: CalendarSection;
+  kind: 'generated' | 'google';
+  confidence?: Confidence;
+};
 
 /**
- * The calendars a reader can switch on, in display order: each generated
- * calendar, followed by any Google calendar anchored to it, then the rest.
- * Google calendars with no address yet are omitted — there is nothing to show.
+ * The calendars a reader can switch on, gathered under their section headings
+ * and in display order.
+ *
+ * Order comes from `config.order` where the reader has arranged things, and
+ * otherwise from the registry, with each Google calendar following whichever
+ * generated calendar it is anchored to. Google calendars with no address yet
+ * are omitted — there is nothing to show.
  */
 export function listedCalendars(config: CalendarConfig): ListedCalendar[] {
   const usable = config.google.filter((c) => c.icsUrl.trim());
-  const out: ListedCalendar[] = [];
+  const natural: ListedCalendar[] = [];
+
+  const sectionFor = (id: string, group: CalendarGroup): CalendarSection =>
+    config.sections[id] ?? defaultSection(group);
+
   for (const c of GENERATED_CALENDARS) {
-    out.push({ kind: 'generated', id: c.id, name: c.name, confidence: c.confidence });
+    natural.push({
+      id: c.id,
+      name: c.name,
+      section: sectionFor(c.id, c.group),
+      kind: 'generated',
+      confidence: c.confidence,
+    });
     for (const g of usable.filter((g) => g.after === c.id)) {
-      out.push({ kind: 'google', id: g.id, name: g.name });
+      natural.push({ id: g.id, name: g.name, section: sectionFor(g.id, 'community'), kind: 'google' });
     }
   }
   const anchors = new Set(GENERATED_CALENDARS.map((c) => c.id));
   for (const g of usable.filter((g) => !g.after || !anchors.has(g.after))) {
-    out.push({ kind: 'google', id: g.id, name: g.name });
+    natural.push({ id: g.id, name: g.name, section: sectionFor(g.id, 'community'), kind: 'google' });
   }
-  return out;
+
+  // Anything the reader has arranged leads, in their order; the rest follows in
+  // registry order, so a newly added calendar appears rather than vanishing.
+  const rank = new Map(config.order.map((id, i) => [id, i]));
+  return natural
+    .map((entry, i) => ({ entry, key: rank.get(entry.id) ?? config.order.length + i }))
+    .sort((a, b) => a.key - b.key)
+    .map((x) => x.entry);
 }
+

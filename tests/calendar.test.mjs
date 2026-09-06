@@ -32,6 +32,7 @@ import { generateBahaiFeast } from '../src/lib/calendar/bahai-generated.ts';
 import { parseIcs } from '../src/lib/calendar/ics.ts';
 import { applyOverrides, indexOverrides, needingVerification, overrideKey } from '../src/lib/calendar/overrides.ts';
 import { generateAll } from '../src/lib/calendar/registry.ts';
+import { queenslandHolidays } from '../src/lib/calendar/queensland.ts';
 
 const utDate = (jde) => isoDate(jdToGregorian(tdToUt(jde)));
 const utTime = (jde) => {
@@ -523,4 +524,67 @@ test('iCalendar: an occurrence moved to another day leaves the original date emp
   assert.ok(!dates.includes('2026-10-13'), 'the vacated date must not still show the series');
   assert.ok(dates.includes('2026-10-15'), 'the moved occurrence appears on its new date');
   assert.equal(events.filter((e) => e.date === '2026-10-15').length, 1);
+});
+
+// ---------------------------------------------------------------------------
+test('Queensland: holidays match the dates published by the Queensland Government', () => {
+  const expected2026 = {
+    "New Year's Day": '2026-01-01',
+    'Australia Day': '2026-01-26',
+    'Good Friday': '2026-04-03',
+    'Day after Good Friday': '2026-04-04',
+    'Easter Sunday': '2026-04-05',
+    'Easter Monday': '2026-04-06',
+    'Anzac Day': '2026-04-25',
+    'Labour Day': '2026-05-04',
+    "King's Birthday": '2026-10-05',
+    'Christmas Eve (part-day)': '2026-12-24',
+    'Christmas Day': '2026-12-25',
+    'Boxing Day': '2026-12-26',
+    'Boxing Day holiday': '2026-12-28',
+  };
+  const got2026 = Object.fromEntries(queenslandHolidays(2026).map((o) => [o.name, o.date]));
+  for (const [name, date] of Object.entries(expected2026)) {
+    assert.equal(got2026[name], date, `2026 ${name}`);
+  }
+  // Christmas Day is a Friday in 2026, so it gains no substitute.
+  assert.ok(!got2026['Christmas Day holiday'], '2026 needs no Christmas substitute');
+
+  const expected2027 = {
+    'Good Friday': '2027-03-26',
+    'Easter Monday': '2027-03-29',
+    // 25 April 2027 is a Sunday, so Anzac Day is observed on the Monday.
+    'Anzac Day': '2027-04-26',
+    'Labour Day': '2027-05-03',
+    "King's Birthday": '2027-10-04',
+    'Christmas Day': '2027-12-25',
+    'Boxing Day': '2027-12-26',
+    // Christmas falls on Saturday and Boxing Day on Sunday, so both gain one.
+    'Christmas Day holiday': '2027-12-27',
+    'Boxing Day holiday': '2027-12-28',
+  };
+  const got2027 = Object.fromEntries(queenslandHolidays(2027).map((o) => [o.name, o.date]));
+  for (const [name, date] of Object.entries(expected2027)) {
+    assert.equal(got2027[name], date, `2027 ${name}`);
+  }
+});
+
+test('Queensland: the show holiday is Townsville’s, not Brisbane’s', () => {
+  // Published dates for the City of Townsville, every one a first Monday in
+  // July. The Brisbane Ekka holiday must not appear at all.
+  const published = {
+    2021: '2021-07-05', 2022: '2022-07-04', 2023: '2023-07-03',
+    2024: '2024-07-01', 2025: '2025-07-07', 2026: '2026-07-06',
+  };
+  for (const [year, date] of Object.entries(published)) {
+    const show = queenslandHolidays(Number(year)).find((o) => o.key.startsWith('show-holiday'));
+    assert.equal(show.date, date, `${year} show holiday`);
+    assert.match(show.name, /Townsville/);
+    // Appointed annually rather than fixed by rule, so it must be offered for
+    // confirmation rather than presented as settled.
+    assert.equal(show.confidence, 'approximate');
+  }
+  for (const o of queenslandHolidays(2026)) {
+    assert.ok(!/Royal Queensland|Ekka/i.test(o.name), 'the Brisbane show holiday does not apply here');
+  }
 });

@@ -88,8 +88,9 @@
       <section>
         <h4>Show calendars</h4>
         <p class="cal-help">
-          Choose which calendars appear. Your choice is remembered on this
-          device only, and does not change what anyone else sees.
+          Choose which calendars appear, and drag them into the order you want.
+          Your choices are remembered on this device only, and do not change
+          what anyone else sees.
         </p>
         <div class="cal-list" data-public-list></div>
       </section>
@@ -175,6 +176,7 @@
 <script>
   import {
     CALENDAR_COLOURS,
+    CALENDAR_SECTIONS,
     GENERATED_CALENDARS,
     SEEDED_GOOGLE_CALENDARS,
     calendarColour,
@@ -197,6 +199,12 @@
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
   const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  /** Calendars that have a symbol to sit beside their entries. */
+  const FAITHS_WITH_ICONS = new Set([
+    'buddhism', 'christian', 'hinduism', 'islam',
+    'jainism', 'judaism', 'orthodox', 'sikhism',
+  ]);
 
   /** An event as rendered, whatever its source. */
   interface Entry {
@@ -372,41 +380,128 @@
 
     // ---- generated calendar settings --------------------------------------
     /**
-     * The reader-facing on/off list. Rebuilt each time the drawer opens,
-     * because Google calendars are interleaved with the generated ones and an
-     * administrator may have just added or removed one.
+     * The reader-facing on/off list, gathered under section headings and
+     * rearrangeable by dragging.
+     *
+     * Rebuilt whenever the drawer opens, because Google calendars are
+     * interleaved with the generated ones and an administrator may have just
+     * added or removed one.
      */
     const publicList = root.querySelector<HTMLElement>('[data-public-list]')!;
-    function syncPublicToggles() {
-      publicList.innerHTML = '';
-      for (const entry of listedCalendars(config)) {
-        const on =
-          entry.kind === 'generated'
-            ? (config.generated[entry.id]?.enabled ??
-               GENERATED_CALENDARS.find((c) => c.id === entry.id)!.defaultOn)
-            : (config.google.find((g) => g.id === entry.id)?.enabled ?? false);
 
-        const row = document.createElement('label');
-        row.className = 'cal-item cal-toggle';
-        row.innerHTML =
-          `<input type="checkbox" ${on ? 'checked' : ''} />` +
-          `<span class="cal-toggle-name">${escapeHtml(entry.name)}</span>` +
-          (entry.kind === 'generated' && entry.confidence === 'approximate'
-            ? '<span class="cal-tag">approximate</span>'
-            : '');
-        row.querySelector('input')!.addEventListener('change', (e) => {
-          const checked = (e.target as HTMLInputElement).checked;
-          if (entry.kind === 'generated') config.generated[entry.id] = { enabled: checked };
-          else {
-            const g = config.google.find((c) => c.id === entry.id);
-            if (g) g.enabled = checked;
-          }
-          saveConfig(config);
-          void render();
+    function syncPublicToggles() {
+      const entries = listedCalendars(config);
+      publicList.innerHTML = '';
+
+      for (const section of CALENDAR_SECTIONS) {
+        const inSection = entries.filter((e) => e.section === section.id);
+        const block = document.createElement('details');
+        block.className = 'cal-section';
+        block.open = true;
+        block.dataset.section = section.id;
+        block.innerHTML =
+          `<summary>${escapeHtml(section.label)}` +
+          `<span class="cal-section-count">${inSection.length}</span></summary>` +
+          '<div class="cal-list" data-drop></div>';
+        const list = block.querySelector<HTMLElement>('[data-drop]')!;
+
+        if (!inSection.length) {
+          list.innerHTML = '<p class="cal-help cal-empty">Drag a calendar here.</p>';
+        }
+
+        for (const entry of inSection) {
+          const on =
+            entry.kind === 'generated'
+              ? (config.generated[entry.id]?.enabled ??
+                 GENERATED_CALENDARS.find((c) => c.id === entry.id)!.defaultOn)
+              : (config.google.find((g) => g.id === entry.id)?.enabled ?? false);
+
+          const row = document.createElement('div');
+          row.className = 'cal-item cal-toggle-row';
+          row.draggable = true;
+          row.dataset.id = entry.id;
+          row.innerHTML =
+            '<span class="cal-grip" aria-hidden="true">⠿</span>' +
+            `<label class="cal-toggle"><input type="checkbox" ${on ? 'checked' : ''} />` +
+            `<span class="cal-toggle-name">${escapeHtml(entry.name)}</span></label>` +
+            (entry.confidence === 'approximate' ? '<span class="cal-tag">approximate</span>' : '');
+
+          row.querySelector('input')!.addEventListener('change', (e) => {
+            const checked = (e.target as HTMLInputElement).checked;
+            if (entry.kind === 'generated') config.generated[entry.id] = { enabled: checked };
+            else {
+              const g = config.google.find((c) => c.id === entry.id);
+              if (g) g.enabled = checked;
+            }
+            saveConfig(config);
+            void render();
+          });
+          list.appendChild(row);
+        }
+        publicList.appendChild(block);
+      }
+      wireDragging();
+    }
+
+    /**
+     * Drag to reorder, and to move a calendar between sections.
+     *
+     * Order is held as one flat list of ids spanning every section, so a
+     * calendar dropped into a different section both moves and lands in the
+     * right place within it.
+     */
+    let dragging: string | null = null;
+
+    function wireDragging() {
+      for (const row of publicList.querySelectorAll<HTMLElement>('[data-id]')) {
+        row.addEventListener('dragstart', (e) => {
+          dragging = row.dataset.id!;
+          row.classList.add('is-dragging');
+          (e as DragEvent).dataTransfer?.setData('text/plain', dragging);
         });
-        publicList.appendChild(row);
+        row.addEventListener('dragend', () => {
+          dragging = null;
+          row.classList.remove('is-dragging');
+          for (const el of publicList.querySelectorAll('.is-over')) el.classList.remove('is-over');
+        });
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (dragging && dragging !== row.dataset.id) row.classList.add('is-over');
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('is-over'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          row.classList.remove('is-over');
+          if (!dragging || dragging === row.dataset.id) return;
+          const section = row.closest<HTMLElement>('[data-section]')!.dataset.section!;
+          dropOnto(dragging, row.dataset.id!, section);
+        });
+      }
+      // Dropping on the section itself appends to its end, which is the only
+      // way to reach a section that is currently empty.
+      for (const block of publicList.querySelectorAll<HTMLElement>('[data-section]')) {
+        block.addEventListener('dragover', (e) => e.preventDefault());
+        block.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (dragging) dropOnto(dragging, null, block.dataset.section!);
+        });
       }
     }
+
+    function dropOnto(movedId: string, beforeId: string | null, section: string) {
+      const ids = listedCalendars(config).map((e) => e.id);
+      const without = ids.filter((id) => id !== movedId);
+      const at = beforeId ? without.indexOf(beforeId) : -1;
+      without.splice(at === -1 ? without.length : at, 0, movedId);
+
+      config.order = without;
+      config.sections[movedId] = section as 'bahai' | 'interfaith' | 'secular';
+      saveConfig(config);
+      syncPublicToggles();
+      void render();
+    }
+
 
     // ---- Google calendars --------------------------------------------------
     const googleList = root.querySelector<HTMLElement>('[data-google-list]')!;
@@ -744,7 +839,11 @@
           .filter((e) => e.group === 'other-faith')
           .map(
             (e) => `<li class="cal-other${e.approximate ? ' is-approx' : ''}" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
-              `<span class="faith-icon faith-${escapeHtml(e.calendarId)}" aria-hidden="true"></span>` +
+              // Only the faith calendars have a mark; a secular one would
+              // otherwise reserve the space and sit oddly indented.
+              (FAITHS_WITH_ICONS.has(e.calendarId)
+                ? `<span class="faith-icon faith-${escapeHtml(e.calendarId)}" aria-hidden="true"></span>`
+                : '') +
               `<span>${escapeHtml(keepNameWhole(e.name))}</span></li>`,
           )
           .join('');
@@ -1509,6 +1608,48 @@
   }
   .cal-admin-block > section,
   .cal-admin-block [data-admin-panel] > section { margin-bottom: 1.5rem; }
+  /* ---- sections and dragging in the calendar list ------------------------ */
+  .cal-section { margin-bottom: 0.6rem; }
+  .cal-section > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-teal-800);
+    padding: 0.3rem 0;
+  }
+  .cal-section-count {
+    font-weight: 400;
+    letter-spacing: 0;
+    color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  }
+  .cal-empty {
+    margin: 0;
+    padding: 0.5rem;
+    border: 1px dashed var(--cal-line);
+    border-radius: 0.4rem;
+    text-align: center;
+  }
+  .cal-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: grab;
+  }
+  .cal-toggle-row.is-dragging { opacity: 0.4; }
+  /* The line shows where the calendar will land, above the row hovered over. */
+  .cal-toggle-row.is-over { box-shadow: inset 0 2px 0 var(--color-teal-600); }
+  .cal-grip {
+    color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+    font-size: 0.85rem;
+    line-height: 1;
+    flex: none;
+  }
+
   .cal-swatches { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
   .cal-swatch {
     width: 1.35rem;
