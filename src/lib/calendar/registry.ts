@@ -293,11 +293,6 @@ export interface CalendarConfig {
    * rebuilt from scratch each time, so without this it springs back open.
    */
   sectionsOpen: Record<string, boolean>;
-  /**
-   * Seeded calendars the administrator has removed. Without this they would be
-   * put back by the merge below every time the page loaded.
-   */
-  removedSeeded: string[];
 }
 
 export function defaultConfig(): CalendarConfig {
@@ -309,7 +304,6 @@ export function defaultConfig(): CalendarConfig {
     order: [],
     sections: {},
     sectionsOpen: Object.fromEntries(CALENDAR_SECTIONS.map((s) => [s.id, true])),
-    removedSeeded: [],
   };
 }
 
@@ -321,7 +315,6 @@ export function mergeConfig(stored: Partial<CalendarConfig> | null): CalendarCon
     const s = stored.generated?.[c.id];
     if (s) base.generated[c.id] = { ...base.generated[c.id], ...s };
   }
-  base.removedSeeded = stored.removedSeeded ?? [];
   if (stored.google) {
     // Keep the seeded entries present even in a config saved before they
     // existed, so they do not silently vanish for someone who has one stored —
@@ -329,9 +322,7 @@ export function mergeConfig(stored: Partial<CalendarConfig> | null): CalendarCon
     const storedById = new Map(stored.google.map((c) => [c.id, c]));
     const seedIds = new Set(SEEDED_GOOGLE_CALENDARS.map((s) => s.id));
     base.google = [
-      ...SEEDED_GOOGLE_CALENDARS.filter((seed) => !base.removedSeeded.includes(seed.id)).map(
-        (seed) => ({ ...seed, ...storedById.get(seed.id) }),
-      ),
+      ...SEEDED_GOOGLE_CALENDARS.map((seed) => ({ ...seed, ...storedById.get(seed.id) })),
       ...stored.google.filter((c) => !seedIds.has(c.id)),
     ];
   }
