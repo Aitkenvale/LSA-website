@@ -101,9 +101,9 @@ test('junk in place of a document falls back to the defaults', () => {
 test('a fresh configuration is planned to Queensland terms', () => {
   const config = defaultStoredConfig();
   assert.equal(config.cycles.state, 'qld');
-  assert.equal(config.cycles.terms.length, 12);
+  assert.equal(config.cycles.terms.length, 40, 'ten years of four terms');
   assert.equal(config.cycles.termsSource.name, 'Queensland Department of Education');
-  assert.equal(config.cycles.boundaries[0], '2026-04-03');
+  assert.equal(config.cycles.boundaries[0], '2019-04-06');
   assert.deepEqual(config.cycles.phases, { expansionWeeks: 2, reflectionWeeks: 2 });
   assert.equal(config.cycles.phaseColours.expansion, 'apricot');
 });
@@ -163,6 +163,6 @@ test('a document written before cycles existed gains the defaults', () => {
   delete old.cycles;
   const config = normaliseConfig(old);
   assert.equal(config.cycles.state, 'qld');
-  assert.equal(config.cycles.terms.length, 12);
-  assert.equal(config.cycles.boundaries.length, 12);
+  assert.equal(config.cycles.terms.length, 40);
+  assert.equal(config.cycles.boundaries.length, 40);
 });

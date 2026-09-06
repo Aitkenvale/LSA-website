@@ -80,10 +80,49 @@ export interface TermSource {
  * Queensland only, because that is where this community is and because each
  * additional state means transcribing another department's calendar by hand.
  * Choosing a state with no table here leaves the dates blank for an
- * administrator to fill in; New South Wales and Victoria can fetch their own.
+ * administrator to fill in; Victoria can fetch its own.
+ *
+ * 2026 onward comes from the department's current pages. 2019 to 2025 comes
+ * from captures of that same page taken during each of those years, because a
+ * year is removed once it has passed — cycles that have already happened are
+ * still worth looking back at. Only in-year captures were used: the archive
+ * will happily answer with the nearest page it has, which is how four
+ * different years first came back carrying one year's dates. Every row is
+ * checked to start and end on a weekday, which is what caught it.
+ *
+ * Nothing before 2019 exists in the archive for this page. Cycles earlier than
+ * that fall back to the Plan's own quarters.
  */
 export const BUNDLED_TERMS: Partial<Record<AuStateId, SchoolTerm[]>> = {
   qld: [
+    { year: 2019, term: 1, start: '2019-01-29', end: '2019-04-05' },
+    { year: 2019, term: 2, start: '2019-04-23', end: '2019-06-28' },
+    { year: 2019, term: 3, start: '2019-07-15', end: '2019-09-20' },
+    { year: 2019, term: 4, start: '2019-10-08', end: '2019-12-13' },
+    { year: 2020, term: 1, start: '2020-01-28', end: '2020-04-03' },
+    { year: 2020, term: 2, start: '2020-04-20', end: '2020-06-26' },
+    { year: 2020, term: 3, start: '2020-07-13', end: '2020-09-18' },
+    { year: 2020, term: 4, start: '2020-10-06', end: '2020-12-11' },
+    { year: 2021, term: 1, start: '2021-01-27', end: '2021-04-01' },
+    { year: 2021, term: 2, start: '2021-04-19', end: '2021-06-25' },
+    { year: 2021, term: 3, start: '2021-07-12', end: '2021-09-17' },
+    { year: 2021, term: 4, start: '2021-10-05', end: '2021-12-10' },
+    { year: 2022, term: 1, start: '2022-01-24', end: '2022-04-01' },
+    { year: 2022, term: 2, start: '2022-04-19', end: '2022-06-24' },
+    { year: 2022, term: 3, start: '2022-07-11', end: '2022-09-16' },
+    { year: 2022, term: 4, start: '2022-10-04', end: '2022-12-09' },
+    { year: 2023, term: 1, start: '2023-01-23', end: '2023-03-31' },
+    { year: 2023, term: 2, start: '2023-04-17', end: '2023-06-23' },
+    { year: 2023, term: 3, start: '2023-07-10', end: '2023-09-15' },
+    { year: 2023, term: 4, start: '2023-10-03', end: '2023-12-08' },
+    { year: 2024, term: 1, start: '2024-01-22', end: '2024-03-28' },
+    { year: 2024, term: 2, start: '2024-04-15', end: '2024-06-21' },
+    { year: 2024, term: 3, start: '2024-07-08', end: '2024-09-13' },
+    { year: 2024, term: 4, start: '2024-09-30', end: '2024-12-13' },
+    { year: 2025, term: 1, start: '2025-01-28', end: '2025-04-04' },
+    { year: 2025, term: 2, start: '2025-04-22', end: '2025-06-27' },
+    { year: 2025, term: 3, start: '2025-07-14', end: '2025-09-19' },
+    { year: 2025, term: 4, start: '2025-10-07', end: '2025-12-12' },
     { year: 2026, term: 1, start: '2026-01-27', end: '2026-04-02' },
     { year: 2026, term: 2, start: '2026-04-20', end: '2026-06-26' },
     { year: 2026, term: 3, start: '2026-07-13', end: '2026-09-18' },

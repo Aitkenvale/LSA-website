@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  DEFAULT_PLANS, cycleMidpoint, monthsBetween, nameCycle, planAt, planCycleNumber, planEnd,
+  DEFAULT_PLANS, cycleMidpoint, monthsBetween, nameCycle, planAt, planCycleNumber, planEnd, planQuarterBoundaries,
 } from '../src/lib/calendar/plans.ts';
 import { BUNDLED_TERMS, boundariesFromTerms, cyclesFromBoundaries } from '../src/lib/calendar/school-terms.ts';
 
@@ -48,8 +48,13 @@ test('September 2026 is cycle 18 of the Nine Year Plan', () => {
 
 test('the Plan cycle advances by one for each local cycle, without a repeat or a gap', () => {
   const cycles = cyclesFromBoundaries(boundariesFromTerms(BUNDLED_TERMS.qld));
-  const numbered = cycles.map((c) => nameCycle(c.start, c.end, DEFAULT_PLANS).number);
-  assert.deepEqual(numbered, [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]);
+  const nineYear = cycles.filter((c) => c.start >= '2022-04-22');
+  const numbered = nineYear.map((c) => nameCycle(c.start, c.end, DEFAULT_PLANS).number);
+  // Every cycle of the Nine Year Plan the term dates cover, in order.
+  assert.deepEqual(numbered, Array.from({ length: numbered.length }, (_, i) => i + 2));
+  // The anchor: September 2026 is the eighteenth.
+  const now = cycles.find((c) => '2026-09-07' >= c.start && '2026-09-07' <= c.end);
+  assert.equal(nameCycle(now.start, now.end, DEFAULT_PLANS).number, 18);
 });
 
 test('the Plan begins at cycle one', () => {
@@ -93,4 +98,60 @@ test('browsing into a Plan that has been added takes its name', () => {
 test('plans given out of order are still read in sequence', () => {
   const jumbled = [DEFAULT_PLANS[2], DEFAULT_PLANS[0], DEFAULT_PLANS[1]];
   assert.equal(planAt('2021-06-01', jumbled).name, 'One Year Plan');
+});
+
+// ---- reaching back before the term dates ----------------------------------
+
+test('the Plan supplies boundaries where the local dates run out', () => {
+  const boundaries = planQuarterBoundaries(DEFAULT_PLANS, '2026-04-03');
+  assert.ok(boundaries.length > 0);
+  assert.equal(boundaries[0], '2016-04-20', 'starts at the earliest Plan');
+  assert.ok(boundaries.every((b) => b < '2026-04-03'), 'never overlaps the real dates');
+  // Quarters, three months apart, within a Plan.
+  assert.deepEqual(boundaries.slice(0, 4), ['2016-04-20', '2016-07-20', '2016-10-20', '2017-01-20']);
+});
+
+test('each Plan restarts its own quarters at its Riḍván', () => {
+  const boundaries = planQuarterBoundaries(DEFAULT_PLANS, '2026-04-03');
+  // The One Year Plan begins 20 April 2021 and the Nine Year Plan 22 April
+  // 2022, so each appears rather than the first Plan's grid running on.
+  assert.ok(boundaries.includes('2021-04-20'));
+  assert.ok(boundaries.includes('2022-04-22'));
+  // No boundary sits within six weeks of the Plan that follows it, which
+  // would otherwise leave a two-day cycle at the handover.
+  for (const start of ['2021-04-20', '2022-04-22']) {
+    const stub = boundaries.filter(
+      (b) => b < start && (new Date(start) - new Date(b)) / 86400000 < 42,
+    );
+    assert.deepEqual(stub, [], `stub cycle before ${start}`);
+  }
+});
+
+test('no stub cycle is left against the first real boundary', () => {
+  const boundaries = planQuarterBoundaries(DEFAULT_PLANS, '2026-04-03');
+  const last = boundaries[boundaries.length - 1];
+  const days = (new Date('2026-04-03') - new Date(last)) / 86400000;
+  assert.ok(days >= 42, `last fallback boundary is only ${days} days before the real one`);
+});
+
+test('the backfilled cycles number continuously into the real ones', () => {
+  const real = boundariesFromTerms(BUNDLED_TERMS.qld);
+  const all = [...planQuarterBoundaries(DEFAULT_PLANS, real[0]), ...real];
+  const cycles = cyclesFromBoundaries(all);
+  const numbers = cycles.map((c) => nameCycle(c.start, c.end, DEFAULT_PLANS).number);
+  // Cycle 1 of the Five Year Plan through to the far end, with no gap or
+  // repeat where the Plan's dates hand over to Queensland's.
+  assert.equal(numbers[0], 1);
+  // Cycle 1 of a Plan is the one Riḍván falls inside, not the first to begin
+  // after it — the local cycle straddles the Plan's opening day.
+  const opens = cycles.findIndex((c) => '2022-04-22' >= c.start && '2022-04-22' <= c.end);
+  assert.equal(numbers[opens], 1, 'the Nine Year Plan restarts at one');
+  assert.equal(numbers[opens + 1], 2);
+  const handover = cycles.findIndex((c) => c.start === real[0]);
+  assert.ok(handover > 0, 'the fallback supplies cycles before the term dates');
+  assert.equal(numbers[handover] - numbers[handover - 1], 1, 'no gap at the handover');
+  assert.ok(cycles[handover - 1].end < cycles[handover].start, 'no overlap at the handover');
+  // And the anchor still holds across the joined series.
+  const now = cycles.find((c) => '2026-09-07' >= c.start && '2026-09-07' <= c.end);
+  assert.equal(nameCycle(now.start, now.end, DEFAULT_PLANS).label, 'Cycle 18 — Nine Year Plan');
 });

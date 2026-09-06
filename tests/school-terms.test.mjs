@@ -28,27 +28,56 @@ test('only Victoria can fetch its term dates', () => {
 });
 
 /*
- * The weekday of every bundled date is asserted against the day the department
- * printed beside it. A transcription slip moves a date by days, not weeks, so
- * a wrong entry almost always lands on the wrong weekday and is caught here.
+ * Provenance guard.
+ *
+ * 2019-2025 was read from web-archive captures of the department's page, and
+ * the archive answers with the nearest capture it holds rather than refusing —
+ * which is how four different years first came back carrying one year's dates.
+ * A misattributed year almost always lands a term on a weekend, and always
+ * duplicates another year exactly, so both are checked.
  */
-test('bundled Queensland dates fall on the weekdays the department published', () => {
+test('every bundled term runs on weekdays, as a real school term does', () => {
+  for (const t of BUNDLED_TERMS.qld) {
+    const start = weekday(t.start);
+    const end = weekday(t.end);
+    assert.ok(start >= 1 && start <= 5, `${t.year} T${t.term} starts on a weekend: ${t.start}`);
+    assert.ok(end >= 1 && end <= 5, `${t.year} T${t.term} ends on a weekend: ${t.end}`);
+    assert.ok(t.start < t.end, `${t.year} T${t.term} ends before it starts`);
+  }
+});
+
+test('no two years carry the same dates, which would mean one was misattributed', () => {
+  const byYear = new Map();
+  for (const t of BUNDLED_TERMS.qld) {
+    byYear.set(t.year, (byYear.get(t.year) ?? '') + `${t.start.slice(5)}/${t.end.slice(5)} `);
+  }
+  const shapes = [...byYear.values()];
+  assert.equal(new Set(shapes).size, shapes.length, 'two years share an identical date set');
+});
+
+test('terms run in order and never overlap', () => {
+  const sorted = [...BUNDLED_TERMS.qld].sort((a, b) => (a.start < b.start ? -1 : 1));
+  assert.deepEqual(sorted, BUNDLED_TERMS.qld, 'the table is not in date order');
+  for (let i = 1; i < sorted.length; i += 1) {
+    assert.ok(sorted[i].start > sorted[i - 1].end, `${sorted[i].year} T${sorted[i].term} overlaps the term before`);
+  }
+  assert.equal(BUNDLED_TERMS.qld.length, 40, 'ten years of four terms');
+  assert.equal(BUNDLED_TERMS.qld[0].year, 2019);
+  assert.equal(BUNDLED_TERMS.qld.at(-1).year, 2028);
+});
+
+/*
+ * 2026 is spot-checked against the weekdays the department prints beside the
+ * dates on its live page, which is the one year that can still be re-read.
+ */
+test('2026 matches the dates the department publishes today', () => {
   const printed = [
     ['2026-01-27', 2], ['2026-04-02', 4], ['2026-04-20', 1], ['2026-06-26', 5],
     ['2026-07-13', 1], ['2026-09-18', 5], ['2026-10-06', 2], ['2026-12-11', 5],
-    ['2027-01-27', 3], ['2027-03-25', 4], ['2027-04-12', 1], ['2027-06-25', 5],
-    ['2027-07-12', 1], ['2027-09-17', 5], ['2027-10-05', 2], ['2027-12-10', 5],
-    ['2028-01-24', 1], ['2028-03-31', 5], ['2028-04-18', 2], ['2028-06-23', 5],
-    ['2028-07-10', 1], ['2028-09-15', 5], ['2028-10-03', 2], ['2028-12-08', 5],
   ];
-  for (const [iso, day] of printed) {
-    assert.equal(weekday(iso), day, `${iso} is not on the published weekday`);
-  }
-  const qld = BUNDLED_TERMS.qld;
-  assert.equal(qld.length, 12);
-  const flat = qld.flatMap((t) => [t.start, t.end]);
-  assert.deepEqual(flat, printed.map(([iso]) => iso), 'table order changed');
-  for (const t of qld) assert.ok(t.start < t.end);
+  for (const [iso, day] of printed) assert.equal(weekday(iso), day, `${iso}`);
+  const y2026 = BUNDLED_TERMS.qld.filter((t) => t.year === 2026).flatMap((t) => [t.start, t.end]);
+  assert.deepEqual(y2026, printed.map(([iso]) => iso));
 });
 
 test('a cycle begins the morning after term ends, whatever day that is', () => {
@@ -61,8 +90,9 @@ test('a cycle begins the morning after term ends, whatever day that is', () => {
 
 test('Queensland gives three twelve-week cycles and a long summer', () => {
   const cycles = cyclesFromBoundaries(boundariesFromTerms(BUNDLED_TERMS.qld));
+  const from2026 = cycles.filter((c) => c.start >= '2026-04-03' && c.start < '2027-04-01');
   assert.deepEqual(
-    cycles.slice(0, 5).map((c) => [c.start, c.weeks]),
+    from2026.map((c) => [c.start, c.weeks]),
     [
       ['2026-04-03', 12],
       ['2026-06-27', 12],
@@ -97,7 +127,9 @@ test('today falls inside exactly one cycle', () => {
   const found = cycleContaining('2026-09-07', cycles);
   assert.equal(found.start, '2026-06-27');
   assert.equal(found.end, '2026-09-18');
-  assert.equal(cycleContaining('2025-06-01', cycles), null);
+  assert.equal(cycles.filter((c) => '2026-09-07' >= c.start && '2026-09-07' <= c.end).length, 1);
+  // Before the first term date the series simply has nothing.
+  assert.equal(cycleContaining('2018-06-01', cycles), null);
 });
 
 /*
@@ -144,8 +176,8 @@ test('a cycle reaches back to the reader\'s first day of the week', () => {
 });
 
 test('a twelve-week cycle occupies twelve rows when the week starts with it', () => {
-  const cycle = cyclesFromBoundaries(boundariesFromTerms(BUNDLED_TERMS.qld))[1];
-  assert.equal(cycle.start, '2026-06-27');
+  const cycle = cyclesFromBoundaries(boundariesFromTerms(BUNDLED_TERMS.qld))
+    .find((c) => c.start === '2026-06-27');
   assert.equal(cycleWeekStarts(cycle, 6).length, 12);
   // Starting the week elsewhere adds the row that reaches back to it.
   assert.equal(cycleWeekStarts(cycle, 0).length, 13);

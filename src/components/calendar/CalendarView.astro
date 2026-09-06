@@ -267,6 +267,9 @@
             <button type="button" class="cal-secondary" data-cycle-load hidden>
               Load term dates
             </button>
+            <button type="button" class="cal-secondary" data-cycle-reset-terms>
+              Reset dates to this state's terms
+            </button>
             <p class="cal-error" data-cycle-error hidden></p>
 
             <div class="cal-list" data-cycle-list></div>
@@ -368,7 +371,7 @@
     Cycle, PhaseId, SchoolTerm, TermSource, WeekDay,
   } from '../../lib/calendar/school-terms';
   import type { Plan } from '../../lib/calendar/plans';
-  import { nameCycle, planEnd, sortPlans } from '../../lib/calendar/plans';
+  import { nameCycle, planEnd, planQuarterBoundaries, sortPlans } from '../../lib/calendar/plans';
   import {
     AU_STATES,
     BUNDLED_TERMS,
@@ -641,7 +644,23 @@
      */
     function allCycles(): Cycle[] {
       const settings = server.config?.cycles ?? server.cycles;
-      return settings ? cyclesFromBoundaries(settings.boundaries) : [];
+      if (!settings) return [];
+      const real = [...new Set(settings.boundaries)].sort();
+      if (!real.length) return [];
+      /*
+       * Before the term dates begin, the Plan's own quarters stand in, so the
+       * view reaches back to the earliest Plan on the list rather than stopping
+       * where Queensland's archive happens to run out.
+       */
+      const backfill = planQuarterBoundaries(settings.plans, real[0]);
+      return cyclesFromBoundaries([...backfill, ...real]);
+    }
+
+    /** Where the real term dates start; everything earlier is the Plan's. */
+    function firstLocalBoundary(): string | null {
+      const settings = server.config?.cycles ?? server.cycles;
+      const real = settings ? [...new Set(settings.boundaries)].sort() : [];
+      return real[0] ?? null;
     }
 
     /** The cycle running today, which is where the view opens. */
@@ -1053,6 +1072,36 @@
         });
       }
     }
+
+    /*
+     * Re-read the bundled table.
+     *
+     * The dates are stored once and then belong to the Assembly, which is what
+     * lets them be corrected by hand — but it also means a table that has since
+     * been extended will not appear on its own. This says "take the shipped
+     * dates again", and is the only way back to them short of changing state
+     * and changing it back.
+     */
+    root.querySelector('[data-cycle-reset-terms]')!.addEventListener('click', () => {
+      const settings = cycleSettings();
+      const bundled = BUNDLED_TERMS[settings.state];
+      const error = root.querySelector<HTMLElement>('[data-cycle-error]')!;
+      if (!bundled) {
+        error.textContent = 'No dates ship for that state. Enter the cycles by hand.';
+        error.hidden = false;
+        return;
+      }
+      if (!window.confirm(
+        'Replace the cycle dates with the dates that ship for this state? Any you have edited by hand will be lost.',
+      )) return;
+      error.hidden = true;
+      void saveCycles({
+        ...settings,
+        terms: bundled.map((t) => ({ ...t })),
+        termsSource: TERM_SOURCES[settings.state],
+        boundaries: boundariesFromTerms(bundled),
+      });
+    });
 
     cycleWeekStart.addEventListener('change', () => {
       void saveCycles({ ...cycleSettings(), weekStart: Number(cycleWeekStart.value) as WeekDay });
@@ -1608,12 +1657,18 @@
         }
         const settings = server.config?.cycles ?? server.cycles;
         const naming = nameCycle(cycle.start, cycle.end, settings?.plans ?? []);
+        // Cycles before the term dates carry the Plan's quarters, not the
+        // weeks this community actually worked to. Say so rather than let
+        // them pass as local dates.
+        const local = firstLocalBoundary();
+        const estimated = local !== null && cycle.start < local;
         return {
           first: cycle.start,
           last: cycle.end,
           title: naming.label,
           subtitle:
-            `${formatLongDate(cycle.start)} – ${formatLongDate(cycle.end)} · ${cycle.weeks} weeks`,
+            `${formatLongDate(cycle.start)} – ${formatLongDate(cycle.end)} · ${cycle.weeks} weeks` +
+            (estimated ? ' · Plan dates' : ''),
         };
       }
       if (view === 'badi') {

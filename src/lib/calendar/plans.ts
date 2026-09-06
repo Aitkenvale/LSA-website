@@ -114,3 +114,47 @@ export function nameCycle(start: string, end: string, plans: Plan[]): CycleNamin
   const label = plan && number ? `Cycle ${number} — ${plan.name}` : 'Cycle';
   return { plan, number, label };
 }
+
+/**
+ * Cycle boundaries taken from a Plan's own quarters.
+ *
+ * Used only where the local dates run out. Queensland stops publishing a
+ * year's term dates once it has passed, and the web archive holds nothing for
+ * this page before 2019, so cycles earlier than that cannot be reconstructed
+ * from the holidays. The Plan's quarters can: they run from its Riḍván, three
+ * months apart, which is what our local cycles approximate anyway.
+ *
+ * These are shown as the Plan's dates rather than passed off as the
+ * community's, because they are not the weeks anyone actually worked to —
+ * only the right frame for a cycle number.
+ */
+export function planQuarterBoundaries(plans: Plan[], before: string): string[] {
+  const sorted = sortPlans(plans);
+  const dates: string[] = [];
+
+  /*
+   * A quarter falling days before the next boundary — whether that is the next
+   * Plan's Riḍván or the first real term date — would make a stub cycle of a
+   * week or two, which is not a cycle anyone planned. Six weeks is the drift
+   * the two systems can genuinely differ by, so anything closer is dropped in
+   * favour of the date that follows it.
+   */
+  const GAP_DAYS = 42;
+  const daysApart = (a: string, b: string) =>
+    (new Date(b).getTime() - new Date(a).getTime()) / 86400000;
+
+  for (let i = 0; i < sorted.length; i += 1) {
+    const plan = sorted[i];
+    const stop = sorted[i + 1]?.start ?? before;
+    const from = parseIso(plan.start);
+    for (let q = 0; ; q += 1) {
+      const iso = new Date(Date.UTC(from.year, from.month - 1 + q * 3, from.day))
+        .toISOString().slice(0, 10);
+      if (iso >= stop || iso >= before) break;
+      // The Plan's own first day always stands, however close the next lies.
+      if (q > 0 && (daysApart(iso, stop) < GAP_DAYS || daysApart(iso, before) < GAP_DAYS)) break;
+      dates.push(iso);
+    }
+  }
+  return [...new Set(dates)].sort();
+}
