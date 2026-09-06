@@ -442,12 +442,15 @@
 
         const err = row.querySelector<HTMLElement>('[data-g-error]')!;
         const urlInput = row.querySelector<HTMLInputElement>('[data-g-url]')!;
+        const summaryName = row.querySelector<HTMLElement>('.cal-toggle-name')!;
+        const summaryTag = row.querySelector<HTMLElement>('.cal-tag')!;
 
         const commit = () => {
           const url = urlInput.value.trim();
           err.hidden = true;
-          if (url && !/^https:\/\/calendar\.google\.com\//.test(url)) {
-            err.textContent = 'That must be a https://calendar.google.com/… iCal address.';
+          if (url && !isSupportedFeedUrl(url)) {
+            err.textContent =
+              'That must be a Google Calendar or Outlook iCal address (calendar.google.com or outlook.office365.com).';
             err.hidden = false;
             return;
           }
@@ -459,7 +462,13 @@
           // address, so do not make that a second step.
           if (hadNoUrl && url) cal.enabled = true;
           saveConfig(config);
-          renderGoogleList();
+
+          // Update this row in place rather than rebuilding the list. Rebuilding
+          // replaced the element being edited, which collapsed the row and threw
+          // away focus the moment you tabbed from one field to the next.
+          summaryName.textContent = cal.name;
+          summaryTag.textContent = cal.icsUrl.trim() ? 'connected' : 'no address';
+
           syncPublicToggles();
           void render();
         };
@@ -490,8 +499,9 @@
         googleError.hidden = false;
         return;
       }
-      if (!/^https:\/\/calendar\.google\.com\//.test(icsUrl)) {
-        googleError.textContent = 'That must be a https://calendar.google.com/… iCal address.';
+      if (!isSupportedFeedUrl(icsUrl)) {
+        googleError.textContent =
+          'That must be a Google Calendar or Outlook iCal address (calendar.google.com or outlook.office365.com).';
         googleError.hidden = false;
         return;
       }
@@ -951,6 +961,15 @@
    * non-breaking hyphen keeps the name whole and moves the break to a space,
    * where it belongs. Applies to Naw-Rúz, Ayyám-i-Há and the rest equally.
    */
+  /**
+   * Calendar feeds we will fetch. Mirrors the allowlist the proxy enforces on
+   * the server — this copy only exists to give a useful message before the
+   * request is made, and is not what actually protects the endpoint.
+   */
+  function isSupportedFeedUrl(url: string): boolean {
+    return /^https:\/\/(calendar\.google\.com|outlook\.(office365|office|live)\.com)\//.test(url);
+  }
+
   function keepNameWhole(s: string): string {
     return s.replace(/-/g, '\u2011');
   }

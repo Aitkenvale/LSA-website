@@ -14,7 +14,15 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
  * Cloudflare's network. Google Calendar's secret iCal addresses live on
  * calendar.google.com, so that is all we allow.
  */
-const ALLOWED_HOSTS = new Set(['calendar.google.com', 'www.google.com']);
+const ALLOWED_HOSTS = new Set([
+  // Google Calendar secret iCal addresses
+  'calendar.google.com',
+  'www.google.com',
+  // Microsoft 365 / Outlook published calendars
+  'outlook.office365.com',
+  'outlook.office.com',
+  'outlook.live.com',
+]);
 
 export const GET: APIRoute = async ({ url }) => {
   const target = url.searchParams.get('url') ?? '';
@@ -33,7 +41,11 @@ export const GET: APIRoute = async ({ url }) => {
   }
   if (parsedUrl.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsedUrl.hostname)) {
     return json(
-      { error: 'Only Google Calendar iCal addresses (https://calendar.google.com/…) are accepted.' },
+      {
+        error:
+          'Only Google Calendar or Outlook iCal addresses are accepted ' +
+          '(calendar.google.com or outlook.office365.com).',
+      },
       400,
     );
   }
@@ -45,19 +57,22 @@ export const GET: APIRoute = async ({ url }) => {
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
+      // Outlook answers a stale or unpublished calendar with 404 or 417, and
+      // Google with 404, so both point at the same thing: the address is wrong
+      // or has been revoked.
+      const gone = res.status === 404 || res.status === 417;
       return json(
         {
-          error:
-            res.status === 404
-              ? 'Google returned "not found" — check the secret iCal address is current.'
-              : `Google returned ${res.status}.`,
+          error: gone
+            ? 'That calendar could not be found — check the address is current and still shared.'
+            : `The calendar service returned ${res.status}.`,
         },
         502,
       );
     }
     text = await res.text();
   } catch {
-    return json({ error: 'Could not reach Google Calendar.' }, 502);
+    return json({ error: 'Could not reach the calendar service.' }, 502);
   }
 
   if (!text.includes('BEGIN:VCALENDAR')) {
