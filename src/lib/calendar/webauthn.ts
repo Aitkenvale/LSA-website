@@ -22,6 +22,18 @@
  * is that the same key signs each time, which is what the assertion proves.
  */
 
+/**
+ * A failure this code chose to report.
+ *
+ * Distinguished from an ordinary Error so that callers can repeat these
+ * messages to a person — they are written for one, and say nothing an attacker
+ * gains by hearing — while anything unexpected becomes a flat refusal. A
+ * malformed attestation once surfaced "attestation.get is not a function" to
+ * the browser, which tells a stranger about the inside of the Worker and tells
+ * an administrator nothing at all.
+ */
+export class WebAuthnError extends Error {}
+
 // ---- base64url --------------------------------------------------------------
 
 export function bytesToB64u(bytes: Uint8Array): string {
@@ -67,7 +79,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
  * stops.
  */
 export function cborDecode(bytes: Uint8Array, start = 0): { value: unknown; next: number } {
-  if (start >= bytes.length) throw new Error('CBOR ended early');
+  if (start >= bytes.length) throw new WebAuthnError('CBOR ended early');
   const first = bytes[start];
   const major = first >> 5;
   const minor = first & 0x1f;
@@ -79,7 +91,7 @@ export function cborDecode(bytes: Uint8Array, start = 0): { value: unknown; next
   else if (minor === 26) {
     length = ((bytes[pos] << 24) >>> 0) + (bytes[pos + 1] << 16) + (bytes[pos + 2] << 8) + bytes[pos + 3];
     pos += 4;
-  } else if (minor >= 27) throw new Error('CBOR value too large to be expected here');
+  } else if (minor >= 27) throw new WebAuthnError('CBOR value too large to be expected here');
 
   switch (major) {
     case 0: return { value: length, next: pos };
@@ -109,9 +121,9 @@ export function cborDecode(bytes: Uint8Array, start = 0): { value: unknown; next
       if (minor === 20) return { value: false, next: pos };
       if (minor === 21) return { value: true, next: pos };
       if (minor === 22) return { value: null, next: pos };
-      throw new Error('Unsupported CBOR simple value');
+      throw new WebAuthnError('Unsupported CBOR simple value');
     default:
-      throw new Error('Unsupported CBOR major type');
+      throw new WebAuthnError('Unsupported CBOR major type');
   }
 }
 
@@ -129,7 +141,7 @@ export interface AuthenticatorData {
 }
 
 export function parseAuthenticatorData(data: Uint8Array): AuthenticatorData {
-  if (data.length < 37) throw new Error('Authenticator data is too short');
+  if (data.length < 37) throw new WebAuthnError('Authenticator data is too short');
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const flags = data[32];
 
@@ -142,12 +154,13 @@ export function parseAuthenticatorData(data: Uint8Array): AuthenticatorData {
 
   // Attested credential data is present only when a credential is created.
   if ((flags & 0x40) !== 0) {
-    if (data.length < 55) throw new Error('Attested credential data is truncated');
+    if (data.length < 55) throw new WebAuthnError('Attested credential data is truncated');
     const idLength = view.getUint16(53);
     const idStart = 55;
-    if (data.length < idStart + idLength) throw new Error('Credential id is truncated');
+    if (data.length < idStart + idLength) throw new WebAuthnError('Credential id is truncated');
     parsed.credentialId = data.slice(idStart, idStart + idLength);
     const key = cborDecode(data, idStart + idLength);
+    if (!(key.value instanceof Map)) throw new WebAuthnError('Credential key was malformed');
     parsed.credentialPublicKey = key.value as Map<unknown, unknown>;
   }
   return parsed;
@@ -170,7 +183,7 @@ export async function importCoseKey(cose: Map<unknown, unknown>): Promise<{ key:
   if (alg === ES256) {
     const x = cose.get(-2) as Uint8Array;
     const y = cose.get(-3) as Uint8Array;
-    if (!(x instanceof Uint8Array) || !(y instanceof Uint8Array)) throw new Error('Malformed EC2 key');
+    if (!(x instanceof Uint8Array) || !(y instanceof Uint8Array)) throw new WebAuthnError('Malformed EC2 key');
     const key = await crypto.subtle.importKey(
       'jwk',
       { kty: 'EC', crv: 'P-256', x: bytesToB64u(x), y: bytesToB64u(y), ext: true },
@@ -183,7 +196,7 @@ export async function importCoseKey(cose: Map<unknown, unknown>): Promise<{ key:
   if (alg === RS256) {
     const n = cose.get(-1) as Uint8Array;
     const e = cose.get(-2) as Uint8Array;
-    if (!(n instanceof Uint8Array) || !(e instanceof Uint8Array)) throw new Error('Malformed RSA key');
+    if (!(n instanceof Uint8Array) || !(e instanceof Uint8Array)) throw new WebAuthnError('Malformed RSA key');
     const key = await crypto.subtle.importKey(
       'jwk',
       { kty: 'RSA', n: bytesToB64u(n), e: bytesToB64u(e), ext: true },
@@ -193,7 +206,7 @@ export async function importCoseKey(cose: Map<unknown, unknown>): Promise<{ key:
     );
     return { key, alg: RS256 };
   }
-  throw new Error('Unsupported key algorithm');
+  throw new WebAuthnError('Unsupported key algorithm');
 }
 
 /**
@@ -207,18 +220,18 @@ export async function importCoseKey(cose: Map<unknown, unknown>): Promise<{ key:
  * each half is length-checked rather than trusted.
  */
 export function derToRawSignature(der: Uint8Array): Uint8Array {
-  if (der[0] !== 0x30) throw new Error('Signature is not a DER sequence');
+  if (der[0] !== 0x30) throw new WebAuthnError('Signature is not a DER sequence');
   let pos = 2;
   if (der[1] & 0x80) pos = 2 + (der[1] & 0x7f);
 
   const read = (): Uint8Array => {
-    if (der[pos] !== 0x02) throw new Error('Signature integer expected');
+    if (der[pos] !== 0x02) throw new WebAuthnError('Signature integer expected');
     const length = der[pos + 1];
     let value = der.slice(pos + 2, pos + 2 + length);
     pos += 2 + length;
     // Strip the sign byte DER adds, then left-pad to the curve's 32.
     while (value.length > 32 && value[0] === 0) value = value.slice(1);
-    if (value.length > 32) throw new Error('Signature integer is too long');
+    if (value.length > 32) throw new WebAuthnError('Signature integer is too long');
     const padded = new Uint8Array(32);
     padded.set(value, 32 - value.length);
     return padded;
@@ -262,11 +275,11 @@ export function checkClientData(
   try {
     data = JSON.parse(json) as ClientData;
   } catch {
-    throw new Error('Client data was not valid JSON');
+    throw new WebAuthnError('Client data was not valid JSON');
   }
-  if (data.type !== expected.type) throw new Error('Wrong ceremony type');
-  if (!timingSafeEqual(data.challenge, expected.challenge)) throw new Error('Challenge did not match');
-  if (!expected.origins.includes(data.origin)) throw new Error('Origin did not match');
+  if (data.type !== expected.type) throw new WebAuthnError('Wrong ceremony type');
+  if (!timingSafeEqual(data.challenge, expected.challenge)) throw new WebAuthnError('Challenge did not match');
+  if (!expected.origins.includes(data.origin)) throw new WebAuthnError('Origin did not match');
   return data;
 }
 
@@ -302,23 +315,25 @@ export async function verifyRegistration(
     origins: input.expectedOrigins,
   });
 
-  const attestation = cborDecode(input.attestationObject).value as Map<unknown, unknown>;
+  const decoded = cborDecode(input.attestationObject).value;
+  if (!(decoded instanceof Map)) throw new WebAuthnError('Attestation object was malformed');
+  const attestation = decoded as Map<unknown, unknown>;
   const authData = attestation.get('authData');
-  if (!(authData instanceof Uint8Array)) throw new Error('Attestation carried no authenticator data');
+  if (!(authData instanceof Uint8Array)) throw new WebAuthnError('Attestation carried no authenticator data');
 
   const parsed = parseAuthenticatorData(authData);
   const expectedRpIdHash = await sha256(new TextEncoder().encode(input.rpId));
   if (bytesToB64u(parsed.rpIdHash) !== bytesToB64u(expectedRpIdHash)) {
-    throw new Error('Credential was made for another site');
+    throw new WebAuthnError('Credential was made for another site');
   }
   // Without user presence the ceremony proves only that a device was reachable,
   // not that anybody agreed to it.
-  if (!parsed.userPresent) throw new Error('No one was present');
+  if (!parsed.userPresent) throw new WebAuthnError('No one was present');
   if (!parsed.credentialId || !parsed.credentialPublicKey) {
-    throw new Error('Registration carried no credential');
+    throw new WebAuthnError('Registration carried no credential');
   }
   if (bytesToB64u(parsed.credentialId) !== input.credentialId) {
-    throw new Error('Credential id did not match the one reported');
+    throw new WebAuthnError('Credential id did not match the one reported');
   }
 
   const { alg } = await importCoseKey(parsed.credentialPublicKey);
@@ -353,11 +368,13 @@ export async function verifyAssertion(input: AssertionInput): Promise<{ signCoun
   const parsed = parseAuthenticatorData(input.authenticatorData);
   const expectedRpIdHash = await sha256(new TextEncoder().encode(input.rpId));
   if (bytesToB64u(parsed.rpIdHash) !== bytesToB64u(expectedRpIdHash)) {
-    throw new Error('Signed for another site');
+    throw new WebAuthnError('Signed for another site');
   }
-  if (!parsed.userPresent) throw new Error('No one was present');
+  if (!parsed.userPresent) throw new WebAuthnError('No one was present');
 
-  const cose = cborDecode(b64uToBytes(input.credential.publicKey)).value as Map<unknown, unknown>;
+  const decodedKey = cborDecode(b64uToBytes(input.credential.publicKey)).value;
+  if (!(decodedKey instanceof Map)) throw new WebAuthnError('Stored key was malformed');
+  const cose = decodedKey as Map<unknown, unknown>;
   const { key, alg } = await importCoseKey(cose);
 
   const clientHash = await sha256(new TextEncoder().encode(input.clientDataJSON));
@@ -369,7 +386,7 @@ export async function verifyAssertion(input: AssertionInput): Promise<{ signCoun
     ? await crypto.subtle.verify(
         { name: 'ECDSA', hash: 'SHA-256' }, key, derToRawSignature(input.signature), signed)
     : await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, input.signature, signed);
-  if (!ok) throw new Error('Signature did not verify');
+  if (!ok) throw new WebAuthnError('Signature did not verify');
 
   /*
    * A counter that has gone backwards means two authenticators are answering
@@ -379,7 +396,7 @@ export async function verifyAssertion(input: AssertionInput): Promise<{ signCoun
    */
   if (input.credential.signCount > 0 && parsed.signCount > 0
       && parsed.signCount <= input.credential.signCount) {
-    throw new Error('Sign counter went backwards');
+    throw new WebAuthnError('Sign counter went backwards');
   }
   return { signCount: parsed.signCount };
 }

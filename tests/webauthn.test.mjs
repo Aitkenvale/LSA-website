@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 
 import {
-  ES256, b64uToBytes, bytesToB64u, cborDecode, checkClientData, derToRawSignature,
-  importCoseKey, parseAuthenticatorData, sha256, timingSafeEqual, verifyAssertion,
-  verifyRegistration,
+  ES256, WebAuthnError, b64uToBytes, bytesToB64u, cborDecode, checkClientData,
+  derToRawSignature, importCoseKey, parseAuthenticatorData, sha256, timingSafeEqual,
+  verifyAssertion, verifyRegistration,
 } from '../src/lib/calendar/webauthn.ts';
 
 const RP_ID = 'lsa-calendar.assembly-972.workers.dev';
@@ -299,4 +299,40 @@ test('a counter that goes backwards is refused; a counter of zero is not', async
   const synced = await assertion({ authData: { signCount: 0 } });
   synced.input.credential = { ...synced.input.credential, signCount: 0 };
   assert.equal((await verifyAssertion(synced.input)).signCount, 0);
+});
+
+// ---- refusals are described, bugs are not ----------------------------------
+
+/*
+ * A malformed attestation once produced "attestation.get is not a function",
+ * which the endpoint repeated to the browser. Failures this code chooses to
+ * report are WebAuthnError; anything else is a bug and must not be described.
+ */
+test('a malformed attestation is refused in words, not by crashing', async () => {
+  const { input } = await register();
+  input.attestationObject = cborText('not a map');
+  await assert.rejects(verifyRegistration(input), (err) => {
+    assert.ok(err instanceof WebAuthnError, `leaked a ${err.constructor.name}: ${err.message}`);
+    assert.match(err.message, /malformed/);
+    return true;
+  });
+});
+
+test('every refusal this code reports is a WebAuthnError', async () => {
+  for (const patch of [{ rpId: 'evil.example' }, { expectedChallenge: 'OTHER' }]) {
+    const { input } = await register();
+    await assert.rejects(verifyRegistration({ ...input, ...patch }), (err) => {
+      assert.ok(err instanceof WebAuthnError, `leaked a ${err.constructor.name}: ${err.message}`);
+      return true;
+    });
+  }
+});
+
+test('a stored key that is not a COSE map is refused in words', async () => {
+  const { input } = await assertion();
+  input.credential = { ...input.credential, publicKey: bytesToB64u(cborText('rubbish')) };
+  await assert.rejects(verifyAssertion(input), (err) => {
+    assert.ok(err instanceof WebAuthnError, `leaked a ${err.constructor.name}: ${err.message}`);
+    return true;
+  });
 });

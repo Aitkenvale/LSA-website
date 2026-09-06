@@ -110,6 +110,14 @@
         </label>
         <button type="button" class="cal-primary" data-signin-submit>Sign in</button>
         <p class="cal-error" data-signin-error hidden></p>
+
+        <div class="cal-passkey-signin" data-passkey-signin hidden>
+          <p class="cal-or"><span>or</span></p>
+          <button type="button" class="cal-secondary" data-passkey-use>
+            Sign in with a passkey
+          </button>
+          <p class="cal-help">For administrators, using this device's own screen lock.</p>
+        </div>
       </div>
 
       <div data-signout-form hidden>
@@ -331,6 +339,39 @@
           </details>
 
           <details class="cal-admin-section">
+            <summary>Passkeys</summary>
+            <p class="cal-help">
+              A passkey signs you in with this device's own screen lock — a
+              fingerprint, a face, a PIN. Nothing is typed, so there is no code
+              to share, to write down, or to be talked out of you: a passkey
+              only works on the site it was made for.
+            </p>
+            <p class="cal-help">
+              Each device needs its own. A passkey made here will not work once
+              the calendar moves to its own address, where you would enrol
+              again.
+            </p>
+            <div class="cal-list" data-passkey-list></div>
+            <div class="cal-plan-add">
+              <input type="text" data-passkey-name placeholder="Michael's laptop" />
+              <button type="button" class="cal-secondary" data-passkey-add>Add a passkey</button>
+            </div>
+            <p class="cal-error" data-passkey-error hidden></p>
+
+            <h5>The administrator code</h5>
+            <p class="cal-help">
+              Until it is retired, the code and a passkey both work — which is
+              what makes the first enrolment possible. Retiring it is the point
+              at which passkeys stop being a convenience and become the door.
+            </p>
+            <label class="cal-toggle cal-check">
+              <input type="checkbox" data-passkey-require />
+              <span>Retire the administrator code</span>
+            </label>
+            <p class="cal-help" data-passkey-policy-note></p>
+          </details>
+
+          <details class="cal-admin-section">
             <summary>How these settings are stored</summary>
             <p class="cal-help">
               Changes here are saved <strong>for everyone</strong>, straight away.
@@ -389,6 +430,7 @@
     upcomingCycles,
   } from '../../lib/calendar/school-terms';
   import { TIERS, TIER_LABELS, meetsTier, type Tier } from '../../lib/calendar/tiers';
+  import { b64uToBytes, bytesToB64u } from '../../lib/calendar/webauthn';
   import {
     BADI_MONTHS,
     badiMonth,
@@ -793,6 +835,7 @@
           renderGoogleList();
           syncLocationFields();
           syncCycleFields();
+          void loadPasskeys();
           syncPublicToggles();
           void renderVerifyList();
           void render();
@@ -1173,6 +1216,140 @@
         cycleLoad.disabled = false;
         cycleLoad.textContent = 'Load term dates';
       }
+    });
+
+    // ---- passkeys ----------------------------------------------------------
+
+    const passkeyList = root.querySelector<HTMLElement>('[data-passkey-list]')!;
+    const passkeyError = root.querySelector<HTMLElement>('[data-passkey-error]')!;
+    const passkeyRequire = root.querySelector<HTMLInputElement>('[data-passkey-require]')!;
+    const passkeyPolicyNote = root.querySelector<HTMLElement>('[data-passkey-policy-note]')!;
+
+    interface PasskeySummary { id: string; name: string; createdAt: string; lastUsedAt?: string }
+
+    const supportsPasskeys = () =>
+      typeof PublicKeyCredential !== 'undefined' && Boolean(navigator.credentials);
+
+    async function passkeyCall(payload: Record<string, unknown>) {
+      const res = await fetch('/api/passkey.json', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return (await res.json()) as Record<string, unknown>;
+    }
+
+    function showPasskeyError(message: string) {
+      passkeyError.textContent = message;
+      passkeyError.hidden = false;
+    }
+
+    function renderPasskeys(passkeys: PasskeySummary[], policy?: { requirePasskey: boolean }) {
+      passkeyList.innerHTML = '';
+      if (!passkeys.length) {
+        passkeyList.innerHTML =
+          '<p class="cal-help cal-empty">No passkeys yet. The administrator code still signs you in.</p>';
+      }
+      for (const key of passkeys) {
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-plan';
+        row.innerHTML =
+          `<span class="cal-plan-name">${escapeHtml(key.name)}` +
+          `<small>added ${escapeHtml(key.createdAt)}` +
+          `${key.lastUsedAt ? ` · last used ${escapeHtml(key.lastUsedAt)}` : ' · not yet used'}</small></span>` +
+          `<button type="button" class="cal-remove" data-drop-passkey="${escapeHtml(key.id)}">Remove</button>`;
+        passkeyList.appendChild(row);
+      }
+      if (policy) {
+        passkeyRequire.checked = policy.requirePasskey;
+        passkeyRequire.disabled = !passkeys.length && !policy.requirePasskey;
+        passkeyPolicyNote.textContent = policy.requirePasskey
+          ? 'The code no longer signs anyone in. If every enrolled device is lost, '
+            + 'the recovery code set on the Worker is the way back.'
+          : passkeys.length
+            ? 'The code still works. Retire it once every administrator has enrolled.'
+            : 'Enrol a passkey before this can be turned on.';
+      }
+
+      for (const button of passkeyList.querySelectorAll<HTMLButtonElement>('[data-drop-passkey]')) {
+        button.addEventListener('click', async () => {
+          const name = button.closest('.cal-plan')?.querySelector('.cal-plan-name')?.textContent ?? 'this passkey';
+          if (!window.confirm(`Remove ${name}? That device will no longer sign in.`)) return;
+          passkeyError.hidden = true;
+          const body = await passkeyCall({ action: 'remove', id: button.dataset.dropPasskey });
+          if (!body.ok) { showPasskeyError(String(body.error ?? 'Could not remove it.')); return; }
+          renderPasskeys(body.passkeys as PasskeySummary[], await currentPolicy());
+        });
+      }
+    }
+
+    async function currentPolicy(): Promise<{ requirePasskey: boolean }> {
+      const body = await passkeyCall({ action: 'list' });
+      return (body.policy as { requirePasskey: boolean }) ?? { requirePasskey: false };
+    }
+
+    async function loadPasskeys() {
+      if (!server.admin) return;
+      const body = await passkeyCall({ action: 'list' });
+      if (body.ok) {
+        renderPasskeys(body.passkeys as PasskeySummary[], body.policy as { requirePasskey: boolean });
+      }
+    }
+
+    root.querySelector('[data-passkey-add]')!.addEventListener('click', async () => {
+      passkeyError.hidden = true;
+      if (!supportsPasskeys()) {
+        showPasskeyError('This browser cannot make a passkey.');
+        return;
+      }
+      const nameInput = root.querySelector<HTMLInputElement>('[data-passkey-name]')!;
+      const name = nameInput.value.trim() || 'Passkey';
+      try {
+        const started = await passkeyCall({ action: 'register-start' });
+        if (!started.ok) { showPasskeyError(String(started.error ?? 'Could not start.')); return; }
+        const o = started.options as Record<string, any>;
+
+        const created = (await navigator.credentials.create({
+          publicKey: {
+            ...o,
+            challenge: b64uToBytes(o.challenge),
+            user: { ...o.user, id: b64uToBytes(o.user.id) },
+            excludeCredentials: (o.excludeCredentials ?? []).map((c: any) => ({
+              ...c, id: b64uToBytes(c.id),
+            })),
+          },
+        })) as PublicKeyCredential | null;
+        if (!created) { showPasskeyError('No passkey was made.'); return; }
+        const response = created.response as AuthenticatorAttestationResponse;
+
+        const finished = await passkeyCall({
+          action: 'register-finish',
+          name,
+          credentialId: created.id,
+          clientDataJSON: bytesToB64u(new Uint8Array(response.clientDataJSON)),
+          attestationObject: bytesToB64u(new Uint8Array(response.attestationObject)),
+        });
+        if (!finished.ok) { showPasskeyError(String(finished.error ?? 'Could not enrol it.')); return; }
+        nameInput.value = '';
+        renderPasskeys(finished.passkeys as PasskeySummary[], await currentPolicy());
+      } catch (err) {
+        // A refusal at the device is not an error worth shouting about.
+        const message = (err as Error).name === 'NotAllowedError'
+          ? 'That was cancelled, or took too long.'
+          : (err as Error).message;
+        showPasskeyError(message);
+      }
+    });
+
+    passkeyRequire.addEventListener('change', async () => {
+      passkeyError.hidden = true;
+      const body = await passkeyCall({ action: 'policy', requirePasskey: passkeyRequire.checked });
+      if (!body.ok) {
+        passkeyRequire.checked = !passkeyRequire.checked;
+        showPasskeyError(String(body.error ?? 'Could not change that.'));
+        return;
+      }
+      await loadPasskeys();
     });
 
     const verifyList = root.querySelector<HTMLElement>('[data-verify-list]')!;
@@ -2141,12 +2318,31 @@
       }
     }
 
+    /*
+     * The passkey button appears only when there is a passkey to use and this
+     * browser can use one. Offering it otherwise would send somebody to a
+     * dialog that can only disappoint them.
+     */
+    const passkeyBlock = root.querySelector<HTMLElement>('[data-passkey-signin]')!;
+    async function syncPasskeyOffer() {
+      const usable = typeof PublicKeyCredential !== 'undefined' && Boolean(navigator.credentials);
+      if (!usable) { passkeyBlock.hidden = true; return; }
+      try {
+        const res = await fetch('/api/passkey.json');
+        const body = (await res.json()) as { available?: boolean };
+        passkeyBlock.hidden = !body.available;
+      } catch {
+        passkeyBlock.hidden = true;
+      }
+    }
+
     function open() {
       panel.hidden = false;
       scrim.hidden = false;
       error.hidden = true;
       codeInput.value = '';
       void refresh();
+      void syncPasskeyOffer();
       requestAnimationFrame(() => codeInput.focus());
     }
     function close() {
@@ -2189,6 +2385,56 @@
     root.querySelector('[data-signin-submit]')!.addEventListener('click', () => void submit());
     codeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void submit();
+    });
+
+    root.querySelector('[data-passkey-use]')!.addEventListener('click', async () => {
+      error.hidden = true;
+      try {
+        const startRes = await fetch('/api/passkey.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'sign-in-start' }),
+        });
+        const started = (await startRes.json()) as { ok?: boolean; error?: string; options?: any };
+        if (!started.ok) {
+          error.textContent = started.error ?? 'No passkey is enrolled.';
+          error.hidden = false;
+          return;
+        }
+        const o = started.options;
+        const assertion = (await navigator.credentials.get({
+          publicKey: { ...o, challenge: b64uToBytes(o.challenge), allowCredentials: [] },
+        })) as PublicKeyCredential | null;
+        if (!assertion) return;
+        const response = assertion.response as AuthenticatorAssertionResponse;
+
+        const finishRes = await fetch('/api/passkey.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            action: 'sign-in-finish',
+            credentialId: assertion.id,
+            clientDataJSON: bytesToB64u(new Uint8Array(response.clientDataJSON)),
+            authenticatorData: bytesToB64u(new Uint8Array(response.authenticatorData)),
+            signature: bytesToB64u(new Uint8Array(response.signature)),
+          }),
+        });
+        const body = (await finishRes.json()) as
+          { ok?: boolean; error?: string; tier?: string; label?: string };
+        if (!body.ok) {
+          error.textContent = body.error ?? 'That passkey was not recognised.';
+          error.hidden = false;
+          return;
+        }
+        show(body.tier!, body.label!);
+        close();
+        onTierChange();
+      } catch (err) {
+        error.textContent = (err as Error).name === 'NotAllowedError'
+          ? 'That was cancelled, or took too long.'
+          : 'Could not use a passkey just now.';
+        error.hidden = false;
+      }
     });
 
     root.querySelector('[data-signout]')!.addEventListener('click', async () => {
@@ -3038,6 +3284,17 @@
     font-size: 1rem;
   }
   .cal-admin-section h5:first-child { margin-top: 0.4rem; }
+
+  /* ---- passkeys ----------------------------------------------------------- */
+  .cal-passkey-signin { margin-top: 1.1rem; }
+  .cal-or {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin: 0 0 0.7rem; font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  }
+  .cal-or::before, .cal-or::after {
+    content: ''; flex: 1; height: 1px; background: var(--cal-line);
+  }
 
   /* ---- plans -------------------------------------------------------------- */
   .cal-plan { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; }

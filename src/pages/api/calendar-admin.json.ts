@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
+import { listCredentials, readPolicy } from '../../lib/calendar/passkey-store';
 import { sessionCookieHeader, signSession, TIER_LABELS } from '../../lib/calendar/tiers';
 
 export const prerender = false;
@@ -31,8 +32,32 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: false }, 400);
   }
 
-  if (!timingSafeEqual(submitted, expected)) {
-    return json({ ok: false }, 401);
+  /*
+   * Once passkeys are enrolled and the code has been retired, this route stops
+   * accepting it. What remains is ADMIN_RECOVERY_CODE, a Worker secret that is
+   * normally not set at all — the way back in when every enrolled device is
+   * lost at once. Leaving it unset is the intended state: a secret that exists
+   * only during an emergency cannot be stolen during an ordinary week.
+   *
+   * The two are still compared in the same way and in the same order whatever
+   * the policy, so a wrong code takes the same time to be refused either way.
+   */
+  const store = (env as Record<string, unknown>).SESSION as KVNamespace | undefined;
+  const policy = await readPolicy(store);
+  const enrolled = policy.requirePasskey ? (await listCredentials(store)).length > 0 : false;
+  const recovery = (env as Record<string, unknown>).ADMIN_RECOVERY_CODE as string | undefined;
+
+  const codeMatches = timingSafeEqual(submitted, expected);
+  const recoveryMatches = recovery ? timingSafeEqual(submitted, recovery) : false;
+  const accepted = enrolled ? recoveryMatches : codeMatches || recoveryMatches;
+
+  if (!accepted) {
+    return json(
+      enrolled
+        ? { ok: false, error: 'The administrator code has been retired. Use a passkey.' }
+        : { ok: false },
+      401,
+    );
   }
 
   // Issue a session rather than only answering yes, so that later requests can
