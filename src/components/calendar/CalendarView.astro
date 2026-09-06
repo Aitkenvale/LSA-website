@@ -1946,15 +1946,27 @@
           (evening
             ? `title|${formatBadiDate(badi)}\neve|${evening.label} begins at sunset this evening.`
             : '');
-        // On a Holy Day the Badí' date is replaced by the Holy Day's name —
-        // the name is what matters on that day.
-        const badiLine = holyEntry ? holyEntry.name : formatBadiDate(badi);
-        // In the Badí' view the Badí' date is already the large numeral, so the
-        // second line carries the Gregorian date instead — except on a Holy Day,
-        // where the name is worth more than either number.
-        const secondLine = view === 'badi'
-          ? (holyEntry ? holyEntry.name : `${d.day} ${MONTH_SHORT[d.month - 1]}`)
-          : badiLine;
+        const badiLine = formatBadiDate(badi);
+        /*
+         * What the small second line carries, which differs by view.
+         *
+         * Badí': the Gregorian date, since the Badí' day is already the large
+         * numeral. Gregorian: the Badí' date. Cycle: neither — it is a planning
+         * grid, and a Badí' date on every one of its eighty-odd cells is noise
+         * against the weeks. What it shows instead is the month, on the first
+         * of each: twelve weeks span four months, and a bare "1" gives no clue
+         * which one has just begun.
+         *
+         * A Holy Day overrides all three. Its name is worth more than any
+         * number, in any view.
+         */
+        const secondLine = holyEntry
+          ? holyEntry.name
+          : view === 'badi'
+            ? `${d.day} ${MONTH_SHORT[d.month - 1]}`
+            : view === 'cycle'
+              ? (d.day === 1 ? MONTH_NAMES[d.month - 1] : '')
+              : badiLine;
 
         const badges = entries
           .filter((e) => e.badge)
