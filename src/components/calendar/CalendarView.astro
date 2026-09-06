@@ -70,12 +70,17 @@
     left over from when the Feast was a computed calendar of its own. "Other
     faiths" showed a white swatch, which is to say no marking at all.
   -->
-  <ul class="cal-legend">
-    <li><span class="swatch swatch-holy"></span> Holy Day</li>
-    <li><span class="swatch swatch-month"></span> Bahá’í month begins</li>
-    <li><span class="swatch swatch-ayyam"></span> Ayyám-i-Há</li>
-    <li><span class="swatch swatch-fast"></span> The Fast — sunrise to sunset</li>
-    <li class="cal-legend-note">* work suspended</li>
+  <!--
+    Only what is actually on screen. A key explaining a colour the reader
+    cannot see is noise, and in the Badí‘ view a single month often shows just
+    one or two of these.
+  -->
+  <ul class="cal-legend" data-legend>
+    <li data-legend-for="holy" hidden><span class="swatch swatch-holy"></span> Holy Day</li>
+    <li data-legend-for="feast" hidden><span class="swatch swatch-month"></span> Bahá’í month begins</li>
+    <li data-legend-for="ayyam" hidden><span class="swatch swatch-ayyam"></span> Ayyám-i-Há</li>
+    <li data-legend-for="fast" hidden><span class="swatch swatch-fast"></span> The Fast — sunrise to sunset</li>
+    <li data-legend-for="work" class="cal-legend-note" hidden>* work suspended</li>
   </ul>
 
   <!--
@@ -297,6 +302,7 @@
   } from '../../lib/calendar/badi';
   import {
     addDays,
+    daysBetween,
     formatHours,
     isoDate,
     parseIso,
@@ -477,7 +483,35 @@
     for (const button of root.querySelectorAll<HTMLButtonElement>('[data-view]')) {
       button.addEventListener('click', () => {
         if (button.disabled) return;
-        view = button.dataset.view as View;
+        const next = button.dataset.view as View;
+        if (next === view) return;
+
+        /*
+         * Switching views keeps you where you were. Without this the other view
+         * stayed wherever it had last been left, so switching could jump months
+         * for no reason a reader could see.
+         *
+         * Anchored on the MIDDLE of what is on screen, not its first day. The
+         * two calendars are offset by around three weeks, so the first day of a
+         * Gregorian month usually falls in the previous Bahá'í one — anchoring
+         * there sent September to Asmá' and then back to August, having moved a
+         * month by standing still. A midpoint lands inside the corresponding
+         * period both ways, so switching and switching back returns you where
+         * you began.
+         *
+         * Ayyám-i-Há is the exception: four days cannot round-trip through a
+         * month, and nothing can make them.
+         */
+        const period = currentPeriod();
+        const anchor = addDays(period.first, Math.floor(daysBetween(period.first, period.last) / 2));
+        view = next;
+        if (next === 'badi') {
+          const at = gregorianToBadi(anchor);
+          badiCursor = { year: at.year, month: at.month };
+        } else if (next === 'gregorian') {
+          cursor = startOfMonth(anchor);
+        }
+
         for (const other of root.querySelectorAll('[data-view]')) {
           other.classList.toggle('is-current', other === button);
           other.setAttribute('aria-current', String(other === button));
@@ -1071,7 +1105,9 @@
       const lastCell = addDays(period.last, 6 - weekday(period.last));
       const gridEnd = lastCell;
 
-      // Paint the grid immediately so navigation feels instant, then fill it in.
+      // Paint the grid immediately so navigation feels instant, then fill it
+      // in. The key is left alone until the entries arrive, so it does not
+      // blink out and back on every move between months.
       paint(gridStart, gridEnd, period, new Map(), new Map(), new Map(), new Set());
 
       status.textContent = 'Loading…';
@@ -1081,7 +1117,10 @@
         // after the grid leaves the last cell looking ordinary.
         const entries = await loadEntries(gridStart, addDays(gridEnd, 1));
         status.textContent = entries.warning ?? '';
-        paint(gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans, entries.fastDays);
+        const shown = paint(
+          gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans, entries.fastDays,
+        );
+        updateLegend(shown);
       } catch {
         status.textContent = 'Could not load calendar dates.';
       }
@@ -1261,6 +1300,7 @@
       fastDays: Set<string>,
     ) {
       const today = todayIso();
+      const shown = new Set<string>();
       const parts: string[] = [];
 
       for (const name of WEEKDAY_NAMES) {
@@ -1281,6 +1321,8 @@
         const special = from !== null;
 
         const fasting = fastDays.has(day);
+        if (fasting) shown.add('fast');
+        if (entries.some((e) => e.workSuspended)) shown.add('work');
         const classes = ['cal-day'];
         if (fasting) classes.push('is-fast');
         if (!inMonth) classes.push('is-out');
@@ -1303,6 +1345,10 @@
          * the teal of ‘Alá'.
          */
         const tomorrow = spans.get(addDays(day, 1)) ?? null;
+        // A key entry earns its place by appearing in the grid, whether as the
+        // day itself or as the evening leading into it.
+        if (from) shown.add(from);
+        if (tomorrow) shown.add(tomorrow);
         const evening = eve.get(day) ?? null;
         if (from) classes.push(`from-${from}`);
         if (tomorrow) classes.push(`to-${tomorrow}`);
@@ -1370,6 +1416,16 @@
         day = addDays(day, 1);
       }
       grid.innerHTML = parts.join('');
+      return shown;
+    }
+
+    /** Show only the key entries the grid actually uses. */
+    function updateLegend(shown: Set<string>) {
+      for (const item of root.querySelectorAll<HTMLElement>('[data-legend-for]')) {
+        item.hidden = !shown.has(item.dataset.legendFor!);
+      }
+      // With nothing to explain, the key itself is noise.
+      root.querySelector<HTMLElement>('[data-legend]')!.hidden = shown.size === 0;
     }
 
     setUpHoverCard(root, grid);
