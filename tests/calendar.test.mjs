@@ -461,3 +461,66 @@ test('iCalendar: an Outlook feed in Brisbane time is left alone', () => {
   assert.equal(event.startTime, '00:00');
   assert.equal(event.endTime, '00:30');
 });
+
+test('iCalendar: an edited occurrence replaces the one the series generates', () => {
+  // The shape Outlook publishes when a single meeting in a series is changed:
+  // the series is untouched, and a second event with RECURRENCE-ID stands in
+  // for one date. Both carry the same UID.
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VTIMEZONE',
+    'TZID:E. Australia Standard Time',
+    'BEGIN:STANDARD',
+    'DTSTART:16010101T000000', 'TZOFFSETFROM:+1000', 'TZOFFSETTO:+1000',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    'UID:lsa-series', 'SUMMARY:LSA Meeting',
+    'DTSTART;TZID=E. Australia Standard Time:20260906T190000',
+    'DTEND;TZID=E. Australia Standard Time:20260906T210000',
+    'RRULE:FREQ=WEEKLY;BYDAY=SU;COUNT=4',
+    'END:VEVENT',
+    'BEGIN:VEVENT',
+    'UID:lsa-series', 'SUMMARY:LSA Meeting — deferred',
+    'RECURRENCE-ID;TZID=E. Australia Standard Time:20260906T190000',
+    'DTSTART;TZID=E. Australia Standard Time:20260906T200000',
+    'DTEND;TZID=E. Australia Standard Time:20260906T220000',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const events = parseIcs(ics, '2026-09-01', '2026-10-15', 10);
+  const onTheSixth = events.filter((e) => e.date === '2026-09-06');
+  assert.equal(onTheSixth.length, 1, 'the edited occurrence must replace, not duplicate');
+  assert.equal(onTheSixth[0].summary, 'LSA Meeting — deferred');
+  assert.equal(onTheSixth[0].startTime, '20:00');
+
+  // The rest of the series is untouched.
+  assert.deepEqual(
+    events.filter((e) => e.summary === 'LSA Meeting').map((e) => e.date),
+    ['2026-09-13', '2026-09-20', '2026-09-27'],
+  );
+});
+
+test('iCalendar: an occurrence moved to another day leaves the original date empty', () => {
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VEVENT',
+    'UID:s2', 'SUMMARY:Study circle',
+    'DTSTART:20261006T090000Z',
+    'RRULE:FREQ=WEEKLY;BYDAY=TU;COUNT=3',
+    'END:VEVENT',
+    'BEGIN:VEVENT',
+    'UID:s2', 'SUMMARY:Study circle (moved)',
+    'RECURRENCE-ID:20261013T090000Z',
+    'DTSTART:20261015T090000Z',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const events = parseIcs(ics, '2026-10-01', '2026-10-31', 10);
+  const dates = events.map((e) => e.date);
+  assert.ok(!dates.includes('2026-10-13'), 'the vacated date must not still show the series');
+  assert.ok(dates.includes('2026-10-15'), 'the moved occurrence appears on its new date');
+  assert.equal(events.filter((e) => e.date === '2026-10-15').length, 1);
+});

@@ -1,10 +1,12 @@
 /**
  * A small iCalendar reader, enough for Google Calendar and Outlook feeds.
  *
- * Google emits one VEVENT per series with an RRULE, so recurring events have to
+ * One VEVENT is published per series with an RRULE, so recurring events have to
  * be expanded here. Supported: FREQ DAILY/WEEKLY/MONTHLY/YEARLY, INTERVAL,
- * COUNT, UNTIL, BYDAY for weekly rules, plus EXDATE and RECURRENCE-ID overrides.
- * Anything more exotic is emitted as a single occurrence rather than dropped.
+ * COUNT, UNTIL, BYDAY for weekly rules, EXDATE, and RECURRENCE-ID overrides —
+ * where a single occurrence has been edited, the calendar publishes the series
+ * AND a separate event replacing that one date. Anything more exotic is emitted
+ * as a single occurrence rather than dropped.
  */
 
 import { addDays, daysBetween, isoDate, jdToGregorian, gregorianToJD, weekday } from './astronomy.ts';
@@ -297,7 +299,12 @@ function expandRrule(rule: string, start: string, from: string, to: string): str
 export function parseIcs(text: string, from: string, to: string, utcOffsetHours = 10): IcsEvent[] {
   const lines = unfold(text);
   const zones = parseTimeZones(lines);
-  const events: IcsEvent[] = [];
+
+  interface RawEvent {
+    props: Record<string, RawProp>;
+    exdates: string[];
+  }
+  const records: RawEvent[] = [];
   let current: Record<string, RawProp> | null = null;
   let exdates: string[] = [];
 
@@ -308,7 +315,7 @@ export function parseIcs(text: string, from: string, to: string, utcOffsetHours 
       continue;
     }
     if (line.startsWith('END:VEVENT')) {
-      if (current) events.push(...buildEvents(current, exdates, from, to, utcOffsetHours, zones));
+      if (current) records.push({ props: current, exdates });
       current = null;
       continue;
     }
@@ -317,15 +324,90 @@ export function parseIcs(text: string, from: string, to: string, utcOffsetHours 
     if (!prop) continue;
     if (prop.name === 'EXDATE') {
       for (const v of prop.value.split(',')) {
-        const s = parseStamp({ ...prop, value: v });
-        if (s) exdates.push(s.date);
+        const stamp = parseStamp({ ...prop, value: v });
+        if (stamp) {
+          exdates.push(toDisplayStamp(stamp, prop, zones, utcOffsetHours).date);
+        }
       }
       continue;
     }
     // Keep the first occurrence of each property.
     if (!current[prop.name]) current[prop.name] = prop;
   }
-  return events.sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+
+  /*
+   * Editing one occurrence of a series does not modify the series. The calendar
+   * publishes the series unchanged AND a second event carrying RECURRENCE-ID,
+   * naming the occurrence it stands in for. Both share a UID. Emitting both, as
+   * an earlier version did, showed the meeting twice on that day — once at its
+   * original time and once as edited.
+   */
+  const masters: RawEvent[] = [];
+  const edited: RawEvent[] = [];
+  const replacedByUid = new Map<string, Set<string>>();
+
+  for (const record of records) {
+    const rid = record.props['RECURRENCE-ID'];
+    if (!rid) {
+      masters.push(record);
+      continue;
+    }
+    edited.push(record);
+    const uid = record.props.UID?.value ?? '';
+    const stamp = parseStamp(rid);
+    if (!stamp) continue;
+    const isDateOnly = rid.params.VALUE === 'DATE' || !stamp.time;
+    const date = isDateOnly ? stamp.date : toDisplayStamp(stamp, rid, zones, utcOffsetHours).date;
+    const set = replacedByUid.get(uid) ?? new Set<string>();
+    set.add(date);
+    replacedByUid.set(uid, set);
+  }
+
+  const events = [
+    ...masters.flatMap((r) =>
+      buildEvents(
+        r.props,
+        r.exdates,
+        from,
+        to,
+        utcOffsetHours,
+        zones,
+        replacedByUid.get(r.props.UID?.value ?? '') ?? new Set(),
+      ),
+    ),
+    // The edited occurrences themselves, at whatever date they were moved to.
+    ...edited.flatMap((r) =>
+      buildEvents(r.props, r.exdates, from, to, utcOffsetHours, zones).map((e) => ({
+        ...e,
+        uid: `${e.uid}-edited`,
+      })),
+    ),
+  ];
+
+  return events.sort(
+    (a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '').localeCompare(b.startTime ?? ''),
+  );
+}
+
+/**
+ * Bring a stamp into the display timezone.
+ *
+ * Google writes UTC and marks it with a trailing Z. Outlook writes local time
+ * with a TZID naming a zone the feed defines, so that offset has to be looked up
+ * for the event's own date — a Sydney calendar is +11 in January and +10 in
+ * July. A stamp with neither is taken as already local, which is all the
+ * standard allows us to assume.
+ */
+function toDisplayStamp(
+  stamp: ParsedStamp,
+  prop: RawProp,
+  zones: Map<string, TimeZoneDef>,
+  utcOffsetHours: number,
+): ParsedStamp {
+  if (stamp.utc) return shiftToOffset(stamp, utcOffsetHours);
+  const zone = prop.params.TZID ? zones.get(prop.params.TZID) : undefined;
+  if (!zone) return stamp;
+  return shiftBy(stamp, utcOffsetHours * 60 - offsetOn(zone, stamp.date));
 }
 
 function buildEvents(
@@ -335,6 +417,8 @@ function buildEvents(
   to: string,
   utcOffsetHours: number,
   zones: Map<string, TimeZoneDef>,
+  /** Occurrence dates this series has an edited replacement for. */
+  replaced: Set<string> = new Set(),
 ): IcsEvent[] {
   const dtstart = props.DTSTART;
   if (!dtstart) return [];
@@ -342,22 +426,8 @@ function buildEvents(
   if (!rawStart) return [];
   const allDay = dtstart.params.VALUE === 'DATE' || !rawStart.time;
 
-  /**
-   * Bring a stamp into the display timezone.
-   *
-   * Google writes UTC and marks it with a trailing Z. Outlook writes local time
-   * with a TZID naming a zone the feed defines, so that offset has to be looked
-   * up for the event's own date — a Sydney calendar is +11 in January and +10
-   * in July. A stamp with neither is taken as already local, which is all the
-   * standard allows us to assume.
-   */
-  const toDisplay = (stamp: ParsedStamp, prop: RawProp): ParsedStamp => {
-    if (allDay) return stamp;
-    if (stamp.utc) return shiftToOffset(stamp, utcOffsetHours);
-    const zone = prop.params.TZID ? zones.get(prop.params.TZID) : undefined;
-    if (!zone) return stamp;
-    return shiftBy(stamp, utcOffsetHours * 60 - offsetOn(zone, stamp.date));
-  };
+  const toDisplay = (stamp: ParsedStamp, prop: RawProp) =>
+    allDay ? stamp : toDisplayStamp(stamp, prop, zones, utcOffsetHours);
 
   const start = toDisplay(rawStart, dtstart);
 
@@ -384,7 +454,7 @@ function buildEvents(
       : [];
 
   return starts
-    .filter((d) => !exdates.includes(d))
+    .filter((d) => !exdates.includes(d) && !replaced.has(d))
     .map((d) => ({
       ...base,
       uid: `${uid}-${d}`,
