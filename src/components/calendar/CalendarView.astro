@@ -3028,6 +3028,17 @@
     font-size: 0.55rem; letter-spacing: 0.02em; padding-inline: 0;
   }
 
+  /*
+   * A subheading inside a settings section opens a new subject, so it needs
+   * more space above it than the paragraph it follows would otherwise leave —
+   * without it "Plans" sits hard against the sentence before it.
+   */
+  .cal-admin-section h5 {
+    margin: 1.6rem 0 0.3rem;
+    font-size: 1rem;
+  }
+  .cal-admin-section h5:first-child { margin-top: 0.4rem; }
+
   /* ---- plans -------------------------------------------------------------- */
   .cal-plan { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; }
   .cal-plan-name { flex: 1; }
