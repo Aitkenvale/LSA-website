@@ -195,8 +195,8 @@
     CALENDAR_COLOURS,
     CALENDAR_SECTIONS,
     GENERATED_CALENDARS,
-    SEEDED_GOOGLE_CALENDARS,
     calendarColour,
+    isSeededCalendar,
     listedCalendars,
     mergeConfig,
     defaultConfig,
@@ -536,7 +536,7 @@
         return;
       }
       for (const cal of config.google) {
-        const seeded = SEEDED_GOOGLE_CALENDARS.some((s) => s.id === cal.id);
+        const fixed = isSeededCalendar(cal.id);
         const row = document.createElement('details');
         row.className = 'cal-item';
         row.innerHTML = `
@@ -571,7 +571,12 @@
               placeholder="https://calendar.google.com/… or https://outlook.office365.com/…" />
           </label>
           <p class="cal-error" data-g-error hidden></p>
-          ${seeded ? '' : '<button type="button" class="cal-remove" data-g-remove>Remove this calendar</button>'}`;
+          ${
+            fixed
+              ? '<p class="cal-desc cal-fixed">Always available — the Feast and the Holy Days are ' +
+                'fixtures of community life, so this cannot be removed. Clear the address to hide it.</p>'
+              : '<button type="button" class="cal-remove" data-g-remove>Remove this calendar</button>'
+          }`;
 
         const err = row.querySelector<HTMLElement>('[data-g-error]')!;
         const urlInput = row.querySelector<HTMLInputElement>('[data-g-url]')!;
@@ -623,7 +628,18 @@
         }
 
         row.querySelector('[data-g-remove]')?.addEventListener('click', () => {
+          // Worth a confirmation: the row carries the address, and losing it
+          // means fetching it from Google or Outlook again. Nothing happens to
+          // the calendar itself, which is what the wording needs to make clear.
+          const ok = window.confirm(
+            `Remove “${cal.name}” from this calendar?\n\n` +
+              'The calendar itself is not deleted — it stays in Google or Outlook. ' +
+              'Only the link to it is removed from here, along with its address.',
+          );
+          if (!ok) return;
           config.google = config.google.filter((c) => c.id !== cal.id);
+          delete config.sections[cal.id];
+          config.order = config.order.filter((id) => id !== cal.id);
           saveConfig(config);
           renderGoogleList();
           syncPublicToggles();
@@ -1468,18 +1484,19 @@
   }
   .cal-event {
     font-size: 0.68rem;
-    gap: 0.3rem;
     line-height: 1.25;
     color: var(--color-teal-900);
     display: flex;
-    align-items: baseline;
-    gap: 0.2rem;
+    /* Not baseline: a dot this size overhangs a baseline-aligned row. */
+    align-items: flex-start;
+    gap: 0.3rem;
   }
   .cal-dot {
-    /* A touch larger than a typographic bullet: below about 6px a colour stops
-       being identifiable and just reads as a dark speck. */
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--color-teal-600); flex: none; translate: 0 -1px;
+    /* Large enough that the colour is what you notice, not the dot. */
+    width: 10.5px; height: 10.5px; border-radius: 50%;
+    background: var(--color-teal-600); flex: none;
+    /* Centred on the first line of the label. */
+    margin-top: 0.1rem;
   }
   .cal-time { font-variant-numeric: tabular-nums; opacity: 0.7; }
 
@@ -1622,9 +1639,16 @@
   .cal-primary { background: var(--color-teal-700); color: white; }
   .cal-secondary { background: white; color: var(--color-teal-800); border-color: var(--cal-line); }
   .cal-remove {
-    background: none; border: 0; color: var(--color-gold-700);
-    font-size: 0.72rem; cursor: pointer; padding: 0; text-decoration: underline;
+    margin-top: 0.7rem;
+    background: white;
+    border: 1px solid color-mix(in srgb, #a12 35%, transparent);
+    color: #a12;
+    border-radius: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    cursor: pointer;
   }
+  .cal-remove:hover { background: color-mix(in srgb, #a12 8%, white); }
   .cal-google-row { display: grid; gap: 0.15rem; }
   .cal-error { color: #a12; font-size: 0.75rem; margin: 0.4rem 0 0; }
   .cal-copied { font-size: 0.75rem; color: var(--color-teal-700); margin-left: 0.5rem; }
@@ -1698,7 +1722,8 @@
     border-color: white;
     box-shadow: 0 0 0 2px var(--color-teal-800);
   }
-  .cal-item > summary .cal-dot { margin-right: 0.1rem; }
+  .cal-item > summary .cal-dot { margin-right: 0.1rem; margin-top: 0; }
+  .cal-fixed { margin-top: 0.6rem; font-style: italic; }
 
   .cal-verify-row { display: grid; gap: 0.2rem; }
   .cal-verify-name { font-size: 0.82rem; font-weight: 600; color: var(--color-teal-900); }
