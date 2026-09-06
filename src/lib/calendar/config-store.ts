@@ -43,9 +43,32 @@ export interface StoredCalendar {
   position: number;
 }
 
+/**
+ * Where the community is.
+ *
+ * Needed for the Fast, which runs from sunrise to sunset and so has different
+ * hours in every town. Held in the shared configuration rather than fixed in
+ * the code, so another community can use this calendar without editing it.
+ */
+export interface CalendarLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
+  /** Fixed offset from UTC. Queensland has no daylight saving, so +10 always. */
+  utcOffsetHours: number;
+}
+
+export const DEFAULT_LOCATION: CalendarLocation = {
+  name: 'Townsville',
+  latitude: -19.2589,
+  longitude: 146.8169,
+  utcOffsetHours: 10,
+};
+
 export interface StoredConfig {
   version: 1;
   calendars: StoredCalendar[];
+  location: CalendarLocation;
   /** When each tier's code was last changed, so the record is a fact. */
   codeChanged: Partial<Record<Tier, string>>;
 }
@@ -87,7 +110,7 @@ export function defaultStoredConfig(): StoredConfig {
       });
     }
   }
-  return { version: 1, calendars, codeChanged: {} };
+  return { version: 1, calendars, location: { ...DEFAULT_LOCATION }, codeChanged: {} };
 }
 
 function asTier(value: unknown, fallback: Tier): Tier {
@@ -119,9 +142,21 @@ export function normaliseConfig(raw: unknown): StoredConfig {
         : existing?.section ?? 'bahai',
     });
   }
+  // A location with a nonsense coordinate would put sunrise at the wrong hour
+  // rather than fail visibly, so each number is checked before it is accepted.
+  const loc = stored.location;
+  const location: CalendarLocation =
+    loc &&
+    Number.isFinite(loc.latitude) && Math.abs(loc.latitude) <= 90 &&
+    Number.isFinite(loc.longitude) && Math.abs(loc.longitude) <= 180 &&
+    Number.isFinite(loc.utcOffsetHours) && Math.abs(loc.utcOffsetHours) <= 14
+      ? { ...DEFAULT_LOCATION, ...loc, name: String(loc.name ?? DEFAULT_LOCATION.name) }
+      : { ...DEFAULT_LOCATION };
+
   return {
     version: 1,
     calendars: [...byId.values()].sort((a, b) => a.position - b.position),
+    location,
     codeChanged: stored.codeChanged ?? {},
   };
 }

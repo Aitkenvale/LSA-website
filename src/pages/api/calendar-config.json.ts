@@ -39,7 +39,9 @@ export const GET: APIRoute = async ({ request }) => {
     // The only response that carries addresses.
     return json({ tier, admin: true, config });
   }
-  return json({ tier, admin: false, calendars: visibleTo(config, tier) });
+  // The location is not sensitive and every viewer needs it, since the Fast's
+  // hours are worked out in the page.
+  return json({ tier, admin: false, calendars: visibleTo(config, tier), location: config.location });
 };
 
 export const PUT: APIRoute = async ({ request }) => {

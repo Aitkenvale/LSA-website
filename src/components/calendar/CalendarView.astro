@@ -74,6 +74,7 @@
     <li><span class="swatch swatch-holy"></span> Holy Day</li>
     <li><span class="swatch swatch-month"></span> Bahá’í month begins</li>
     <li><span class="swatch swatch-ayyam"></span> Ayyám-i-Há</li>
+    <li><span class="swatch swatch-fast"></span> The Fast — sunrise to sunset</li>
     <li class="cal-legend-note">* work suspended</li>
   </ul>
 
@@ -197,6 +198,36 @@
           </section>
 
           <section>
+            <h4>Location</h4>
+            <p class="cal-help">
+              Used to work out the hours of the Fast, which runs from sunrise to
+              sunset and so differs by town. Nothing else depends on it.
+            </p>
+            <label class="cal-field">
+              Place name
+              <input type="text" data-loc-name placeholder="Townsville" />
+              <small>Shown when explaining whose sunrise these times are.</small>
+            </label>
+            <label class="cal-field">
+              Latitude
+              <input type="number" step="0.0001" data-loc-lat placeholder="-19.2589" />
+              <small>Negative south of the equator.</small>
+            </label>
+            <label class="cal-field">
+              Longitude
+              <input type="number" step="0.0001" data-loc-lon placeholder="146.8169" />
+              <small>Negative west of Greenwich.</small>
+            </label>
+            <label class="cal-field">
+              Hours ahead of UTC
+              <input type="number" step="0.5" data-loc-tz placeholder="10" />
+              <small>Queensland is +10 all year, having no daylight saving.</small>
+            </label>
+            <p class="cal-desc" data-loc-preview></p>
+            <p class="cal-error" data-loc-error hidden></p>
+          </section>
+
+          <section>
             <h4>Dates to confirm</h4>
             <p class="cal-help">
               These dates depend on local observation or regional custom, so the
@@ -245,7 +276,13 @@
     calendarColour,
     isSeededCalendar,
   } from '../../lib/calendar/registry';
-  import type { StoredCalendar, StoredConfig, VisibleCalendar } from '../../lib/calendar/config-store';
+  import type {
+    CalendarLocation,
+    StoredCalendar,
+    StoredConfig,
+    VisibleCalendar,
+  } from '../../lib/calendar/config-store';
+  import { DEFAULT_LOCATION } from '../../lib/calendar/config-store';
   import { TIERS, TIER_LABELS, type Tier } from '../../lib/calendar/tiers';
   import {
     BADI_MONTHS,
@@ -258,7 +295,15 @@
     stepBadiMonth,
     type BadiMonthRef,
   } from '../../lib/calendar/badi';
-  import { addDays, isoDate, parseIso, weekday } from '../../lib/calendar/astronomy';
+  import {
+    addDays,
+    formatHours,
+    isoDate,
+    parseIso,
+    sunriseHours,
+    sunsetHours,
+    weekday,
+  } from '../../lib/calendar/astronomy';
   import type { Occurrence } from '../../lib/calendar/types';
   import type { IcsEvent } from '../../lib/calendar/ics';
 
@@ -284,6 +329,7 @@
     admin: boolean;
     calendars?: VisibleCalendar[];
     config?: StoredConfig;
+    location?: CalendarLocation;
   }
 
   const MONTH_NAMES = [
@@ -369,7 +415,7 @@
         // everyone else receives only what their tier may know. Both are
         // normalised to the same list for rendering.
         server = body.admin && body.config
-          ? { ...body, calendars: adminView(body.config) }
+          ? { ...body, calendars: adminView(body.config), location: body.config.location }
           : body;
       } catch {
         server = { tier: 'public', admin: false, calendars: [] };
@@ -478,11 +524,62 @@
         // server has recognised the session, so re-ask before drawing it.
         void loadServerConfig().then(() => {
           renderGoogleList();
+          syncLocationFields();
           syncPublicToggles();
           void renderVerifyList();
           void render();
         });
       }
+    }
+
+    /** The community's location, which sets the hours of the Fast. */
+    function syncLocationFields() {
+      const config = server.config;
+      if (!config) return;
+      const loc = config.location ?? DEFAULT_LOCATION;
+      root.querySelector<HTMLInputElement>('[data-loc-name]')!.value = loc.name;
+      root.querySelector<HTMLInputElement>('[data-loc-lat]')!.value = String(loc.latitude);
+      root.querySelector<HTMLInputElement>('[data-loc-lon]')!.value = String(loc.longitude);
+      root.querySelector<HTMLInputElement>('[data-loc-tz]')!.value = String(loc.utcOffsetHours);
+      showLocationPreview(loc);
+    }
+
+    /** Today's sunrise and sunset, so a wrong coordinate is obvious at once. */
+    function showLocationPreview(loc: CalendarLocation) {
+      const preview = root.querySelector<HTMLElement>('[data-loc-preview]')!;
+      const rise = sunriseHours(todayIso(), loc);
+      const set = sunsetHours(todayIso(), loc);
+      preview.textContent =
+        rise === null || set === null
+          ? 'The sun does not rise or set there today.'
+          : `Today in ${loc.name}: sunrise ${formatHours(rise)}, sunset ${formatHours(set)}.`;
+    }
+
+    for (const field of ['[data-loc-name]', '[data-loc-lat]', '[data-loc-lon]', '[data-loc-tz]']) {
+      root.querySelector(field)!.addEventListener('change', async () => {
+        const config = server.config;
+        if (!config) return;
+        const error = root.querySelector<HTMLElement>('[data-loc-error]')!;
+        error.hidden = true;
+        const next: CalendarLocation = {
+          name: root.querySelector<HTMLInputElement>('[data-loc-name]')!.value.trim() || 'here',
+          latitude: Number(root.querySelector<HTMLInputElement>('[data-loc-lat]')!.value),
+          longitude: Number(root.querySelector<HTMLInputElement>('[data-loc-lon]')!.value),
+          utcOffsetHours: Number(root.querySelector<HTMLInputElement>('[data-loc-tz]')!.value),
+        };
+        if (
+          !Number.isFinite(next.latitude) || Math.abs(next.latitude) > 90 ||
+          !Number.isFinite(next.longitude) || Math.abs(next.longitude) > 180 ||
+          !Number.isFinite(next.utcOffsetHours) || Math.abs(next.utcOffsetHours) > 14
+        ) {
+          error.textContent = 'Latitude must be within ±90, longitude ±180, and the offset ±14.';
+          error.hidden = false;
+          return;
+        }
+        config.location = next;
+        showLocationPreview(next);
+        if (await saveServerConfig(config)) void render();
+      });
     }
 
     const verifyList = root.querySelector<HTMLElement>('[data-verify-list]')!;
@@ -975,7 +1072,7 @@
       const gridEnd = lastCell;
 
       // Paint the grid immediately so navigation feels instant, then fill it in.
-      paint(gridStart, gridEnd, period, new Map(), new Map(), new Map());
+      paint(gridStart, gridEnd, period, new Map(), new Map(), new Map(), new Set());
 
       status.textContent = 'Loading…';
       try {
@@ -984,7 +1081,7 @@
         // after the grid leaves the last cell looking ordinary.
         const entries = await loadEntries(gridStart, addDays(gridEnd, 1));
         status.textContent = entries.warning ?? '';
-        paint(gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans);
+        paint(gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans, entries.fastDays);
       } catch {
         status.textContent = 'Could not load calendar dates.';
       }
@@ -996,6 +1093,15 @@
       // already belongs to it. That evening is shaded in the previous day's
       // cell rather than given an entry of its own.
       const eve = new Map<string, EveMark>();
+      /**
+       * The days of the Fast.
+       *
+       * Nineteen consecutive days is too long to wash with colour — it would
+       * drown out everything else in ‘Alá'. They are marked instead with the
+       * hours that actually matter: the Fast runs from sunrise to sunset, so
+       * each day carries both, and a line along the foot of the cell.
+       */
+      const fastDays = new Set<string>();
       // What each day itself is, which for Ayyám-i-Há is every one of its days
       // and not merely the first.
       const spans = new Map<string, EveKind>();
@@ -1022,6 +1128,10 @@
 
           // The Fast is a month-long observance rather than a day to mark, so
           // it takes no wash of its own.
+          if (isFast) {
+            for (const day of spanDays(o.date, o.endDate ?? o.date)) fastDays.add(day);
+          }
+
           if (!isFast) {
             // Ayyám-i-Há colours every one of its days; a month start colours
             // only the day the month begins.
@@ -1112,7 +1222,33 @@
         }),
       );
       if (failures.length) warning = `Could not load: ${failures.join(', ')}.`;
-      return { byDate, eve, spans, warning };
+      return { byDate, eve, spans, fastDays, warning };
+    }
+
+    /**
+     * The hours of the Fast for one day: sunrise on the left, sunset on the
+     * right, and the sun on the horizon between them.
+     *
+     * Both are worked out for the community's own location, because sunrise in
+     * Townsville is not sunrise in Melbourne and a fasting hour that is wrong
+     * by half an hour is worse than none at all.
+     */
+    function fastFooter(day: string): string {
+      const location = server.location ?? DEFAULT_LOCATION;
+      const rise = sunriseHours(day, location);
+      const set = sunsetHours(day, location);
+      if (rise === null || set === null) return '';
+      const tip =
+        `title|The Fast\n` +
+        `when|Sunrise ${formatHours(rise)} · sunset ${formatHours(set)}\n` +
+        `note|Fasting is observed from sunrise to sunset. Times are for ${location.name}.`;
+      return (
+        `<div class="cal-fast" tabindex="0" data-tip="${escapeHtml(tip)}">` +
+        `<span class="cal-fast-time">${formatHours(rise)}</span>` +
+        `<span class="cal-fast-icon" aria-hidden="true"></span>` +
+        `<span class="cal-fast-time">${formatHours(set)}</span>` +
+        `</div>`
+      );
     }
 
     function paint(
@@ -1122,6 +1258,7 @@
       byDate: Map<string, Entry[]>,
       eve: Map<string, EveMark>,
       spans: Map<string, EveKind>,
+      fastDays: Set<string>,
     ) {
       const today = todayIso();
       const parts: string[] = [];
@@ -1143,7 +1280,9 @@
         const from = spans.get(day) ?? null;
         const special = from !== null;
 
+        const fasting = fastDays.has(day);
         const classes = ['cal-day'];
+        if (fasting) classes.push('is-fast');
         if (!inMonth) classes.push('is-out');
         if (day === today) classes.push('is-today');
 
@@ -1226,6 +1365,7 @@
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
+            ${fasting ? fastFooter(day) : ''}
           </div>`);
         day = addDays(day, 1);
       }
@@ -2019,6 +2159,38 @@
     margin-top: 0.1rem;
   }
 
+  /* ---- the Fast ----------------------------------------------------------
+     Nineteen days is too long to wash with colour, so the days of ‘Alá' are
+     marked along the foot of the cell instead: the hours the Fast runs
+     between, and a line beneath. */
+  .cal-day.is-fast { position: relative; }
+  .cal-day.is-fast::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 2px;
+    background: #b3402f;
+  }
+  .cal-fast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.2rem;
+    margin-top: auto;
+    padding-top: 0.2rem;
+    font-size: 0.58rem;
+    font-variant-numeric: tabular-nums;
+    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+    cursor: default;
+  }
+  .cal-fast-icon {
+    width: 1.15rem;
+    height: 0.82rem;
+    flex: none;
+    background: url('/icons/sunset.svg') no-repeat center / contain;
+  }
+  .cal-fast-time { white-space: nowrap; }
+
   .cal-status { font-size: 0.75rem; color: color-mix(in srgb, var(--color-ink) 60%, transparent); min-height: 1.2em; margin: 0.5rem 0 0; }
 
   .cal-legend {
@@ -2032,6 +2204,7 @@
   .swatch-holy { background: var(--cal-holy-tint); }
   .swatch-month { background: var(--cal-feast-tint); }
   .swatch-ayyam { background: var(--cal-ayyam-tint); }
+  .swatch-fast { background: white; border-bottom: 2px solid #b3402f; }
   .cal-legend-note { font-style: italic; }
 
   /* ---- administrator drawer ---------------------------------------------- */
