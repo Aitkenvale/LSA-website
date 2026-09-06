@@ -350,7 +350,7 @@ test('verified dates: confirming without a date keeps the date and clears the fl
 test('verified dates: exact calendars are never listed as needing confirmation', () => {
   const pending = needingVerification(generateAll('2027-01-01', '2027-12-31'));
   const calendars = new Set(pending.map((o) => o.calendarId));
-  for (const exact of ['bahai-months', 'bahai-feast', 'bahai-holy-days', 'christian', 'orthodox', 'judaism']) {
+  for (const exact of ['bahai-months', 'bahai-holy-days', 'christian', 'orthodox', 'judaism']) {
     assert.ok(!calendars.has(exact), `${exact} should not need confirmation`);
   }
   assert.ok(calendars.has('islam'), 'Islamic dates should be offered for confirmation');

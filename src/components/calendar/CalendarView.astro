@@ -16,9 +16,6 @@
  *     competing for attention with a colour each;
  *   - days outside the displayed month are tinted back, not hidden.
  */
-import { GENERATED_CALENDARS } from '../../lib/calendar/registry';
-
-const calendars = GENERATED_CALENDARS;
 ---
 
 <div class="calendar">
@@ -94,16 +91,7 @@ const calendars = GENERATED_CALENDARS;
           Choose which calendars appear. Your choice is remembered on this
           device only, and does not change what anyone else sees.
         </p>
-        <div class="cal-list" data-public-list>
-          {calendars.map((c) => (
-            <label class="cal-item cal-toggle" data-pub-id={c.id}>
-              <input type="checkbox" data-enabled />
-              <span class="cal-toggle-name" data-label-text>{c.name}</span>
-              {c.confidence === 'approximate' && <span class="cal-tag">approximate</span>}
-            </label>
-          ))}
-        </div>
-        <div class="cal-list" data-public-google></div>
+        <div class="cal-list" data-public-list></div>
       </section>
 
       <details class="cal-admin-block">
@@ -120,33 +108,6 @@ const calendars = GENERATED_CALENDARS;
         </section>
 
         <div data-admin-panel hidden>
-          <section>
-            <h4>Names and view labels</h4>
-            <p class="cal-help">
-              Rename a calendar, or set the label shown in place of an event's
-              real title to viewers who may not see that calendar's detail.
-            </p>
-            <div class="cal-list" data-generated-list>
-              {calendars.map((c) => (
-                <details class="cal-item" data-cal-id={c.id}>
-                  <summary>
-                    <span class="cal-toggle-name" data-admin-label-text>{c.name}</span>
-                  </summary>
-                  <p class="cal-desc">{c.description}</p>
-                  <label class="cal-field">
-                    Display name
-                    <input type="text" data-name placeholder={c.name} />
-                  </label>
-                  <label class="cal-field">
-                    View label
-                    <input type="text" data-view-label placeholder="Show full detail" />
-                    <small>Shown instead of each event's real title, for viewers without privilege.</small>
-                  </label>
-                </details>
-              ))}
-            </div>
-          </section>
-
           <section>
             <h4>Google calendars</h4>
             <p class="cal-help">
@@ -214,6 +175,8 @@ const calendars = GENERATED_CALENDARS;
 <script>
   import {
     GENERATED_CALENDARS,
+    SEEDED_GOOGLE_CALENDARS,
+    listedCalendars,
     mergeConfig,
     defaultConfig,
     type CalendarConfig,
@@ -312,7 +275,7 @@ const calendars = GENERATED_CALENDARS;
       lock.hidden = unlocked;
       panel.hidden = !unlocked;
       if (unlocked) {
-        syncAdminInputs();
+        renderGoogleList();
         void renderVerifyList();
       }
     }
@@ -404,80 +367,42 @@ const calendars = GENERATED_CALENDARS;
     });
 
     // ---- generated calendar settings --------------------------------------
-    /** The reader-facing on/off list, available without the administrator code. */
+    /**
+     * The reader-facing on/off list. Rebuilt each time the drawer opens,
+     * because Google calendars are interleaved with the generated ones and an
+     * administrator may have just added or removed one.
+     */
+    const publicList = root.querySelector<HTMLElement>('[data-public-list]')!;
     function syncPublicToggles() {
-      for (const item of root.querySelectorAll<HTMLElement>('[data-pub-id]')) {
-        const id = item.dataset.pubId!;
-        const def = GENERATED_CALENDARS.find((c) => c.id === id)!;
-        const settings = config.generated[id];
-        item.querySelector<HTMLInputElement>('[data-enabled]')!.checked =
-          settings?.enabled ?? def.defaultOn;
-        item.querySelector<HTMLElement>('[data-label-text]')!.textContent =
-          settings?.name || def.name;
-      }
-      renderPublicGoogle();
-    }
+      publicList.innerHTML = '';
+      for (const entry of listedCalendars(config)) {
+        const on =
+          entry.kind === 'generated'
+            ? (config.generated[entry.id]?.enabled ??
+               GENERATED_CALENDARS.find((c) => c.id === entry.id)!.defaultOn)
+            : (config.google.find((g) => g.id === entry.id)?.enabled ?? false);
 
-    root.querySelector('[data-public-list]')!.addEventListener('change', (e) => {
-      const item = (e.target as HTMLElement).closest<HTMLElement>('[data-pub-id]');
-      if (!item) return;
-      const id = item.dataset.pubId!;
-      config.generated[id] = {
-        ...config.generated[id],
-        enabled: item.querySelector<HTMLInputElement>('[data-enabled]')!.checked,
-      };
-      saveConfig(config);
-      void render();
-    });
-
-    /** Google calendars an administrator has attached are toggleable by anyone. */
-    const publicGoogle = root.querySelector<HTMLElement>('[data-public-google]')!;
-    function renderPublicGoogle() {
-      publicGoogle.innerHTML = '';
-      for (const cal of config.google) {
         const row = document.createElement('label');
         row.className = 'cal-item cal-toggle';
-        row.innerHTML = `<input type="checkbox" ${cal.enabled ? 'checked' : ''} /><span class="cal-toggle-name">${escapeHtml(cal.name)}</span>`;
+        row.innerHTML =
+          `<input type="checkbox" ${on ? 'checked' : ''} />` +
+          `<span class="cal-toggle-name">${escapeHtml(entry.name)}</span>` +
+          (entry.kind === 'generated' && entry.confidence === 'approximate'
+            ? '<span class="cal-tag">approximate</span>'
+            : '');
         row.querySelector('input')!.addEventListener('change', (e) => {
-          cal.enabled = (e.target as HTMLInputElement).checked;
+          const checked = (e.target as HTMLInputElement).checked;
+          if (entry.kind === 'generated') config.generated[entry.id] = { enabled: checked };
+          else {
+            const g = config.google.find((c) => c.id === entry.id);
+            if (g) g.enabled = checked;
+          }
           saveConfig(config);
           void render();
         });
-        publicGoogle.appendChild(row);
+        publicList.appendChild(row);
       }
     }
-
-    /** Administrator-only fields: renaming and view labels. */
-    function syncAdminInputs() {
-      for (const item of root.querySelectorAll<HTMLElement>('[data-cal-id]')) {
-        const id = item.dataset.calId!;
-        const settings = config.generated[id];
-        const def = GENERATED_CALENDARS.find((c) => c.id === id)!;
-        item.querySelector<HTMLInputElement>('[data-name]')!.value = settings?.name ?? '';
-        item.querySelector<HTMLInputElement>('[data-view-label]')!.value = settings?.viewLabel ?? '';
-        item.querySelector<HTMLElement>('[data-admin-label-text]')!.textContent =
-          settings?.name || def.name;
-      }
-      renderGoogleList();
-    }
-
-    root.querySelector('[data-generated-list]')!.addEventListener('change', (e) => {
-      const item = (e.target as HTMLElement).closest<HTMLElement>('[data-cal-id]');
-      if (!item) return;
-      const id = item.dataset.calId!;
-      const def = GENERATED_CALENDARS.find((c) => c.id === id)!;
-      config.generated[id] = {
-        ...config.generated[id],
-        name: item.querySelector<HTMLInputElement>('[data-name]')!.value.trim() || undefined,
-        viewLabel: item.querySelector<HTMLInputElement>('[data-view-label]')!.value.trim() || undefined,
-      };
-      item.querySelector<HTMLElement>('[data-admin-label-text]')!.textContent =
-        config.generated[id].name || def.name;
-      // The reader-facing list shows the same names, so keep it in step.
-      syncPublicToggles();
-      saveConfig(config);
-      void render();
-    });
 
     // ---- Google calendars --------------------------------------------------
     const googleList = root.querySelector<HTMLElement>('[data-google-list]')!;
@@ -490,21 +415,59 @@ const calendars = GENERATED_CALENDARS;
         return;
       }
       for (const cal of config.google) {
-        const row = document.createElement('div');
-        row.className = 'cal-item cal-google-row';
+        const seeded = SEEDED_GOOGLE_CALENDARS.some((s) => s.id === cal.id);
+        const row = document.createElement('details');
+        row.className = 'cal-item';
         row.innerHTML = `
-          <label class="cal-toggle">
-            <input type="checkbox" ${cal.enabled ? 'checked' : ''} data-g-enabled />
-            <span>${escapeHtml(cal.name)}</span>
+          <summary>
+            <span class="cal-toggle-name">${escapeHtml(cal.name)}</span>
+            <span class="cal-tag">${cal.icsUrl.trim() ? 'connected' : 'no address'}</span>
+          </summary>
+          <label class="cal-field">
+            Display name
+            <input type="text" data-g-name value="${escapeHtml(cal.name)}" />
           </label>
-          <p class="cal-desc">${cal.viewLabel ? `Shown to others as “${escapeHtml(cal.viewLabel)}”` : 'Full event titles shown'}</p>
-          <button type="button" class="cal-remove" data-g-remove>Remove</button>`;
-        row.querySelector('[data-g-enabled]')!.addEventListener('change', (e) => {
-          cal.enabled = (e.target as HTMLInputElement).checked;
+          <label class="cal-field">
+            View label
+            <input type="text" data-g-view value="${escapeHtml(cal.viewLabel)}" placeholder="Show full detail" />
+            <small>Shown instead of each event's real title. Leave empty to show real titles.</small>
+          </label>
+          <label class="cal-field">
+            Secret iCal address
+            <input type="url" data-g-url value="${escapeHtml(cal.icsUrl)}"
+              placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" />
+          </label>
+          <p class="cal-error" data-g-error hidden></p>
+          ${seeded ? '' : '<button type="button" class="cal-remove" data-g-remove>Remove this calendar</button>'}`;
+
+        const err = row.querySelector<HTMLElement>('[data-g-error]')!;
+        const urlInput = row.querySelector<HTMLInputElement>('[data-g-url]')!;
+
+        const commit = () => {
+          const url = urlInput.value.trim();
+          err.hidden = true;
+          if (url && !/^https:\/\/calendar\.google\.com\//.test(url)) {
+            err.textContent = 'That must be a https://calendar.google.com/… iCal address.';
+            err.hidden = false;
+            return;
+          }
+          const hadNoUrl = !cal.icsUrl.trim();
+          cal.name = row.querySelector<HTMLInputElement>('[data-g-name]')!.value.trim() || cal.name;
+          cal.viewLabel = row.querySelector<HTMLInputElement>('[data-g-view]')!.value.trim();
+          cal.icsUrl = url;
+          // Switching a calendar on is the obvious intent of pasting in its
+          // address, so do not make that a second step.
+          if (hadNoUrl && url) cal.enabled = true;
           saveConfig(config);
+          renderGoogleList();
+          syncPublicToggles();
           void render();
-        });
-        row.querySelector('[data-g-remove]')!.addEventListener('click', () => {
+        };
+        for (const input of row.querySelectorAll<HTMLInputElement>('input')) {
+          input.addEventListener('change', commit);
+        }
+
+        row.querySelector('[data-g-remove]')?.addEventListener('click', () => {
           config.google = config.google.filter((c) => c.id !== cal.id);
           saveConfig(config);
           renderGoogleList();
@@ -594,16 +557,11 @@ const calendars = GENERATED_CALENDARS;
       const eve = new Map<string, EveKind>();
       let warning: string | undefined;
 
-      const params = new URLSearchParams({ from, to });
-      if (Object.keys(config.feastOverrides).length) {
-        params.set('feastOverrides', JSON.stringify(config.feastOverrides));
-      }
-      const res = await fetch(`/api/holy-days.json?${params}`);
+      const res = await fetch(`/api/holy-days.json?from=${from}&to=${to}`);
       const data = (await res.json()) as { occurrences: Occurrence[] };
 
       for (const o of data.occurrences) {
-        const settings = config.generated[o.calendarId];
-        if (!settings?.enabled) continue;
+        if (!config.generated[o.calendarId]?.enabled) continue;
         const kind =
           o.calendarId === 'bahai-holy-days' ? 'holy-day'
           : o.calendarId === 'bahai-feast' ? 'feast'
@@ -611,7 +569,7 @@ const calendars = GENERATED_CALENDARS;
           : 'other';
         const group = o.calendarId.startsWith('bahai') ? 'bahai' : 'other-faith';
         // A calendar with a view label shows that label instead of the real name.
-        const name = settings.viewLabel || o.name;
+        const name = o.name;
 
         if (o.startsPreviousEvening && (kind === 'holy-day' || kind === 'feast')) {
           const evening = addDays(o.date, -1);
@@ -741,7 +699,7 @@ const calendars = GENERATED_CALENDARS;
           .map(
             (e) => `<li class="cal-other${e.approximate ? ' is-approx' : ''}" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
               `<span class="faith-icon faith-${escapeHtml(e.calendarId)}" aria-hidden="true"></span>` +
-              `<span>${escapeHtml(e.name)}</span></li>`,
+              `<span>${escapeHtml(keepNameWhole(e.name))}</span></li>`,
           )
           .join('');
 
@@ -749,7 +707,7 @@ const calendars = GENERATED_CALENDARS;
           .filter((e) => e.group === 'community')
           .map(
             (e) => `<li class="cal-event" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
-              `<span class="cal-dot"></span>${e.time ? `<span class="cal-time">${e.time}</span> ` : ''}${escapeHtml(e.name)}</li>`,
+              `<span class="cal-dot"></span>${e.time ? `<span class="cal-time">${e.time}</span> ` : ''}${escapeHtml(keepNameWhole(e.name))}</li>`,
           )
           .join('');
 
@@ -757,7 +715,7 @@ const calendars = GENERATED_CALENDARS;
           <div class="${classes.join(' ')}" role="gridcell">
             <div class="cal-day-head">
               <span class="cal-greg">${d.day}</span>
-              <span class="cal-badi"${headTip ? ` tabindex="0" data-tip="${escapeHtml(headTip)}"` : ''}>${escapeHtml(badiLine)}${holyEntry?.workSuspended ? ' *' : ''}</span>
+              <span class="cal-badi"${headTip ? ` tabindex="0" data-tip="${escapeHtml(headTip)}"` : ''}>${escapeHtml(keepNameWhole(badiLine))}${holyEntry?.workSuspended ? ' *' : ''}</span>
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
@@ -972,6 +930,18 @@ const calendars = GENERATED_CALENDARS;
   function formatLongDate(iso: string): string {
     const { year, month, day } = parseIso(iso);
     return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+  }
+
+  /**
+   * Stop a line break falling inside a name.
+   *
+   * Browsers break after a hyphen whatever `hyphens` says, which split
+   * "Ascension of ‘Abdu'l-Bahá" across two lines mid-name. Swapping in a
+   * non-breaking hyphen keeps the name whole and moves the break to a space,
+   * where it belongs. Applies to Naw-Rúz, Ayyám-i-Há and the rest equally.
+   */
+  function keepNameWhole(s: string): string {
+    return s.replace(/-/g, '\u2011');
   }
 
   function escapeHtml(s: string): string {

@@ -4,8 +4,7 @@
  * are declared by an administrator and fetched at runtime.
  */
 
-import { generateBahaiFeast, generateBahaiHolyDays, generateBahaiMonths } from './bahai-generated.ts';
-import type { FeastOverrides } from './bahai-generated.ts';
+import { generateBahaiHolyDays, generateBahaiMonths } from './bahai-generated.ts';
 import { generateChristian, generateOrthodox } from './christian.ts';
 import { generateJewish } from './hebrew.ts';
 import { generateIslamic } from './islamic.ts';
@@ -28,7 +27,6 @@ export interface GeneratedCalendar {
 }
 
 export interface GenerateOptions {
-  feastOverrides?: FeastOverrides;
   /** Administrator-verified dates, applied after generation. */
   dateOverrides?: OverrideTable;
 }
@@ -49,16 +47,6 @@ export const GENERATED_CALENDARS: GeneratedCalendar[] = [
     confidence: 'exact',
     description: 'The nineteen months of the Badí‘ calendar, with Ayyám-i-Há and the Fast.',
     generate: (from, to) => generateBahaiMonths(from, to),
-  },
-  {
-    id: 'bahai-feast',
-    name: 'Bahá’í Feast',
-    group: 'bahai',
-    defaultOn: true,
-    confidence: 'exact',
-    description:
-      'The Nineteen Day Feast. Defaults to the first day of each Bahá’í month; may be moved to any day of that month.',
-    generate: (from, to, opts) => generateBahaiFeast(from, to, opts.feastOverrides ?? {}),
   },
   {
     id: 'bahai-holy-days',
@@ -164,9 +152,15 @@ export interface GoogleCalendarConfig {
   id: string;
   /** Display name — the calendar's own name is not used, so it can be mapped. */
   name: string;
-  /** Secret iCal address from Google Calendar settings. */
+  /** Secret iCal address from Google Calendar settings. Empty until set up. */
   icsUrl: string;
   enabled: boolean;
+  /**
+   * Place this calendar directly after the named generated calendar in the
+   * list, so the community's own Feast sits beside the Bahá'í months it
+   * belongs to rather than being exiled to the bottom.
+   */
+  after?: string;
   /**
    * Substitute text shown in place of every event's real title, for viewers
    * without the privilege to see the calendar's detail. "Centre Booked",
@@ -176,24 +170,53 @@ export interface GoogleCalendarConfig {
   colour: string;
 }
 
-/** Per-calendar settings an administrator can change for the generated calendars. */
+/**
+ * Per-calendar settings for a generated calendar: only whether it is shown.
+ *
+ * A computed calendar has nothing else to configure. Its name is fixed by what
+ * it is, and a view label would be meaningless because there is no private
+ * detail to withhold — the dates are public facts. View labels belong solely to
+ * Google calendars, which carry real events.
+ */
 export interface GeneratedCalendarSettings {
   enabled: boolean;
-  /** Renamed display title, if the default has been mapped to something else. */
-  name?: string;
-  viewLabel?: string;
 }
+
+/**
+ * Calendars a community is expected to keep in Google, offered ready-named so
+ * an administrator only has to paste in the address. They stay hidden from
+ * readers until one is supplied.
+ */
+export const SEEDED_GOOGLE_CALENDARS: GoogleCalendarConfig[] = [
+  {
+    id: 'feast-event',
+    name: 'Feast Event',
+    icsUrl: '',
+    enabled: false,
+    viewLabel: '',
+    colour: 'teal',
+    after: 'bahai-months',
+  },
+  {
+    id: 'holy-day-event',
+    name: 'Holy Day Event',
+    icsUrl: '',
+    enabled: false,
+    viewLabel: '',
+    colour: 'gold',
+    after: 'bahai-holy-days',
+  },
+];
 
 export interface CalendarConfig {
   generated: Record<string, GeneratedCalendarSettings>;
   google: GoogleCalendarConfig[];
-  feastOverrides: FeastOverrides;
 }
 
 export function defaultConfig(): CalendarConfig {
   const generated: Record<string, GeneratedCalendarSettings> = {};
   for (const c of GENERATED_CALENDARS) generated[c.id] = { enabled: c.defaultOn };
-  return { generated, google: [], feastOverrides: {} };
+  return { generated, google: SEEDED_GOOGLE_CALENDARS.map((c) => ({ ...c })) };
 }
 
 /** Merge a stored config over the defaults, so new calendars appear automatically. */
@@ -204,7 +227,39 @@ export function mergeConfig(stored: Partial<CalendarConfig> | null): CalendarCon
     const s = stored.generated?.[c.id];
     if (s) base.generated[c.id] = { ...base.generated[c.id], ...s };
   }
-  base.google = stored.google ?? [];
-  base.feastOverrides = stored.feastOverrides ?? {};
+  if (stored.google) {
+    // Keep the seeded entries present even in a config saved before they
+    // existed, so they do not silently vanish for someone who has one stored.
+    const storedById = new Map(stored.google.map((c) => [c.id, c]));
+    base.google = [
+      ...SEEDED_GOOGLE_CALENDARS.map((seed) => ({ ...seed, ...storedById.get(seed.id) })),
+      ...stored.google.filter((c) => !SEEDED_GOOGLE_CALENDARS.some((s) => s.id === c.id)),
+    ];
+  }
   return base;
+}
+
+export type ListedCalendar =
+  | { kind: 'generated'; id: string; name: string; confidence: Confidence }
+  | { kind: 'google'; id: string; name: string };
+
+/**
+ * The calendars a reader can switch on, in display order: each generated
+ * calendar, followed by any Google calendar anchored to it, then the rest.
+ * Google calendars with no address yet are omitted — there is nothing to show.
+ */
+export function listedCalendars(config: CalendarConfig): ListedCalendar[] {
+  const usable = config.google.filter((c) => c.icsUrl.trim());
+  const out: ListedCalendar[] = [];
+  for (const c of GENERATED_CALENDARS) {
+    out.push({ kind: 'generated', id: c.id, name: c.name, confidence: c.confidence });
+    for (const g of usable.filter((g) => g.after === c.id)) {
+      out.push({ kind: 'google', id: g.id, name: g.name });
+    }
+  }
+  const anchors = new Set(GENERATED_CALENDARS.map((c) => c.id));
+  for (const g of usable.filter((g) => !g.after || !anchors.has(g.after))) {
+    out.push({ kind: 'google', id: g.id, name: g.name });
+  }
+  return out;
 }
