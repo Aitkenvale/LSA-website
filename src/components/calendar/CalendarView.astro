@@ -142,6 +142,14 @@
           shows everything. Your choices are remembered on this device only, and
           do not change what anyone else sees.
         </p>
+        <label class="cal-week-start">
+          <span>Week starts on</span>
+          <select data-week-start>
+            <option value="6">Saturday</option>
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+          </select>
+        </label>
         <div class="cal-list" data-public-list></div>
       </section>
 
@@ -234,6 +242,49 @@
           </section>
 
           <section>
+            <h4>Planning cycles</h4>
+            <p class="cal-help">
+              A cycle is a planning period — roughly three months of activity
+              ending in a reflection meeting. These are the Assembly's dates and
+              are the same for everyone; only which day of the week the grid
+              starts on is left to each reader.
+            </p>
+            <p class="cal-help">
+              By default a cycle begins when a school term ends, because that is
+              what everyone's year is already built around. Three terms are
+              followed by a fortnight and one by six weeks, which is where three
+              cycles of twelve weeks and one long one come from.
+            </p>
+            <label class="cal-field">
+              State or territory
+              <select data-cycle-state></select>
+              <small data-cycle-source></small>
+            </label>
+            <button type="button" class="cal-secondary" data-cycle-load hidden>
+              Load term dates
+            </button>
+            <p class="cal-error" data-cycle-error hidden></p>
+            <label class="cal-toggle cal-check">
+              <input type="checkbox" data-cycle-align />
+              <span>Align cycles to school terms</span>
+            </label>
+            <label class="cal-field">
+              A cycle begins on
+              <select data-cycle-day>
+                <option value="6">Saturday</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+              </select>
+              <small>The first such day after term ends.</small>
+            </label>
+            <div class="cal-list" data-cycle-list></div>
+            <div class="cal-cycle-actions" data-cycle-manual hidden>
+              <button type="button" class="cal-secondary" data-cycle-add>Add a cycle</button>
+              <button type="button" class="cal-secondary" data-cycle-reset>Back to the term dates</button>
+            </div>
+          </section>
+
+          <section>
             <h4>Dates to confirm</h4>
             <p class="cal-help">
               These dates depend on local observation or regional custom, so the
@@ -288,7 +339,18 @@
     StoredConfig,
     VisibleCalendar,
   } from '../../lib/calendar/config-store';
-  import { DEFAULT_LOCATION } from '../../lib/calendar/config-store';
+  import type { CycleSettings } from '../../lib/calendar/config-store';
+  import { DEFAULT_LOCATION, cycleBoundaries, defaultCycleSettings } from '../../lib/calendar/config-store';
+  import type { SchoolTerm, TermSource } from '../../lib/calendar/school-terms';
+  import {
+    AU_STATES,
+    BUNDLED_TERMS,
+    TERM_SOURCES,
+    boundariesFromTerms,
+    canLoadTerms,
+    cyclesFromBoundaries,
+    isAuState,
+  } from '../../lib/calendar/school-terms';
   import { TIERS, TIER_LABELS, type Tier } from '../../lib/calendar/tiers';
   import {
     BADI_MONTHS,
@@ -336,8 +398,23 @@
      * set meant every switch had to be undone on the way back.
      */
     enabled: Record<View, Record<string, boolean>>;
+    /**
+     * Which day each view's week begins on.
+     *
+     * Also per view, and for the same reason. A month reads naturally starting
+     * on a Sunday or a Monday, but a planning cycle begins when a school term
+     * ends — on the Saturday of the holidays — and a grid whose rows start on
+     * some other day puts every cycle boundary in the middle of a row.
+     */
+    weekStart: Record<View, number>;
     sectionsOpen: Record<string, boolean>;
   }
+
+  /** Sunday for the two month views; Saturday for the cycle, which begins there. */
+  const DEFAULT_WEEK_START: Record<View, number> = { gregorian: 0, badi: 0, cycle: 6 };
+
+  /** The only days a week is offered starting on. */
+  const WEEK_START_CHOICES = [6, 0, 1];
 
   const VIEW_LABELS: Record<View, string> = {
     gregorian: 'Gregorian',
@@ -349,6 +426,10 @@
     return { gregorian: {}, badi: {}, cycle: {} };
   }
 
+  function defaultWeekStarts(): Record<View, number> {
+    return { ...DEFAULT_WEEK_START };
+  }
+
   /** What the configuration endpoint returns, depending on who is asking. */
   interface ConfigResponse {
     tier: Tier;
@@ -356,6 +437,8 @@
     calendars?: VisibleCalendar[];
     config?: StoredConfig;
     location?: CalendarLocation;
+    /** Sent to community and above, who are the only tiers with a cycle view. */
+    cycles?: CycleSettings;
   }
 
   const MONTH_NAMES = [
@@ -582,6 +665,7 @@
         void loadServerConfig().then(() => {
           renderGoogleList();
           syncLocationFields();
+          syncCycleFields();
           syncPublicToggles();
           void renderVerifyList();
           void render();
@@ -638,6 +722,204 @@
         if (await saveServerConfig(config)) void render();
       });
     }
+
+    // ---- planning cycles ---------------------------------------------------
+    const cycleState = root.querySelector<HTMLSelectElement>('[data-cycle-state]')!;
+    const cycleSource = root.querySelector<HTMLElement>('[data-cycle-source]')!;
+    const cycleLoad = root.querySelector<HTMLButtonElement>('[data-cycle-load]')!;
+    const cycleError = root.querySelector<HTMLElement>('[data-cycle-error]')!;
+    const cycleAlign = root.querySelector<HTMLInputElement>('[data-cycle-align]')!;
+    const cycleDay = root.querySelector<HTMLSelectElement>('[data-cycle-day]')!;
+    const cycleList = root.querySelector<HTMLElement>('[data-cycle-list]')!;
+    const cycleManual = root.querySelector<HTMLElement>('[data-cycle-manual]')!;
+
+    for (const state of AU_STATES) {
+      cycleState.insertAdjacentHTML(
+        'beforeend',
+        `<option value="${state.id}">${escapeHtml(state.name)}</option>`,
+      );
+    }
+
+    const cycleSettings = (): CycleSettings =>
+      server.config?.cycles ?? server.cycles ?? defaultCycleSettings();
+
+    async function saveCycles(next: CycleSettings) {
+      const config = server.config;
+      if (!config) return;
+      config.cycles = next;
+      if (await saveServerConfig(config)) {
+        syncCycleFields();
+        void render();
+      }
+    }
+
+    /**
+     * Say plainly where the dates came from and when they were read.
+     *
+     * A term date that has quietly gone stale is the failure worth guarding
+     * against, so the panel always shows its provenance rather than presenting
+     * the table as simply true.
+     */
+    function describeSource(settings: CycleSettings): string {
+      if (!settings.terms.length) {
+        return canLoadTerms(settings.state)
+          ? 'No dates yet — load them, or enter the cycles by hand below.'
+          : 'This state does not publish its term dates as data. Enter the cycles by hand below.';
+      }
+      const src = settings.termsSource;
+      const years = [...new Set(settings.terms.map((t) => t.year))].sort();
+      const span = years.length ? `${years[0]}–${years[years.length - 1]}` : '';
+      return src
+        ? `${span} from ${src.name}, read ${src.checked}.`
+        : `${span}, entered by hand.`;
+    }
+
+    function syncCycleFields() {
+      const settings = cycleSettings();
+      cycleState.value = settings.state;
+      cycleAlign.checked = settings.alignToSchoolTerms;
+      cycleDay.value = String(settings.alignDay);
+      cycleSource.textContent = describeSource(settings);
+      cycleLoad.hidden = !canLoadTerms(settings.state);
+      cycleManual.hidden = settings.alignToSchoolTerms;
+      renderCycleList(settings);
+    }
+
+    function renderCycleList(settings: CycleSettings) {
+      const boundaries = cycleBoundaries(settings);
+      const cycles = cyclesFromBoundaries(boundaries);
+      cycleList.innerHTML = '';
+
+      if (!cycles.length) {
+        cycleList.innerHTML =
+          '<p class="cal-help cal-empty">No cycles yet. Two dates are needed before there is one.</p>';
+        return;
+      }
+
+      const today = todayIso();
+      for (const cycle of cycles) {
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-cycle';
+        const current = today >= cycle.start && today <= cycle.end;
+        if (current) row.classList.add('is-current-cycle');
+
+        // Aligned, the dates are a consequence of the term dates and are shown
+        // rather than offered for editing; by hand, each start is a field.
+        const start = settings.alignToSchoolTerms
+          ? `<span class="cal-cycle-date">${escapeHtml(formatLongDate(cycle.start))}</span>`
+          : `<input type="date" class="cal-cycle-input" value="${cycle.start}" data-boundary="${cycle.start}" />`;
+
+        row.innerHTML =
+          `<span class="cal-cycle-no">${cycle.number}</span>${start}` +
+          `<span class="cal-cycle-span">to ${escapeHtml(formatLongDate(cycle.end))}` +
+          `<small>${cycle.weeks} weeks${current ? ' · current' : ''}</small></span>` +
+          (settings.alignToSchoolTerms
+            ? ''
+            : `<button type="button" class="cal-remove" data-drop-boundary="${cycle.start}">Remove</button>`);
+        cycleList.appendChild(row);
+      }
+
+      // The last boundary opens a cycle whose end is not yet known, so it is
+      // named rather than silently dropped.
+      const open = boundaries[boundaries.length - 1];
+      if (open) {
+        cycleList.insertAdjacentHTML(
+          'beforeend',
+          `<p class="cal-help">A cycle opens ${escapeHtml(formatLongDate(open))}. Its length is` +
+            ' unknown until the next term dates are added.</p>',
+        );
+      }
+
+      for (const input of cycleList.querySelectorAll<HTMLInputElement>('[data-boundary]')) {
+        input.addEventListener('change', () => {
+          const settingsNow = cycleSettings();
+          const was = input.dataset.boundary!;
+          const value = input.value;
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { syncCycleFields(); return; }
+          const next = settingsNow.manualBoundaries.filter((b) => b !== was);
+          next.push(value);
+          void saveCycles({ ...settingsNow, manualBoundaries: [...new Set(next)].sort() });
+        });
+      }
+      for (const button of cycleList.querySelectorAll<HTMLButtonElement>('[data-drop-boundary]')) {
+        button.addEventListener('click', () => {
+          const settingsNow = cycleSettings();
+          const drop = button.dataset.dropBoundary!;
+          void saveCycles({
+            ...settingsNow,
+            manualBoundaries: settingsNow.manualBoundaries.filter((b) => b !== drop),
+          });
+        });
+      }
+    }
+
+    cycleState.addEventListener('change', () => {
+      const state = cycleState.value;
+      if (!isAuState(state)) return;
+      const bundled = BUNDLED_TERMS[state];
+      // Changing state must not leave the previous state's dates in place —
+      // that would silently plan the community's year to another state's terms.
+      void saveCycles({
+        ...cycleSettings(),
+        state,
+        terms: bundled ? bundled.map((t) => ({ ...t })) : [],
+        termsSource: bundled ? TERM_SOURCES[state] : undefined,
+      });
+    });
+
+    cycleDay.addEventListener('change', () => {
+      void saveCycles({ ...cycleSettings(), alignDay: Number(cycleDay.value) as CycleSettings['alignDay'] });
+    });
+
+    cycleAlign.addEventListener('change', () => {
+      const settings = cycleSettings();
+      // Unticking seeds the manual list from what the terms currently give, so
+      // the dates are adjusted from where they were rather than from nothing.
+      const manualBoundaries = cycleAlign.checked
+        ? settings.manualBoundaries
+        : boundariesFromTerms(settings.terms, settings.alignDay);
+      void saveCycles({ ...settings, alignToSchoolTerms: cycleAlign.checked, manualBoundaries });
+    });
+
+    root.querySelector('[data-cycle-add]')!.addEventListener('click', () => {
+      const settings = cycleSettings();
+      const boundaries = cycleBoundaries(settings);
+      const last = boundaries[boundaries.length - 1] ?? todayIso();
+      // Twelve weeks on, the ordinary length, as a starting point to edit.
+      void saveCycles({
+        ...settings,
+        manualBoundaries: [...new Set([...settings.manualBoundaries, addDays(last, 84)])].sort(),
+      });
+    });
+
+    root.querySelector('[data-cycle-reset]')!.addEventListener('click', () => {
+      const settings = cycleSettings();
+      void saveCycles({ ...settings, alignToSchoolTerms: true, manualBoundaries: [] });
+    });
+
+    cycleLoad.addEventListener('click', async () => {
+      const settings = cycleSettings();
+      cycleError.hidden = true;
+      cycleLoad.disabled = true;
+      cycleLoad.textContent = 'Loading…';
+      try {
+        const res = await fetch(`/api/school-terms.json?state=${settings.state}`);
+        const body = (await res.json()) as
+          { ok: true; terms: SchoolTerm[]; source: TermSource } | { ok: false; error: string };
+        if (!body.ok) {
+          cycleError.textContent = body.error;
+          cycleError.hidden = false;
+          return;
+        }
+        await saveCycles({ ...cycleSettings(), terms: body.terms, termsSource: body.source });
+      } catch {
+        cycleError.textContent = 'Could not reach the catalogue.';
+        cycleError.hidden = false;
+      } finally {
+        cycleLoad.disabled = false;
+        cycleLoad.textContent = 'Load term dates';
+      }
+    });
 
     const verifyList = root.querySelector<HTMLElement>('[data-verify-list]')!;
     const verifyWindow = root.querySelector<HTMLSelectElement>('[data-verify-window]')!;
@@ -737,10 +1019,18 @@
      */
     const publicList = root.querySelector<HTMLElement>('[data-public-list]')!;
 
+    const weekStartSelect = root.querySelector<HTMLSelectElement>('[data-week-start]')!;
+    weekStartSelect.addEventListener('change', () => {
+      prefs.weekStart[view] = Number(weekStartSelect.value);
+      savePrefs(prefs);
+      void render();
+    });
+
     function syncPublicToggles() {
       const entries = listed();
       root.querySelector<HTMLElement>('[data-show-heading]')!.textContent =
         `Show Calendars for ${VIEW_LABELS[view]} View`;
+      weekStartSelect.value = String(prefs.weekStart[view] ?? DEFAULT_WEEK_START[view]);
       publicList.innerHTML = '';
 
       for (const section of CALENDAR_SECTIONS) {
@@ -1126,9 +1416,11 @@
       badiYearEl.textContent = period.subtitle;
 
       // Whole weeks either side, so a period that starts mid-week still reads
-      // as weeks rather than as a ragged block.
-      const gridStart = addDays(period.first, -weekday(period.first));
-      const lastCell = addDays(period.last, 6 - weekday(period.last));
+      // as weeks rather than as a ragged block. Which day a week opens on is
+      // the reader's, and differs between the views.
+      const ws = prefs.weekStart[view] ?? DEFAULT_WEEK_START[view];
+      const gridStart = addDays(period.first, -(((weekday(period.first) - ws) % 7 + 7) % 7));
+      const lastCell = addDays(period.last, ((ws + 6 - weekday(period.last)) % 7 + 7) % 7);
       const gridEnd = lastCell;
 
       // Paint the grid immediately so navigation feels instant, then fill it
@@ -1329,7 +1621,8 @@
       const shown = new Set<string>();
       const parts: string[] = [];
 
-      for (const name of WEEKDAY_NAMES) {
+      const ws = prefs.weekStart[view] ?? DEFAULT_WEEK_START[view];
+      for (const name of [...WEEKDAY_NAMES.slice(ws), ...WEEKDAY_NAMES.slice(0, ws)]) {
         parts.push(`<div class="cal-weekday" role="columnheader">${name}</div>`);
       }
 
@@ -1835,12 +2128,24 @@
             : { ...(stored as Record<string, boolean>) };
         }
       }
+      // A stored week start is honoured only if it is one of the three days
+      // offered; anything else falls back to the default for that view.
+      const weekStart = defaultWeekStarts();
+      const storedStart = parsed?.weekStart as Record<string, unknown> | undefined;
+      if (storedStart) {
+        for (const v of Object.keys(weekStart) as View[]) {
+          const value = Number(storedStart[v]);
+          if (WEEK_START_CHOICES.includes(value)) weekStart[v] = value;
+        }
+      }
+
       return {
         enabled,
+        weekStart,
         sectionsOpen: (parsed?.sectionsOpen as Record<string, boolean>) ?? {},
       };
     } catch {
-      return { enabled: emptyEnabled(), sectionsOpen: {} };
+      return { enabled: emptyEnabled(), weekStart: defaultWeekStarts(), sectionsOpen: {} };
     }
   }
 
@@ -2345,6 +2650,40 @@
     background: var(--color-sand-200); color: var(--color-ink);
     padding: 0.08rem 0.3rem; border-radius: 0.25rem;
   }
+  /* The select sits on the same line as its label, unlike the stacked fields. */
+  .cal-week-start {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.6rem; font-size: 0.78rem; margin: 0.35rem 0 0.7rem;
+  }
+  .cal-week-start select, .cal-field select {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.3rem 0.45rem; font-size: 0.8rem; background: white;
+  }
+
+  .cal-check { margin-top: 0.7rem; }
+  .cal-cycle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+  .cal-cycle-no {
+    flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%;
+    display: grid; place-items: center; font-size: 0.72rem;
+    background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  }
+  .cal-cycle.is-current-cycle .cal-cycle-no {
+    background: color-mix(in srgb, var(--cal-accent, #7a5c1e) 22%, transparent);
+    font-weight: 600;
+  }
+  .cal-cycle-date { font-variant-numeric: tabular-nums; }
+  .cal-cycle-input {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.2rem 0.35rem; font-size: 0.78rem; background: white;
+  }
+  .cal-cycle-span { margin-left: auto; text-align: right; line-height: 1.25; }
+  .cal-cycle-span small {
+    display: block; font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+  }
+  .cal-cycle-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; }
+  .cal-cycle .cal-remove { margin-top: 0; }
+
   .cal-field { display: grid; gap: 0.2rem; font-size: 0.75rem; margin-top: 0.5rem; }
   .cal-field input {
     border: 1px solid var(--cal-line); border-radius: 0.35rem;

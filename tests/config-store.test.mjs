@@ -2,7 +2,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  defaultStoredConfig, normaliseConfig, visibleTo, feedFor,
+  cycleBoundaries,
+  defaultCycleSettings,
+  defaultStoredConfig,
+  feedFor,
+  normaliseConfig,
+  visibleTo,
 } from '../src/lib/calendar/config-store.ts';
 
 const withLinked = (overrides = {}) => {
@@ -90,4 +95,84 @@ test('junk in place of a document falls back to the defaults', () => {
     assert.ok(config.calendars.length > 0);
     assert.equal(config.version, 1);
   }
+});
+
+// ---- planning cycles -------------------------------------------------------
+
+test('a fresh configuration plans to Queensland terms, beginning on a Saturday', () => {
+  const config = defaultStoredConfig();
+  assert.equal(config.cycles.state, 'qld');
+  assert.equal(config.cycles.alignDay, 6);
+  assert.equal(config.cycles.alignToSchoolTerms, true);
+  assert.equal(config.cycles.terms.length, 12);
+  assert.equal(config.cycles.termsSource.name, 'Queensland Department of Education');
+  assert.equal(cycleBoundaries(config.cycles)[0], '2026-01-03');
+});
+
+test('boundaries follow the terms, or the manual list, but never both', () => {
+  const base = defaultStoredConfig().cycles;
+  const fromTerms = cycleBoundaries(base);
+  assert.ok(fromTerms.includes('2026-06-27'));
+
+  const byHand = cycleBoundaries({
+    ...base,
+    alignToSchoolTerms: false,
+    manualBoundaries: ['2026-02-01', '2026-05-01'],
+  });
+  assert.deepEqual(byHand, ['2026-02-01', '2026-05-01']);
+});
+
+test('a nonsense state, weekday or date is refused rather than stored', () => {
+  const config = normaliseConfig({
+    ...defaultStoredConfig(),
+    cycles: {
+      state: 'nz',
+      alignDay: 9,
+      alignToSchoolTerms: true,
+      terms: [],
+      manualBoundaries: ['2026-02-01', 'not-a-date', '2026-02-01', 42],
+    },
+  });
+  assert.equal(config.cycles.state, 'qld', 'unknown state fell back');
+  assert.equal(config.cycles.alignDay, 6, 'impossible weekday fell back');
+  assert.deepEqual(config.cycles.manualBoundaries, ['2026-02-01'], 'junk dates dropped, duplicates merged');
+});
+
+/*
+ * A half-written term would shift every boundary after it without looking
+ * wrong, which is the failure worth being strict about.
+ */
+test('a term missing an end, or ending before it starts, is dropped', () => {
+  const config = normaliseConfig({
+    ...defaultStoredConfig(),
+    cycles: {
+      ...defaultStoredConfig().cycles,
+      terms: [
+        { year: 2026, term: 1, start: '2026-01-27', end: '2026-04-02' },
+        { year: 2026, term: 2, start: '2026-04-20' },
+        { year: 2026, term: 3, start: '2026-09-18', end: '2026-07-13' },
+        { year: 2026, term: 9, start: '2026-10-06', end: '2026-12-11' },
+      ],
+    },
+  });
+  assert.deepEqual(config.cycles.terms, [
+    { year: 2026, term: 1, start: '2026-01-27', end: '2026-04-02' },
+  ]);
+});
+
+test('a state with no bundled dates keeps its empty table rather than Queensland\'s', () => {
+  const config = normaliseConfig({
+    ...defaultStoredConfig(),
+    cycles: { ...defaultStoredConfig().cycles, state: 'wa', terms: [] },
+  });
+  assert.equal(config.cycles.state, 'wa');
+  assert.deepEqual(config.cycles.terms, []);
+});
+
+test('a document written before cycles existed gains the defaults', () => {
+  const old = defaultStoredConfig();
+  delete old.cycles;
+  const config = normaliseConfig(old);
+  assert.equal(config.cycles.state, 'qld');
+  assert.equal(config.cycles.terms.length, 12);
 });

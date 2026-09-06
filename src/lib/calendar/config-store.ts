@@ -18,6 +18,8 @@
 
 import type { CalendarSection } from './registry.ts';
 import { CALENDAR_SECTIONS, GENERATED_CALENDARS, SEEDED_GOOGLE_CALENDARS } from './registry.ts';
+import type { AuStateId, SchoolTerm, TermSource, WeekDay } from './school-terms.ts';
+import { BUNDLED_TERMS, TERM_SOURCES, boundariesFromTerms, isAuState } from './school-terms.ts';
 import type { Tier } from './tiers.ts';
 import { isTier, meetsTier } from './tiers.ts';
 
@@ -65,10 +67,53 @@ export const DEFAULT_LOCATION: CalendarLocation = {
   utcOffsetHours: 10,
 };
 
+/**
+ * How the planning cycles are laid out.
+ *
+ * This is Assembly business, not a reader's preference: a cycle is when the
+ * community has agreed to begin and end a phase of work, and everybody must be
+ * looking at the same one. Only which day the grid's columns start on is left
+ * to the reader, and that lives in their browser.
+ */
+export interface CycleSettings {
+  state: AuStateId;
+  /** Whether boundaries follow the school terms or are set by hand. */
+  alignToSchoolTerms: boolean;
+  /** The weekday a cycle begins on. */
+  alignDay: WeekDay;
+  /** Term dates for the chosen state: bundled, fetched, or corrected by hand. */
+  terms: SchoolTerm[];
+  /** Where those dates came from, so the panel can say so. */
+  termsSource?: TermSource;
+  /** Boundaries set by hand. Used only when not aligned to the terms. */
+  manualBoundaries: string[];
+}
+
+export function defaultCycleSettings(state: AuStateId = 'qld'): CycleSettings {
+  const terms = BUNDLED_TERMS[state];
+  return {
+    state,
+    alignToSchoolTerms: true,
+    // Saturday, so a cycle opens with the weekend that begins the holidays.
+    alignDay: 6,
+    terms: terms ? terms.map((t) => ({ ...t })) : [],
+    termsSource: TERM_SOURCES[state],
+    manualBoundaries: [],
+  };
+}
+
+/** The boundaries in force, whichever way they are being decided. */
+export function cycleBoundaries(settings: CycleSettings): string[] {
+  return settings.alignToSchoolTerms
+    ? boundariesFromTerms(settings.terms, settings.alignDay)
+    : [...new Set(settings.manualBoundaries)].sort();
+}
+
 export interface StoredConfig {
   version: 1;
   calendars: StoredCalendar[];
   location: CalendarLocation;
+  cycles: CycleSettings;
   /** When each tier's code was last changed, so the record is a fact. */
   codeChanged: Partial<Record<Tier, string>>;
 }
@@ -110,7 +155,63 @@ export function defaultStoredConfig(): StoredConfig {
       });
     }
   }
-  return { version: 1, calendars, location: { ...DEFAULT_LOCATION }, codeChanged: {} };
+  return {
+    version: 1,
+    calendars,
+    location: { ...DEFAULT_LOCATION },
+    cycles: defaultCycleSettings(),
+    codeChanged: {},
+  };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function asIsoDates(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((d): d is string => typeof d === 'string' && ISO_DATE.test(d)))].sort();
+}
+
+/**
+ * Accept stored term dates only when they are whole and in order.
+ *
+ * A term whose end precedes its start would produce a cycle running backwards,
+ * and a half-written entry would silently shift every boundary after it, so a
+ * malformed row is dropped rather than repaired into something plausible.
+ */
+function asTerms(value: unknown): SchoolTerm[] {
+  if (!Array.isArray(value)) return [];
+  const terms: SchoolTerm[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const t = raw as Partial<SchoolTerm>;
+    if (!Number.isInteger(t.year) || ![1, 2, 3, 4].includes(t.term as number)) continue;
+    if (typeof t.start !== 'string' || !ISO_DATE.test(t.start)) continue;
+    if (typeof t.end !== 'string' || !ISO_DATE.test(t.end)) continue;
+    if (t.end < t.start) continue;
+    terms.push({ year: t.year as number, term: t.term as 1 | 2 | 3 | 4, start: t.start, end: t.end });
+  }
+  return terms.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+}
+
+function asCycles(value: unknown): CycleSettings {
+  const base = defaultCycleSettings();
+  if (!value || typeof value !== 'object') return base;
+  const c = value as Partial<CycleSettings>;
+  const state = isAuState(c.state) ? c.state : base.state;
+  const alignDay = ([0, 1, 2, 3, 4, 5, 6] as const).includes(c.alignDay as WeekDay)
+    ? (c.alignDay as WeekDay)
+    : base.alignDay;
+  // Terms are kept as stored even when empty: a state with no bundled dates is
+  // meant to show blanks for an administrator to fill, not Queensland's dates.
+  const terms = 'terms' in (c as object) ? asTerms(c.terms) : base.terms;
+  return {
+    state,
+    alignToSchoolTerms: c.alignToSchoolTerms !== false,
+    alignDay,
+    terms,
+    termsSource: c.termsSource ?? TERM_SOURCES[state],
+    manualBoundaries: asIsoDates(c.manualBoundaries),
+  };
 }
 
 function asTier(value: unknown, fallback: Tier): Tier {
@@ -157,6 +258,7 @@ export function normaliseConfig(raw: unknown): StoredConfig {
     version: 1,
     calendars: [...byId.values()].sort((a, b) => a.position - b.position),
     location,
+    cycles: asCycles(stored.cycles),
     codeChanged: stored.codeChanged ?? {},
   };
 }

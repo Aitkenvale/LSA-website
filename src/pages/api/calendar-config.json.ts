@@ -41,7 +41,18 @@ export const GET: APIRoute = async ({ request }) => {
   }
   // The location is not sensitive and every viewer needs it, since the Fast's
   // hours are worked out in the page.
-  return json({ tier, admin: false, calendars: visibleTo(config, tier), location: config.location });
+  //
+  // Cycle boundaries go only to those who can open the cycle view. They are
+  // derived from published school terms and would harm nobody, but sending
+  // them to a tier that cannot use them would be the beginning of the habit of
+  // sending things because they seem harmless.
+  return json({
+    tier,
+    admin: false,
+    calendars: visibleTo(config, tier),
+    location: config.location,
+    ...(meetsTier(tier, 'community') ? { cycles: config.cycles } : {}),
+  });
 };
 
 export const PUT: APIRoute = async ({ request }) => {
