@@ -965,7 +965,10 @@
 
       status.textContent = 'Loading…';
       try {
-        const entries = await loadEntries(gridStart, gridEnd);
+        // One day past the grid, so the evening band on the final cell knows
+        // what it is leading into. Without it, an observance falling the day
+        // after the grid leaves the last cell looking ordinary.
+        const entries = await loadEntries(gridStart, addDays(gridEnd, 1));
         status.textContent = entries.warning ?? '';
         paint(gridStart, gridEnd, period, entries.byDate, entries.eve);
       } catch {
@@ -1748,13 +1751,17 @@
   .cal-day.to-holy { --cell-to: var(--holy); }
   .cal-day.to-feast { --cell-to: var(--feast); }
 
-  /* Out-of-month days are tinted back rather than hidden, so a week that
-     straddles two months still reads as a whole week. */
-  .cal-day.is-out {
-    background-color: var(--color-sand-50);
-    --holy: color-mix(in srgb, var(--cal-holy-tint) 45%, transparent);
-    --feast: color-mix(in srgb, var(--cal-feast-tint) 45%, transparent);
-  }
+  /*
+   * Days either side of the period are shown tinted back rather than hidden,
+   * so a week straddling two months still reads as a whole week.
+   *
+   * Their Holy Day and Feast washes are at FULL strength, not muted. A Holy Day
+   * is a Holy Day whichever month you happen to be looking at, and the band
+   * running into it has to be continuous across the boundary or it reads as
+   * though the observance stops at the edge of the grid. The dimmed numerals
+   * carry the out-of-period signal on their own.
+   */
+  .cal-day.is-out { background-color: var(--color-sand-50); }
   .cal-day.is-out .cal-greg,
   .cal-day.is-out .cal-badi { opacity: 0.45; }
   .cal-day.is-today { box-shadow: inset 0 0 0 2px var(--color-teal-600); }
