@@ -708,11 +708,17 @@ const calendars = GENERATED_CALENDARS;
 
         const classes = ['cal-day'];
         if (!inMonth) classes.push('is-out');
-        if (special) classes.push(holy ? 'is-holy' : 'is-feast');
         if (day === today) classes.push('is-today');
-        // The evening of this day already belongs to tomorrow's observance.
-        const evening = eve.get(day);
-        if (evening) classes.push(`has-eve eve-${evening}`);
+
+        // Two independent facts about a cell, because a Bahá'í day runs sunset
+        // to sunset and so straddles two Gregorian ones:
+        //   `from` — what this day already is, having begun last night;
+        //   `to`   — what its own evening leads into.
+        // The band is then drawn left to right across the pair.
+        const from = holy ? 'holy' : special ? 'feast' : null;
+        const evening = eve.get(day) ?? null;
+        if (from) classes.push(`from-${from}`);
+        if (evening) classes.push(`to-${evening}`);
 
         const badi = gregorianToBadi(day);
         const holyEntry = entries.find((e) => e.kind === 'holy-day');
@@ -1145,23 +1151,52 @@ const calendars = GENERATED_CALENDARS;
     padding: 0.4rem 0;
   }
 
+  /*
+   * A Bahá'í day runs from sunset to sunset, so an observance dated Wednesday
+   * actually begins on Tuesday evening and ends on Wednesday evening. The
+   * printed calendar says this with a horizontal band that ramps up through the
+   * evening of the first cell, holds, and fades out through the evening of the
+   * second — never a vertical wash, and never confined to one cell.
+   *
+   * Each cell paints one span of that band: `--cell-from` is what the day
+   * already is on waking, `--cell-to` is what its evening leads into. Both
+   * default to transparent, so an ordinary day is plain, and two observances in
+   * a row hand over to each other mid-cell rather than breaking.
+   *
+   * The 0/40/100 stops are taken from the print file's own gradients.
+   */
   .cal-day {
-    background: white;
+    --holy: var(--cal-holy-tint);
+    --feast: var(--cal-feast-tint);
+    --cell-from: transparent;
+    --cell-to: transparent;
+    background-color: white;
+    background-image: linear-gradient(
+      to right,
+      var(--cell-from) 0%,
+      var(--cell-from) 40%,
+      var(--cell-to) 100%
+    );
     min-height: 6.5rem;
     padding: 0.35rem 0.4rem 0.45rem;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
   }
+  .cal-day.from-holy { --cell-from: var(--holy); }
+  .cal-day.from-feast { --cell-from: var(--feast); }
+  .cal-day.to-holy { --cell-to: var(--holy); }
+  .cal-day.to-feast { --cell-to: var(--feast); }
+
   /* Out-of-month days are tinted back rather than hidden, so a week that
      straddles two months still reads as a whole week. */
-  .cal-day.is-out { background: var(--color-sand-50); }
+  .cal-day.is-out {
+    background-color: var(--color-sand-50);
+    --holy: color-mix(in srgb, var(--cal-holy-tint) 45%, transparent);
+    --feast: color-mix(in srgb, var(--cal-feast-tint) 45%, transparent);
+  }
   .cal-day.is-out .cal-greg,
   .cal-day.is-out .cal-badi { opacity: 0.45; }
-  .cal-day.is-holy { background: var(--cal-holy-tint); }
-  .cal-day.is-feast { background: var(--cal-feast-tint); }
-  .cal-day.is-out.is-holy { background: color-mix(in srgb, var(--cal-holy-tint) 45%, white); }
-  .cal-day.is-out.is-feast { background: color-mix(in srgb, var(--cal-feast-tint) 45%, white); }
   .cal-day.is-today { box-shadow: inset 0 0 0 2px var(--color-teal-600); }
 
   /*
@@ -1205,24 +1240,6 @@ const calendars = GENERATED_CALENDARS;
   .cal-badge-feast { background: var(--cal-feast-ink); }
   .cal-badge-month { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
 
-  /* ---- the evening before ------------------------------------------------
-     A Bahá'í day begins at sunset, so a Holy Day or Feast is already under way
-     on the previous evening. That is drawn as a wash rising from the bottom of
-     the preceding cell — the end of the day, shading into the next one — rather
-     than as an entry, which would read as a second event. */
-  .cal-day.has-eve { position: relative; }
-  .cal-day.has-eve::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 42%;
-    pointer-events: none;
-    background: linear-gradient(to bottom, transparent, var(--eve-tint));
-  }
-  .cal-day.eve-holy { --eve-tint: color-mix(in srgb, var(--cal-holy-tint) 92%, transparent); }
-  .cal-day.eve-feast { --eve-tint: color-mix(in srgb, var(--cal-feast-tint) 92%, transparent); }
-  .cal-day.is-out.has-eve::after { opacity: 0.45; }
-
   .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; position: relative; }
   /* Every other tradition shares one quiet style — no tint, no badge. */
   .cal-other {
@@ -1235,31 +1252,38 @@ const calendars = GENERATED_CALENDARS;
     border-bottom: 1px dotted color-mix(in srgb, var(--color-ink) 35%, transparent);
   }
 
-  /* Faith marks, tinted with the surrounding text via a CSS mask so one file
-     serves every colour. They identify the tradition without giving each one a
-     colour of its own, which would turn the grid into a patchwork. */
+  /*
+   * Faith marks, drawn as the print artwork does: a light shape with a dark
+   * outline.
+   *
+   * These were first applied as CSS masks so they could take the text colour.
+   * That silently destroyed several of them — a mask makes every painted pixel
+   * opaque, and these files draw their detail as strokes INSIDE a filled
+   * shape, so the dharmachakra's spokes vanished and it rendered as a plain
+   * disc. They are images now, which keeps fill and outline distinct.
+   *
+   * The source strokes are 12 units on a 512 viewBox — about a third of a
+   * pixel at this size, hence invisible — so the exported files carry a
+   * heavier weight. Even so, the denser marks (om, khanda, ahimsa hand) only
+   * resolve from roughly 18px, which sets the size below.
+   */
   .faith-icon {
     flex: none;
-    width: 0.72rem;
-    height: 0.72rem;
-    margin-top: 0.12rem;
-    background-color: currentColor;
-    opacity: 0.75;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    -webkit-mask-size: contain;
-    mask-size: contain;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0.02rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
   }
-  .faith-buddhism { -webkit-mask-image: url('/icons/faith/buddhism.svg'); mask-image: url('/icons/faith/buddhism.svg'); }
-  .faith-christian { -webkit-mask-image: url('/icons/faith/christian.svg'); mask-image: url('/icons/faith/christian.svg'); }
-  .faith-hinduism { -webkit-mask-image: url('/icons/faith/hinduism.svg'); mask-image: url('/icons/faith/hinduism.svg'); }
-  .faith-islam { -webkit-mask-image: url('/icons/faith/islam.svg'); mask-image: url('/icons/faith/islam.svg'); }
-  .faith-jainism { -webkit-mask-image: url('/icons/faith/jainism.svg'); mask-image: url('/icons/faith/jainism.svg'); }
-  .faith-judaism { -webkit-mask-image: url('/icons/faith/judaism.svg'); mask-image: url('/icons/faith/judaism.svg'); }
-  .faith-orthodox { -webkit-mask-image: url('/icons/faith/orthodox.svg'); mask-image: url('/icons/faith/orthodox.svg'); }
-  .faith-sikhism { -webkit-mask-image: url('/icons/faith/sikhism.svg'); mask-image: url('/icons/faith/sikhism.svg'); }
+  .faith-buddhism { background-image: url('/icons/faith/buddhism.svg'); }
+  .faith-christian { background-image: url('/icons/faith/christian.svg'); }
+  .faith-hinduism { background-image: url('/icons/faith/hinduism.svg'); }
+  .faith-islam { background-image: url('/icons/faith/islam.svg'); }
+  .faith-jainism { background-image: url('/icons/faith/jainism.svg'); }
+  .faith-judaism { background-image: url('/icons/faith/judaism.svg'); }
+  .faith-orthodox { background-image: url('/icons/faith/orthodox.svg'); }
+  .faith-sikhism { background-image: url('/icons/faith/sikhism.svg'); }
 
   .cal-other:hover, .cal-event:hover,
   .cal-other:focus-visible, .cal-event:focus-visible {
