@@ -222,7 +222,14 @@ const calendars = GENERATED_CALENDARS;
     verified?: boolean;
     time?: string;
     badge?: string;
+    /** Observance begins at sunset on the evening before this date. */
+    startsPreviousEvening?: boolean;
+    /** Full text for the hover card. */
+    tip?: string;
   }
+
+  /** Which kind of Bahá'í observance an evening leads into. */
+  type EveKind = 'holy' | 'feast';
 
   function init(root: HTMLElement) {
     let config = loadConfig();
@@ -544,13 +551,13 @@ const calendars = GENERATED_CALENDARS;
 
       // Paint the grid immediately so navigation feels instant, then fill it in.
       const byDate = new Map<string, Entry[]>();
-      paint(gridStart, gridEnd, first, byDate);
+      paint(gridStart, gridEnd, first, byDate, new Map());
 
       status.textContent = 'Loading…';
       try {
         const entries = await loadEntries(gridStart, gridEnd);
         status.textContent = entries.warning ?? '';
-        paint(gridStart, gridEnd, first, entries.byDate);
+        paint(gridStart, gridEnd, first, entries.byDate, entries.eve);
       } catch {
         status.textContent = 'Could not load calendar dates.';
       }
@@ -558,6 +565,10 @@ const calendars = GENERATED_CALENDARS;
 
     async function loadEntries(from: string, to: string) {
       const byDate = new Map<string, Entry[]>();
+      // A Bahá'í day begins at sunset, so the evening before a Holy Day or
+      // Feast already belongs to it. That evening is shaded in the previous
+      // day's cell rather than given an entry of its own.
+      const eve = new Map<string, EveKind>();
       let warning: string | undefined;
 
       const params = new URLSearchParams({ from, to });
@@ -578,6 +589,15 @@ const calendars = GENERATED_CALENDARS;
         const group = o.calendarId.startsWith('bahai') ? 'bahai' : 'other-faith';
         // A calendar with a view label shows that label instead of the real name.
         const name = settings.viewLabel || o.name;
+
+        if (o.startsPreviousEvening && (kind === 'holy-day' || kind === 'feast')) {
+          const evening = addDays(o.date, -1);
+          // A Holy Day's evening outranks a Feast's where both fall together.
+          if (kind === 'holy-day' || !eve.has(evening)) {
+            eve.set(evening, kind === 'holy-day' ? 'holy' : 'feast');
+          }
+        }
+
         for (const day of spanDays(o.date, o.endDate)) {
           // Month and multi-day entries only mark their first day in this view.
           if (kind === 'month' && day !== o.date) continue;
@@ -589,8 +609,10 @@ const calendars = GENERATED_CALENDARS;
             workSuspended: o.workSuspended,
             note: o.note,
             approximate: o.confidence === 'approximate',
-          verified: o.confidence === 'verified',
+            verified: o.confidence === 'verified',
+            startsPreviousEvening: o.startsPreviousEvening,
             badge: badgeFor(o, kind),
+            tip: buildTip({ ...o, name }, group),
           });
         }
       }
@@ -616,6 +638,16 @@ const calendars = GENERATED_CALENDARS;
                   kind: 'event',
                   time: cal.viewLabel ? undefined : ev.startTime,
                   note: cal.viewLabel ? undefined : ev.location,
+                  tip: cal.viewLabel
+                    ? `title|${cal.viewLabel}`
+                    : [
+                        `title|${ev.summary}`,
+                        [ev.startTime, ev.location].filter(Boolean).join(' · '),
+                        ev.description,
+                      ]
+                        .filter(Boolean)
+                        .map((line, i) => (i === 0 ? line : `note|${line}`))
+                        .join('\n'),
                 });
               }
             }
@@ -625,10 +657,16 @@ const calendars = GENERATED_CALENDARS;
         }),
       );
       if (failures.length) warning = `Could not load: ${failures.join(', ')}.`;
-      return { byDate, warning };
+      return { byDate, eve, warning };
     }
 
-    function paint(gridStart: string, gridEnd: string, monthFirst: string, byDate: Map<string, Entry[]>) {
+    function paint(
+      gridStart: string,
+      gridEnd: string,
+      monthFirst: string,
+      byDate: Map<string, Entry[]>,
+      eve: Map<string, EveKind>,
+    ) {
       const { month } = parseIso(monthFirst);
       const today = todayIso();
       const parts: string[] = [];
@@ -649,9 +687,17 @@ const calendars = GENERATED_CALENDARS;
         if (!inMonth) classes.push('is-out');
         if (special) classes.push(holy ? 'is-holy' : 'is-feast');
         if (day === today) classes.push('is-today');
+        // The evening of this day already belongs to tomorrow's observance.
+        const evening = eve.get(day);
+        if (evening) classes.push(`has-eve eve-${evening}`);
 
         const badi = gregorianToBadi(day);
         const holyEntry = entries.find((e) => e.kind === 'holy-day');
+        const feastEntry = entries.find((e) => e.kind === 'feast');
+        const headTip = holyEntry?.tip ?? feastEntry?.tip ??
+          (evening
+            ? `title|${formatBadiDate(badi)}\neve|${evening === 'holy' ? 'A Holy Day' : 'A Feast'} begins at sunset this evening.`
+            : '');
         // On a Holy Day the Badí' date is replaced by the Holy Day's name —
         // the name is what matters on that day.
         const badiLine = holyEntry ? holyEntry.name : formatBadiDate(badi);
@@ -663,19 +709,26 @@ const calendars = GENERATED_CALENDARS;
 
         const others = entries
           .filter((e) => e.group === 'other-faith')
-          .map((e) => `<li class="cal-other${e.approximate ? ' is-approx' : ''}"${e.note ? ` title="${escapeHtml(e.note)}"` : ''}>${escapeHtml(e.name)}</li>`)
+          .map(
+            (e) => `<li class="cal-other${e.approximate ? ' is-approx' : ''}" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
+              `<span class="faith-icon faith-${escapeHtml(e.calendarId)}" aria-hidden="true"></span>` +
+              `<span>${escapeHtml(e.name)}</span></li>`,
+          )
           .join('');
 
         const events = entries
           .filter((e) => e.group === 'community')
-          .map((e) => `<li class="cal-event"><span class="cal-dot"></span>${e.time ? `<span class="cal-time">${e.time}</span> ` : ''}${escapeHtml(e.name)}</li>`)
+          .map(
+            (e) => `<li class="cal-event" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
+              `<span class="cal-dot"></span>${e.time ? `<span class="cal-time">${e.time}</span> ` : ''}${escapeHtml(e.name)}</li>`,
+          )
           .join('');
 
         parts.push(`
           <div class="${classes.join(' ')}" role="gridcell">
             <div class="cal-day-head">
               <span class="cal-greg">${d.day}</span>
-              <span class="cal-badi">${escapeHtml(badiLine)}${holyEntry?.workSuspended ? ' *' : ''}</span>
+              <span class="cal-badi"${headTip ? ` tabindex="0" data-tip="${escapeHtml(headTip)}"` : ''}>${escapeHtml(badiLine)}${holyEntry?.workSuspended ? ' *' : ''}</span>
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
@@ -685,10 +738,155 @@ const calendars = GENERATED_CALENDARS;
       grid.innerHTML = parts.join('');
     }
 
+    setUpHoverCard(root, grid);
     void render();
   }
 
+  /**
+   * A hover card for calendar entries, replacing the browser's own tooltip.
+   *
+   * The native `title` tooltip waits about a second before appearing, renders
+   * in a small dark box we cannot style, and never shows on keyboard focus.
+   * This shows immediately, is legible, and is reachable by tab as well as by
+   * pointer. One element is reused for every entry, and events are delegated
+   * from the grid, so adding it costs nothing per cell.
+   */
+  function setUpHoverCard(root: HTMLElement, grid: HTMLElement) {
+    const card = document.createElement('div');
+    card.className = 'cal-card';
+    card.setAttribute('role', 'tooltip');
+    card.hidden = true;
+    root.appendChild(card);
+
+    let showTimer: number | undefined;
+    let current: HTMLElement | null = null;
+
+    function place(target: HTMLElement) {
+      const t = target.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      const margin = 8;
+      // Prefer above the entry; drop below when there is no room up there.
+      let top = t.top - c.height - margin;
+      let below = false;
+      if (top < margin) {
+        top = t.bottom + margin;
+        below = true;
+      }
+      let left = t.left + t.width / 2 - c.width / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - c.width - margin));
+      // Fixed positioning, so these stay viewport coordinates. Positioning it
+      // absolutely would place it relative to the calendar container rather
+      // than the page, putting it hundreds of pixels off.
+      card.style.top = `${top}px`;
+      card.style.left = `${left}px`;
+      card.classList.toggle('is-below', below);
+    }
+
+    function show(target: HTMLElement) {
+      const text = target.dataset.tip;
+      if (!text) return;
+      current = target;
+      card.innerHTML = text
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const at = line.indexOf('|');
+          const kind = at === -1 ? 'note' : line.slice(0, at);
+          const body = escapeHtml(at === -1 ? line : line.slice(at + 1));
+          return kind === 'title'
+            ? `<strong>${body}</strong>`
+            : `<span class="tip-${kind}">${body}</span>`;
+        })
+        .join('');
+      card.hidden = false;
+      // Position, then reveal, in this same turn.
+      //
+      // An earlier version waited for requestAnimationFrame before adding the
+      // visible class. rAF does not fire in a hidden or heavily throttled tab,
+      // so the card would be built and positioned but stay at opacity 0 —
+      // present in the DOM and invisible on screen. place() already forces a
+      // layout by reading getBoundingClientRect, so the element has its
+      // dimensions and the transition has a start state to animate from
+      // without waiting for a frame that may never come.
+      place(target);
+      void card.offsetWidth;
+      card.classList.add('is-visible');
+    }
+
+    function hide() {
+      window.clearTimeout(showTimer);
+      current = null;
+      card.classList.remove('is-visible');
+      card.hidden = true;
+    }
+
+    grid.addEventListener('mouseover', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+      if (!target || target === current) return;
+      window.clearTimeout(showTimer);
+      // Just enough delay to avoid flickering while the pointer crosses cells.
+      showTimer = window.setTimeout(() => show(target), 60);
+    });
+    grid.addEventListener('mouseout', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+      if (!target) return;
+      const to = (e as MouseEvent).relatedTarget as Node | null;
+      if (to && target.contains(to)) return;
+      hide();
+    });
+    grid.addEventListener('focusin', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+      if (target) show(target);
+    });
+    grid.addEventListener('focusout', hide);
+    // Touch: a tap focuses the entry, and anything else dismisses the card.
+    document.addEventListener('scroll', hide, { passive: true });
+    window.addEventListener('resize', hide);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+    });
+  }
+
   // ---- helpers -------------------------------------------------------------
+
+  const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  /**
+   * The text of an entry's hover card.
+   *
+   * Traditions whose day begins at sunset are marked plainly rather than
+   * silently: a reader looking at Friday should know an observance dated
+   * Saturday actually starts on Friday evening. Bahá'í observances say this
+   * with shading on the preceding cell as well; for everything else, which is
+   * rendered as plain text, the note carries it.
+   */
+  function buildTip(o: Occurrence & { name: string }, group: Entry['group']): string {
+    const lines: string[] = [`title|${o.name}`];
+
+    if (o.startsPreviousEvening) {
+      const evening = WEEKDAY_FULL[weekday(addDays(o.date, -1))];
+      lines.push(`eve|Starts ${evening} evening, at sunset.`);
+    }
+
+    lines.push(
+      `when|${
+        o.endDate && o.endDate !== o.date
+          ? `${formatLongDate(o.date)} – ${formatLongDate(o.endDate)}`
+          : formatLongDate(o.date)
+      }`,
+    );
+
+    if (group === 'bahai') lines.push(`badi|${formatBadiDate(gregorianToBadi(o.date), true)}`);
+    if (o.workSuspended) lines.push('work|Work is suspended.');
+    if (o.note) lines.push(`note|${o.note}`);
+
+    if (o.confidence === 'approximate') {
+      lines.push('caveat|Calculated — this tradition sets its dates by observation or local custom, so the day may differ.');
+    } else if (o.confidence === 'verified') {
+      lines.push('caveat|Confirmed against an announced date.');
+    }
+    return lines.join('\n');
+  }
 
   function badgeFor(o: Occurrence, kind: Entry['kind']): string | undefined {
     if (kind === 'holy-day') return o.workSuspended ? 'Holy Day *' : 'Holy Day';
@@ -920,14 +1118,68 @@ const calendars = GENERATED_CALENDARS;
   .cal-badge-feast { background: var(--cal-feast-ink); }
   .cal-badge-month { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
 
-  .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; }
+  /* ---- the evening before ------------------------------------------------
+     A Bahá'í day begins at sunset, so a Holy Day or Feast is already under way
+     on the previous evening. That is drawn as a wash rising from the bottom of
+     the preceding cell — the end of the day, shading into the next one — rather
+     than as an entry, which would read as a second event. */
+  .cal-day.has-eve { position: relative; }
+  .cal-day.has-eve::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 42%;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--eve-tint));
+  }
+  .cal-day.eve-holy { --eve-tint: color-mix(in srgb, var(--cal-holy-tint) 92%, transparent); }
+  .cal-day.eve-feast { --eve-tint: color-mix(in srgb, var(--cal-feast-tint) 92%, transparent); }
+  .cal-day.is-out.has-eve::after { opacity: 0.45; }
+
+  .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; position: relative; }
   /* Every other tradition shares one quiet style — no tint, no badge. */
   .cal-other {
     font-size: 0.66rem;
     line-height: 1.25;
     color: color-mix(in srgb, var(--color-ink) 72%, transparent);
   }
-  .cal-other.is-approx { border-left: 2px dotted var(--cal-line); padding-left: 0.25rem; }
+  .cal-other { display: flex; align-items: flex-start; gap: 0.25rem; cursor: default; }
+  .cal-other.is-approx > span:last-child {
+    border-bottom: 1px dotted color-mix(in srgb, var(--color-ink) 35%, transparent);
+  }
+
+  /* Faith marks, tinted with the surrounding text via a CSS mask so one file
+     serves every colour. They identify the tradition without giving each one a
+     colour of its own, which would turn the grid into a patchwork. */
+  .faith-icon {
+    flex: none;
+    width: 0.72rem;
+    height: 0.72rem;
+    margin-top: 0.12rem;
+    background-color: currentColor;
+    opacity: 0.75;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+  .faith-buddhism { -webkit-mask-image: url('/icons/faith/buddhism.svg'); mask-image: url('/icons/faith/buddhism.svg'); }
+  .faith-christian { -webkit-mask-image: url('/icons/faith/christian.svg'); mask-image: url('/icons/faith/christian.svg'); }
+  .faith-hinduism { -webkit-mask-image: url('/icons/faith/hinduism.svg'); mask-image: url('/icons/faith/hinduism.svg'); }
+  .faith-islam { -webkit-mask-image: url('/icons/faith/islam.svg'); mask-image: url('/icons/faith/islam.svg'); }
+  .faith-jainism { -webkit-mask-image: url('/icons/faith/jainism.svg'); mask-image: url('/icons/faith/jainism.svg'); }
+  .faith-judaism { -webkit-mask-image: url('/icons/faith/judaism.svg'); mask-image: url('/icons/faith/judaism.svg'); }
+  .faith-orthodox { -webkit-mask-image: url('/icons/faith/orthodox.svg'); mask-image: url('/icons/faith/orthodox.svg'); }
+  .faith-sikhism { -webkit-mask-image: url('/icons/faith/sikhism.svg'); mask-image: url('/icons/faith/sikhism.svg'); }
+
+  .cal-other:hover, .cal-event:hover,
+  .cal-other:focus-visible, .cal-event:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, var(--color-teal-700) 10%, transparent);
+    border-radius: 0.2rem;
+  }
   .cal-event {
     font-size: 0.68rem;
     line-height: 1.25;
@@ -941,6 +1193,64 @@ const calendars = GENERATED_CALENDARS;
     background: var(--color-teal-600); flex: none; translate: 0 -1px;
   }
   .cal-time { font-variant-numeric: tabular-nums; opacity: 0.7; }
+
+  /* ---- hover card --------------------------------------------------------
+     Replaces the browser's own tooltip, which is slow, small, dark and
+     unstyleable. */
+  .cal-card {
+    position: fixed;
+    z-index: 60;
+    max-width: min(20rem, calc(100vw - 2rem));
+    background: white;
+    color: var(--color-ink);
+    border: 1px solid color-mix(in srgb, var(--color-teal-900) 12%, transparent);
+    border-top: 3px solid var(--color-teal-700);
+    border-radius: 0.55rem;
+    padding: 0.6rem 0.75rem;
+    box-shadow:
+      0 1px 2px rgb(15 61 62 / 0.08),
+      0 8px 24px rgb(15 61 62 / 0.16),
+      0 16px 48px rgb(15 61 62 / 0.10);
+    display: grid;
+    gap: 0.28rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 120ms ease, transform 120ms ease;
+    pointer-events: none;
+  }
+  .cal-card.is-visible { opacity: 1; transform: translateY(0); }
+  .cal-card.is-below { border-top-width: 1px; border-bottom: 3px solid var(--color-teal-700); }
+  .cal-card strong {
+    font-family: var(--font-display);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-teal-900);
+    line-height: 1.25;
+  }
+  .cal-card span { color: color-mix(in srgb, var(--color-ink) 78%, transparent); }
+  .cal-card .tip-when { color: var(--color-teal-700); font-weight: 500; }
+  .cal-card .tip-badi { font-size: 0.74rem; opacity: 0.8; }
+  /* The sunset note is the line a reader most needs to catch: an observance
+     dated Saturday that in fact begins on Friday evening. */
+  .cal-card .tip-eve {
+    color: var(--color-gold-700);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-gold-100) 60%, transparent);
+    border-radius: 0.25rem;
+    padding: 0.15rem 0.35rem;
+    margin: 0 -0.1rem;
+  }
+  .cal-card .tip-work { color: var(--color-teal-800); font-weight: 500; }
+  .cal-card .tip-caveat {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--color-teal-900) 10%, transparent);
+    padding-top: 0.3rem;
+    margin-top: 0.1rem;
+  }
 
   .cal-status { font-size: 0.75rem; color: color-mix(in srgb, var(--color-ink) 60%, transparent); min-height: 1.2em; margin: 0.5rem 0 0; }
 
