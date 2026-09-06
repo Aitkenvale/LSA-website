@@ -2,6 +2,9 @@
 
 One-time setup checklist for the developer/administrator. Target: $0/month.
 
+> The community calendar is deployed separately, from the `calendar` branch.
+> See [CALENDAR-SETUP.md](CALENDAR-SETUP.md).
+
 ## 1. GitHub
 
 - Create a repo under an account/org controlled by the committee (use a

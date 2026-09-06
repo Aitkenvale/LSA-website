@@ -5,5 +5,26 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
+  },
+  // A second, completely separate Worker built from the same repository.
+  //
+  // The community calendar is developed on its own branch and deployed to its
+  // own Worker, so the live website never contains work in progress. Both
+  // branches share this one file — the Cloudflare project decides which Worker
+  // it is by its deploy command:
+  //
+  //   website   npx wrangler deploy
+  //   calendar  npx wrangler deploy --env calendar
+  //
+  // Keeping it in one file this way means the branches never conflict here.
+  // Secrets are per-environment: the calendar Worker needs its own copy of
+  // CALENDAR_ADMIN_CODE, set on that Worker in the Cloudflare dashboard.
+  "env": {
+    "calendar": {
+      "name": "lsa-calendar",
+      "observability": {
+        "enabled": true
+      }
+    }
   }
 }

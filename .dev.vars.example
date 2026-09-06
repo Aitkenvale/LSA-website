@@ -15,3 +15,7 @@ TURNSTILE_SECRET="0x..."
 
 # Public half of Turnstile (goes in normal env, not secrets)
 PUBLIC_TURNSTILE_SITE_KEY="0x..."
+
+# Community calendar administrator code (opens the settings drawer).
+# Never put this in site settings — this repository is public.
+CALENDAR_ADMIN_CODE="choose-something-long"

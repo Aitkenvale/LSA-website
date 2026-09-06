@@ -13,6 +13,29 @@ const brisbaneDate = z.union([z.string(), z.date()]).transform((v) => {
   return new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}+10:00`);
 });
 
+// The CMS may emit a bare YAML date, which the parser turns into a Date; keep
+// everything in this calendar as plain ISO strings so no timezone can intrude.
+const isoDay = z.union([z.string(), z.date()]).transform((v) =>
+  v instanceof Date ? v.toISOString().slice(0, 10) : v.trim(),
+);
+
+const calendarOverrides = defineCollection({
+  loader: glob({ pattern: '**/*.{yml,yaml}', base: './src/content/calendar' }),
+  schema: z.object({
+    overrides: z
+      .array(
+        z.object({
+          key: z.string(),
+          date: isoDay.optional(),
+          endDate: isoDay.optional(),
+          source: z.string(),
+          recordedOn: isoDay.optional(),
+        }),
+      )
+      .default([]),
+  }),
+});
+
 const events = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/events' }),
   schema: ({ image }) =>
@@ -127,11 +150,18 @@ const settings = defineCollection({
     }),
     // Non-empty = pre-launch gate active (casual deterrent, not security)
     sitePassword: z.string().default(''),
+    // Non-empty = the calendar is not yet public; clear it once the Assembly
+    // approves. Like sitePassword this is a casual deterrent, not access
+    // control — this repository is public, so treat the code as visible.
+    // The administrator code is deliberately NOT here: it lives in the
+    // CALENDAR_ADMIN_CODE Worker secret and is checked server-side.
+    calendarAccessCode: z.string().default(''),
   }),
 });
 
 export const collections = {
   events,
+  calendarOverrides,
   announcements,
   pages,
   extraPages,

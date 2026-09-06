@@ -1,0 +1,9 @@
+# Verified dates for the community calendar.
+#
+# Most holy days are calculated exactly. A few traditions fix their dates by
+# observation — the Hijri month begins when the crescent is sighted — so the
+# calendar computes the usual astronomical answer and marks it "approximate".
+# When a date is announced locally, record it here and the calendar will use it.
+#
+# Leave "date" out to confirm the calculated date without changing it.
+overrides: []

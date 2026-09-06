@@ -1,0 +1,1058 @@
+---
+/**
+ * The community calendar — Gregorian view.
+ *
+ * PRESENTATION ONLY — expected to change. The current look was sketched from a
+ * printed wall calendar purely as a starting point; that is a separate piece of
+ * work with its own constraints and this page is not bound to it. Nothing below
+ * the presentation layer depends on these choices: the calendar engines return
+ * plain dated occurrences, so the whole view can be redesigned without touching
+ * them.
+ *
+ * The ideas worth keeping, whatever the design becomes:
+ *   - each cell shows both the Gregorian and the Badí‘ date;
+ *   - Bahá'í days lead, and are distinguished from each other by hue;
+ *   - all other traditions share one quiet subordinate style, rather than
+ *     competing for attention with a colour each;
+ *   - days outside the displayed month are tinted back, not hidden.
+ */
+import { GENERATED_CALENDARS } from '../../lib/calendar/registry';
+
+const calendars = GENERATED_CALENDARS;
+---
+
+<div class="calendar">
+  <header class="cal-bar">
+    <div class="cal-nav">
+      <button type="button" class="cal-btn" data-nav="prev" aria-label="Previous month">‹</button>
+      <button type="button" class="cal-btn cal-btn-text" data-nav="today">Today</button>
+      <button type="button" class="cal-btn" data-nav="next" aria-label="Next month">›</button>
+    </div>
+    <h2 class="cal-title" data-title aria-live="polite">&nbsp;</h2>
+    <button type="button" class="cal-burger" data-open-drawer aria-expanded="false" aria-controls="cal-drawer">
+      <span class="sr-only">Choose calendars</span>
+      <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+  </header>
+
+  <p class="cal-badi-year" data-badi-year></p>
+
+  <div class="cal-grid-wrap">
+    <div class="cal-grid" data-grid role="grid" aria-label="Month view"></div>
+  </div>
+
+  <p class="cal-status" data-status role="status"></p>
+
+  <ul class="cal-legend">
+    <li><span class="swatch swatch-holy"></span> Holy Day</li>
+    <li><span class="swatch swatch-feast"></span> Feast</li>
+    <li><span class="swatch swatch-month"></span> Bahá’í month begins</li>
+    <li><span class="swatch swatch-other"></span> Other faiths</li>
+    <li class="cal-legend-note">* work suspended</li>
+  </ul>
+
+  <!-- Administrator drawer -->
+  <div class="cal-scrim" data-scrim hidden></div>
+  <aside id="cal-drawer" class="cal-drawer" data-drawer hidden aria-label="Calendars">
+    <div class="cal-drawer-head">
+      <h3>Calendars</h3>
+      <button type="button" class="cal-close" data-close-drawer aria-label="Close settings">×</button>
+    </div>
+
+    <div class="cal-drawer-body" data-drawer-body>
+      <!--
+        Choosing which calendars to see is a reader's decision, not an
+        administrator's — the drawer opens for everyone and this section is
+        always available. Only configuration sits behind the code below.
+      -->
+      <section>
+        <h4>Show calendars</h4>
+        <p class="cal-help">
+          Choose which calendars appear. Your choice is remembered on this
+          device only, and does not change what anyone else sees.
+        </p>
+        <div class="cal-list" data-public-list>
+          {calendars.map((c) => (
+            <label class="cal-item cal-toggle" data-pub-id={c.id}>
+              <input type="checkbox" data-enabled />
+              <span class="cal-toggle-name" data-label-text>{c.name}</span>
+              {c.confidence === 'approximate' && <span class="cal-tag">approximate</span>}
+            </label>
+          ))}
+        </div>
+        <div class="cal-list" data-public-google></div>
+      </section>
+
+      <details class="cal-admin-block">
+        <summary>Administrator settings</summary>
+
+        <section class="cal-lock" data-lock>
+          <p class="cal-help">These settings are for Assembly administrators.</p>
+          <label>
+            Administrator code
+            <input type="password" data-admin-input autocomplete="off" />
+          </label>
+          <button type="button" class="cal-primary" data-admin-submit>Unlock</button>
+          <p class="cal-error" data-admin-error hidden>That code was not recognised.</p>
+        </section>
+
+        <div data-admin-panel hidden>
+          <section>
+            <h4>Names and view labels</h4>
+            <p class="cal-help">
+              Rename a calendar, or set the label shown in place of an event's
+              real title to viewers who may not see that calendar's detail.
+            </p>
+            <div class="cal-list" data-generated-list>
+              {calendars.map((c) => (
+                <details class="cal-item" data-cal-id={c.id}>
+                  <summary>
+                    <span class="cal-toggle-name" data-admin-label-text>{c.name}</span>
+                  </summary>
+                  <p class="cal-desc">{c.description}</p>
+                  <label class="cal-field">
+                    Display name
+                    <input type="text" data-name placeholder={c.name} />
+                  </label>
+                  <label class="cal-field">
+                    View label
+                    <input type="text" data-view-label placeholder="Show full detail" />
+                    <small>Shown instead of each event's real title, for viewers without privilege.</small>
+                  </label>
+                </details>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h4>Google calendars</h4>
+            <p class="cal-help">
+              Paste the <strong>secret iCal address</strong> from a Google calendar's
+              settings (Settings → Integrate calendar → Secret address in iCal format).
+              Anyone holding that address can read the calendar, so treat it as a password.
+            </p>
+            <div class="cal-list" data-google-list></div>
+            <div class="cal-add">
+              <label class="cal-field">
+                Calendar name
+                <input type="text" data-new-name placeholder="LSA Meetings" />
+              </label>
+              <label class="cal-field">
+                View label
+                <input type="text" data-new-view-label placeholder="LSA Meeting" />
+                <small>Leave empty to show real event titles.</small>
+              </label>
+              <label class="cal-field">
+                Secret iCal address
+                <input type="url" data-new-url placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" />
+              </label>
+              <button type="button" class="cal-primary" data-add-google>Add calendar</button>
+              <p class="cal-error" data-google-error hidden></p>
+            </div>
+          </section>
+
+          <section>
+            <h4>Dates to confirm</h4>
+            <p class="cal-help">
+              These dates depend on local observation or regional custom, so the
+              calendar shows its best calculation until someone confirms them.
+              Copy a reference below, then record the announced date under
+              <strong>Calendar verified dates</strong> in the site's content
+              editor. Confirming a date without changing it is worth doing too — it
+              removes the “approximate” mark.
+            </p>
+            <label class="cal-field">
+              Show dates for
+              <select data-verify-window>
+                <option value="12">the next 12 months</option>
+                <option value="24">the next 2 years</option>
+              </select>
+            </label>
+            <div class="cal-list" data-verify-list></div>
+          </section>
+
+          <section>
+            <h4>Saving these settings</h4>
+            <p class="cal-help">
+              These settings are held <strong>in this browser only</strong> — nobody
+              else sees them, and clearing your browser data will reset them. Copy
+              the configuration to keep a record of it, or to hand it over so it can
+              be made the shared default for everyone.
+            </p>
+            <button type="button" class="cal-secondary" data-copy-config>Copy configuration</button>
+            <span class="cal-copied" data-copied hidden>Copied</span>
+          </section>
+        </div>
+      </details>
+    </div>
+  </aside>
+</div>
+
+<script>
+  import {
+    GENERATED_CALENDARS,
+    mergeConfig,
+    defaultConfig,
+    type CalendarConfig,
+    type GoogleCalendarConfig,
+  } from '../../lib/calendar/registry';
+  import { gregorianToBadi, formatBadiDate, nawRuz } from '../../lib/calendar/badi';
+  import { addDays, isoDate, parseIso, weekday } from '../../lib/calendar/astronomy';
+  import type { Occurrence } from '../../lib/calendar/types';
+  import type { IcsEvent } from '../../lib/calendar/ics';
+
+  const STORAGE_KEY = 'townsville-calendar-config';
+  const ADMIN_KEY = 'townsville-calendar-admin';
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  /** An event as rendered, whatever its source. */
+  interface Entry {
+    calendarId: string;
+    name: string;
+    group: 'bahai' | 'other-faith' | 'community';
+    kind: 'holy-day' | 'feast' | 'month' | 'other' | 'event';
+    workSuspended?: boolean;
+    note?: string;
+    approximate?: boolean;
+    verified?: boolean;
+    time?: string;
+    badge?: string;
+  }
+
+  function init(root: HTMLElement) {
+    let config = loadConfig();
+    let cursor = startOfMonth(todayIso());
+    let unlocked = sessionStorage.getItem(ADMIN_KEY) === '1';
+
+    const grid = root.querySelector<HTMLElement>('[data-grid]')!;
+    const title = root.querySelector<HTMLElement>('[data-title]')!;
+    const badiYearEl = root.querySelector<HTMLElement>('[data-badi-year]')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+
+    // ---- navigation -------------------------------------------------------
+    root.querySelector('[data-nav="prev"]')!.addEventListener('click', () => {
+      cursor = shiftMonth(cursor, -1);
+      void render();
+    });
+    root.querySelector('[data-nav="next"]')!.addEventListener('click', () => {
+      cursor = shiftMonth(cursor, 1);
+      void render();
+    });
+    root.querySelector('[data-nav="today"]')!.addEventListener('click', () => {
+      cursor = startOfMonth(todayIso());
+      void render();
+    });
+
+    // ---- drawer -----------------------------------------------------------
+    const drawer = root.querySelector<HTMLElement>('[data-drawer]')!;
+    const scrim = root.querySelector<HTMLElement>('[data-scrim]')!;
+    const burger = root.querySelector<HTMLButtonElement>('[data-open-drawer]')!;
+    const lock = root.querySelector<HTMLElement>('[data-lock]')!;
+    const panel = root.querySelector<HTMLElement>('[data-admin-panel]')!;
+
+    function openDrawer() {
+      drawer.hidden = false;
+      scrim.hidden = false;
+      burger.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => drawer.classList.add('is-open'));
+      syncPublicToggles();
+      syncLock();
+    }
+    function closeDrawer() {
+      drawer.classList.remove('is-open');
+      burger.setAttribute('aria-expanded', 'false');
+      setTimeout(() => {
+        drawer.hidden = true;
+        scrim.hidden = true;
+      }, 200);
+    }
+    burger.addEventListener('click', openDrawer);
+    scrim.addEventListener('click', closeDrawer);
+    root.querySelector('[data-close-drawer]')!.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !drawer.hidden) closeDrawer();
+    });
+
+    function syncLock() {
+      lock.hidden = unlocked;
+      panel.hidden = !unlocked;
+      if (unlocked) {
+        syncAdminInputs();
+        void renderVerifyList();
+      }
+    }
+
+    const verifyList = root.querySelector<HTMLElement>('[data-verify-list]')!;
+    const verifyWindow = root.querySelector<HTMLSelectElement>('[data-verify-window]')!;
+    verifyWindow.addEventListener('change', () => void renderVerifyList());
+
+    /** List the occurrences still resting on a calculation, so they can be confirmed. */
+    async function renderVerifyList() {
+      const months = Number(verifyWindow.value) || 12;
+      const from = todayIso();
+      const to = shiftMonth(startOfMonth(from), months);
+      verifyList.innerHTML = '<p class="cal-help">Loading…</p>';
+      let occurrences: Occurrence[];
+      try {
+        const res = await fetch(`/api/holy-days.json?from=${from}&to=${to}`);
+        occurrences = ((await res.json()) as { occurrences: Occurrence[] }).occurrences;
+      } catch {
+        verifyList.innerHTML = '<p class="cal-help">Could not load dates.</p>';
+        return;
+      }
+      const pending = occurrences.filter((o) => o.confidence === 'approximate');
+      const verified = occurrences.filter((o) => o.confidence === 'verified').length;
+
+      if (!pending.length) {
+        verifyList.innerHTML = `<p class="cal-help">Every date in this window is exact or confirmed${verified ? ` (${verified} confirmed)` : ''}.</p>`;
+        return;
+      }
+      verifyList.innerHTML =
+        `<p class="cal-help">${pending.length} calculated ${pending.length === 1 ? 'date' : 'dates'}${verified ? `, ${verified} already confirmed` : ''}.</p>` +
+        pending
+          .map(
+            (o) => `
+            <div class="cal-item cal-verify-row">
+              <div class="cal-verify-name">${escapeHtml(o.name)}</div>
+              <div class="cal-desc">${formatLongDate(o.date)}${o.endDate ? ` – ${formatLongDate(o.endDate)}` : ''}</div>
+              <button type="button" class="cal-key" data-copy-key="${escapeHtml(o.calendarId)}:${escapeHtml(o.key)}">
+                ${escapeHtml(o.calendarId)}:${escapeHtml(o.key)}
+              </button>
+            </div>`,
+          )
+          .join('');
+    }
+
+    verifyList.addEventListener('click', async (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-copy-key]');
+      if (!btn) return;
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copyKey!);
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => (btn.textContent = original), 1200);
+      } catch {
+        /* clipboard unavailable — the reference is still visible to select */
+      }
+    });
+
+    const adminInput = root.querySelector<HTMLInputElement>('[data-admin-input]')!;
+    const adminError = root.querySelector<HTMLElement>('[data-admin-error]')!;
+    // The code is held in a Worker secret and checked on the server — it is
+    // never sent to the browser, so it cannot be read out of the page.
+    async function tryUnlock() {
+      adminError.hidden = true;
+      try {
+        const res = await fetch('/api/calendar-admin.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ code: adminInput.value }),
+        });
+        const body = (await res.json()) as { ok?: boolean; error?: string };
+        if (!body.ok) {
+          adminError.textContent = body.error ?? 'That code was not recognised.';
+          adminError.hidden = false;
+          return;
+        }
+        unlocked = true;
+        sessionStorage.setItem(ADMIN_KEY, '1');
+        adminInput.value = '';
+        syncLock();
+      } catch {
+        adminError.textContent = 'Could not check the code just now.';
+        adminError.hidden = false;
+      }
+    }
+    root.querySelector('[data-admin-submit]')!.addEventListener('click', () => void tryUnlock());
+    adminInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void tryUnlock();
+    });
+
+    // ---- generated calendar settings --------------------------------------
+    /** The reader-facing on/off list, available without the administrator code. */
+    function syncPublicToggles() {
+      for (const item of root.querySelectorAll<HTMLElement>('[data-pub-id]')) {
+        const id = item.dataset.pubId!;
+        const def = GENERATED_CALENDARS.find((c) => c.id === id)!;
+        const settings = config.generated[id];
+        item.querySelector<HTMLInputElement>('[data-enabled]')!.checked =
+          settings?.enabled ?? def.defaultOn;
+        item.querySelector<HTMLElement>('[data-label-text]')!.textContent =
+          settings?.name || def.name;
+      }
+      renderPublicGoogle();
+    }
+
+    root.querySelector('[data-public-list]')!.addEventListener('change', (e) => {
+      const item = (e.target as HTMLElement).closest<HTMLElement>('[data-pub-id]');
+      if (!item) return;
+      const id = item.dataset.pubId!;
+      config.generated[id] = {
+        ...config.generated[id],
+        enabled: item.querySelector<HTMLInputElement>('[data-enabled]')!.checked,
+      };
+      saveConfig(config);
+      void render();
+    });
+
+    /** Google calendars an administrator has attached are toggleable by anyone. */
+    const publicGoogle = root.querySelector<HTMLElement>('[data-public-google]')!;
+    function renderPublicGoogle() {
+      publicGoogle.innerHTML = '';
+      for (const cal of config.google) {
+        const row = document.createElement('label');
+        row.className = 'cal-item cal-toggle';
+        row.innerHTML = `<input type="checkbox" ${cal.enabled ? 'checked' : ''} /><span class="cal-toggle-name">${escapeHtml(cal.name)}</span>`;
+        row.querySelector('input')!.addEventListener('change', (e) => {
+          cal.enabled = (e.target as HTMLInputElement).checked;
+          saveConfig(config);
+          void render();
+        });
+        publicGoogle.appendChild(row);
+      }
+    }
+
+    /** Administrator-only fields: renaming and view labels. */
+    function syncAdminInputs() {
+      for (const item of root.querySelectorAll<HTMLElement>('[data-cal-id]')) {
+        const id = item.dataset.calId!;
+        const settings = config.generated[id];
+        const def = GENERATED_CALENDARS.find((c) => c.id === id)!;
+        item.querySelector<HTMLInputElement>('[data-name]')!.value = settings?.name ?? '';
+        item.querySelector<HTMLInputElement>('[data-view-label]')!.value = settings?.viewLabel ?? '';
+        item.querySelector<HTMLElement>('[data-admin-label-text]')!.textContent =
+          settings?.name || def.name;
+      }
+      renderGoogleList();
+    }
+
+    root.querySelector('[data-generated-list]')!.addEventListener('change', (e) => {
+      const item = (e.target as HTMLElement).closest<HTMLElement>('[data-cal-id]');
+      if (!item) return;
+      const id = item.dataset.calId!;
+      const def = GENERATED_CALENDARS.find((c) => c.id === id)!;
+      config.generated[id] = {
+        ...config.generated[id],
+        name: item.querySelector<HTMLInputElement>('[data-name]')!.value.trim() || undefined,
+        viewLabel: item.querySelector<HTMLInputElement>('[data-view-label]')!.value.trim() || undefined,
+      };
+      item.querySelector<HTMLElement>('[data-admin-label-text]')!.textContent =
+        config.generated[id].name || def.name;
+      // The reader-facing list shows the same names, so keep it in step.
+      syncPublicToggles();
+      saveConfig(config);
+      void render();
+    });
+
+    // ---- Google calendars --------------------------------------------------
+    const googleList = root.querySelector<HTMLElement>('[data-google-list]')!;
+    const googleError = root.querySelector<HTMLElement>('[data-google-error]')!;
+
+    function renderGoogleList() {
+      googleList.innerHTML = '';
+      if (!config.google.length) {
+        googleList.innerHTML = '<p class="cal-help">No Google calendars attached yet.</p>';
+        return;
+      }
+      for (const cal of config.google) {
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-google-row';
+        row.innerHTML = `
+          <label class="cal-toggle">
+            <input type="checkbox" ${cal.enabled ? 'checked' : ''} data-g-enabled />
+            <span>${escapeHtml(cal.name)}</span>
+          </label>
+          <p class="cal-desc">${cal.viewLabel ? `Shown to others as “${escapeHtml(cal.viewLabel)}”` : 'Full event titles shown'}</p>
+          <button type="button" class="cal-remove" data-g-remove>Remove</button>`;
+        row.querySelector('[data-g-enabled]')!.addEventListener('change', (e) => {
+          cal.enabled = (e.target as HTMLInputElement).checked;
+          saveConfig(config);
+          void render();
+        });
+        row.querySelector('[data-g-remove]')!.addEventListener('click', () => {
+          config.google = config.google.filter((c) => c.id !== cal.id);
+          saveConfig(config);
+          renderGoogleList();
+          syncPublicToggles();
+          void render();
+        });
+        googleList.appendChild(row);
+      }
+    }
+
+    root.querySelector('[data-add-google]')!.addEventListener('click', () => {
+      const nameEl = root.querySelector<HTMLInputElement>('[data-new-name]')!;
+      const urlEl = root.querySelector<HTMLInputElement>('[data-new-url]')!;
+      const viewEl = root.querySelector<HTMLInputElement>('[data-new-view-label]')!;
+      const name = nameEl.value.trim();
+      const icsUrl = urlEl.value.trim();
+      googleError.hidden = true;
+      if (!name || !icsUrl) {
+        googleError.textContent = 'A name and an iCal address are both needed.';
+        googleError.hidden = false;
+        return;
+      }
+      if (!/^https:\/\/calendar\.google\.com\//.test(icsUrl)) {
+        googleError.textContent = 'That must be a https://calendar.google.com/… iCal address.';
+        googleError.hidden = false;
+        return;
+      }
+      config.google.push({
+        id: `g${Date.now().toString(36)}`,
+        name,
+        icsUrl,
+        enabled: true,
+        viewLabel: viewEl.value.trim(),
+        colour: 'teal',
+      });
+      saveConfig(config);
+      nameEl.value = '';
+      urlEl.value = '';
+      viewEl.value = '';
+      renderGoogleList();
+      syncPublicToggles();
+      void render();
+    });
+
+    root.querySelector('[data-copy-config]')!.addEventListener('click', async () => {
+      const copied = root.querySelector<HTMLElement>('[data-copied]')!;
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+        copied.hidden = false;
+        setTimeout(() => (copied.hidden = true), 2000);
+      } catch {
+        /* clipboard unavailable — nothing useful to do */
+      }
+    });
+
+    // ---- rendering ---------------------------------------------------------
+    async function render() {
+      const { year, month } = parseIso(cursor);
+      title.textContent = `${MONTH_NAMES[month - 1]} ${year}`;
+
+      const first = cursor;
+      const gridStart = addDays(first, -weekday(first));
+      const gridEnd = addDays(gridStart, 41);
+
+      const badiStart = gregorianToBadi(first);
+      badiYearEl.textContent = `${badiStart.year} B.E. · Naw-Rúz ${formatLongDate(nawRuz(badiStart.year))}`;
+
+      // Paint the grid immediately so navigation feels instant, then fill it in.
+      const byDate = new Map<string, Entry[]>();
+      paint(gridStart, gridEnd, first, byDate);
+
+      status.textContent = 'Loading…';
+      try {
+        const entries = await loadEntries(gridStart, gridEnd);
+        status.textContent = entries.warning ?? '';
+        paint(gridStart, gridEnd, first, entries.byDate);
+      } catch {
+        status.textContent = 'Could not load calendar dates.';
+      }
+    }
+
+    async function loadEntries(from: string, to: string) {
+      const byDate = new Map<string, Entry[]>();
+      let warning: string | undefined;
+
+      const params = new URLSearchParams({ from, to });
+      if (Object.keys(config.feastOverrides).length) {
+        params.set('feastOverrides', JSON.stringify(config.feastOverrides));
+      }
+      const res = await fetch(`/api/holy-days.json?${params}`);
+      const data = (await res.json()) as { occurrences: Occurrence[] };
+
+      for (const o of data.occurrences) {
+        const settings = config.generated[o.calendarId];
+        if (!settings?.enabled) continue;
+        const kind =
+          o.calendarId === 'bahai-holy-days' ? 'holy-day'
+          : o.calendarId === 'bahai-feast' ? 'feast'
+          : o.calendarId === 'bahai-months' ? 'month'
+          : 'other';
+        const group = o.calendarId.startsWith('bahai') ? 'bahai' : 'other-faith';
+        // A calendar with a view label shows that label instead of the real name.
+        const name = settings.viewLabel || o.name;
+        for (const day of spanDays(o.date, o.endDate)) {
+          // Month and multi-day entries only mark their first day in this view.
+          if (kind === 'month' && day !== o.date) continue;
+          push(byDate, day, {
+            calendarId: o.calendarId,
+            name,
+            group,
+            kind,
+            workSuspended: o.workSuspended,
+            note: o.note,
+            approximate: o.confidence === 'approximate',
+          verified: o.confidence === 'verified',
+            badge: badgeFor(o, kind),
+          });
+        }
+      }
+
+      const failures: string[] = [];
+      await Promise.all(
+        config.google.filter((c) => c.enabled).map(async (cal) => {
+          try {
+            const q = new URLSearchParams({ url: cal.icsUrl, from, to });
+            const r = await fetch(`/api/google-calendar.json?${q}`);
+            const body = (await r.json()) as { events?: IcsEvent[]; error?: string };
+            if (!r.ok || !body.events) {
+              failures.push(cal.name);
+              return;
+            }
+            for (const ev of body.events) {
+              for (const day of spanDays(ev.date, ev.endDate)) {
+                push(byDate, day, {
+                  calendarId: cal.id,
+                  // The view label replaces the real title wholesale.
+                  name: cal.viewLabel || ev.summary,
+                  group: 'community',
+                  kind: 'event',
+                  time: cal.viewLabel ? undefined : ev.startTime,
+                  note: cal.viewLabel ? undefined : ev.location,
+                });
+              }
+            }
+          } catch {
+            failures.push(cal.name);
+          }
+        }),
+      );
+      if (failures.length) warning = `Could not load: ${failures.join(', ')}.`;
+      return { byDate, warning };
+    }
+
+    function paint(gridStart: string, gridEnd: string, monthFirst: string, byDate: Map<string, Entry[]>) {
+      const { month } = parseIso(monthFirst);
+      const today = todayIso();
+      const parts: string[] = [];
+
+      for (const name of WEEKDAY_NAMES) {
+        parts.push(`<div class="cal-weekday" role="columnheader">${name}</div>`);
+      }
+
+      let day = gridStart;
+      while (day <= gridEnd) {
+        const d = parseIso(day);
+        const inMonth = d.month === month;
+        const entries = byDate.get(day) ?? [];
+        const special = entries.some((e) => e.kind === 'holy-day' || e.kind === 'feast');
+        const holy = entries.some((e) => e.kind === 'holy-day');
+
+        const classes = ['cal-day'];
+        if (!inMonth) classes.push('is-out');
+        if (special) classes.push(holy ? 'is-holy' : 'is-feast');
+        if (day === today) classes.push('is-today');
+
+        const badi = gregorianToBadi(day);
+        const holyEntry = entries.find((e) => e.kind === 'holy-day');
+        // On a Holy Day the Badí' date is replaced by the Holy Day's name —
+        // the name is what matters on that day.
+        const badiLine = holyEntry ? holyEntry.name : formatBadiDate(badi);
+
+        const badges = entries
+          .filter((e) => e.badge)
+          .map((e) => `<span class="cal-badge cal-badge-${e.kind}">${escapeHtml(e.badge!)}</span>`)
+          .join('');
+
+        const others = entries
+          .filter((e) => e.group === 'other-faith')
+          .map((e) => `<li class="cal-other${e.approximate ? ' is-approx' : ''}"${e.note ? ` title="${escapeHtml(e.note)}"` : ''}>${escapeHtml(e.name)}</li>`)
+          .join('');
+
+        const events = entries
+          .filter((e) => e.group === 'community')
+          .map((e) => `<li class="cal-event"><span class="cal-dot"></span>${e.time ? `<span class="cal-time">${e.time}</span> ` : ''}${escapeHtml(e.name)}</li>`)
+          .join('');
+
+        parts.push(`
+          <div class="${classes.join(' ')}" role="gridcell">
+            <div class="cal-day-head">
+              <span class="cal-greg">${d.day}</span>
+              <span class="cal-badi">${escapeHtml(badiLine)}${holyEntry?.workSuspended ? ' *' : ''}</span>
+            </div>
+            ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
+            ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
+          </div>`);
+        day = addDays(day, 1);
+      }
+      grid.innerHTML = parts.join('');
+    }
+
+    void render();
+  }
+
+  // ---- helpers -------------------------------------------------------------
+
+  function badgeFor(o: Occurrence, kind: Entry['kind']): string | undefined {
+    if (kind === 'holy-day') return o.workSuspended ? 'Holy Day *' : 'Holy Day';
+    if (kind === 'feast') {
+      // The Feast badge carries the month's English meaning — Splendour,
+      // Glory, Beauty — which is more use to a reader than the word "Feast".
+      const m = /\(([^)]+)\)\s*$/.exec(o.name);
+      return m ? m[1] : 'Feast';
+    }
+    if (kind === 'month' && o.name.startsWith('Ayyám-i-Há')) return 'Ayyám-i-Há';
+    return undefined;
+  }
+
+  function push(map: Map<string, Entry[]>, day: string, entry: Entry) {
+    const list = map.get(day);
+    if (list) list.push(entry);
+    else map.set(day, [entry]);
+  }
+
+  function spanDays(start: string, end?: string): string[] {
+    if (!end || end <= start) return [start];
+    const out: string[] = [];
+    let d = start;
+    // Guard against a malformed feed producing an unbounded span.
+    for (let i = 0; i < 400 && d <= end; i += 1) {
+      out.push(d);
+      d = addDays(d, 1);
+    }
+    return out;
+  }
+
+  function todayIso(): string {
+    // Brisbane has no daylight saving, so a fixed +10 offset is exact.
+    const now = new Date();
+    const brisbane = new Date(now.getTime() + (now.getTimezoneOffset() + 600) * 60000);
+    return isoDate({
+      year: brisbane.getFullYear(),
+      month: brisbane.getMonth() + 1,
+      day: brisbane.getDate(),
+    });
+  }
+
+  function startOfMonth(iso: string): string {
+    const { year, month } = parseIso(iso);
+    return isoDate({ year, month, day: 1 });
+  }
+
+  function shiftMonth(iso: string, delta: number): string {
+    const { year, month } = parseIso(iso);
+    const m = month - 1 + delta;
+    return isoDate({ year: year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 + 1, day: 1 });
+  }
+
+  function formatLongDate(iso: string): string {
+    const { year, month, day } = parseIso(iso);
+    return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+    );
+  }
+
+  function loadConfig(): CalendarConfig {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return mergeConfig(raw ? (JSON.parse(raw) as Partial<CalendarConfig>) : null);
+    } catch {
+      return defaultConfig();
+    }
+  }
+
+  function saveConfig(config: CalendarConfig) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    } catch {
+      /* private browsing — settings simply will not persist */
+    }
+  }
+
+  // Entry point last: init() reads the module constants above, which are not
+  // hoisted the way function declarations are.
+  const root = document.querySelector<HTMLElement>('.calendar');
+  if (root) init(root);
+</script>
+
+<style is:global>
+  /*
+   * Global rather than scoped: the grid is built by script after hydration, so
+   * the generated cells never carry Astro's scoping attribute.
+   *
+   * Provisional styling — see the note at the top of this file. Holy Days take
+   * the site's gold and Feasts its teal; what matters is that the two are
+   * distinguished by hue and that other traditions stay unstyled, not these
+   * particular colours.
+   */
+  .calendar {
+    --cal-holy-tint: var(--color-gold-100);
+    --cal-holy-ink: var(--color-gold-700);
+    --cal-feast-tint: var(--color-teal-100);
+    --cal-feast-ink: var(--color-teal-700);
+    --cal-line: color-mix(in srgb, var(--color-teal-900) 14%, transparent);
+    position: relative;
+  }
+
+  .cal-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .cal-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 3vw, 1.9rem);
+    color: var(--color-teal-900);
+    margin: 0;
+    flex: 1;
+    text-align: center;
+  }
+  .cal-nav { display: flex; gap: 0.25rem; }
+  .cal-btn {
+    border: 1px solid var(--cal-line);
+    background: white;
+    border-radius: 0.5rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--color-teal-800);
+    cursor: pointer;
+  }
+  .cal-btn-text { font-size: 0.85rem; padding: 0 0.7rem; }
+  .cal-btn:hover { background: var(--color-teal-50); }
+
+  .cal-burger {
+    border: 1px solid var(--cal-line);
+    background: white;
+    border-radius: 0.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: grid;
+    place-content: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .cal-burger span {
+    display: block;
+    width: 16px;
+    height: 2px;
+    background: var(--color-teal-800);
+    border-radius: 2px;
+  }
+
+  .cal-badi-year {
+    text-align: center;
+    font-size: 0.8rem;
+    color: color-mix(in srgb, var(--color-ink) 62%, transparent);
+    margin: 0 0 0.75rem;
+  }
+
+  /* The grid scrolls inside its own box rather than the page. */
+  .cal-grid-wrap { overflow-x: auto; }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(6.4rem, 1fr));
+    gap: 1px;
+    background: var(--cal-line);
+    border: 1px solid var(--cal-line);
+    border-radius: 0.6rem;
+    overflow: hidden;
+    min-width: 45rem;
+  }
+  .cal-weekday {
+    background: var(--color-teal-900);
+    color: var(--color-teal-100);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0.4rem 0;
+  }
+
+  .cal-day {
+    background: white;
+    min-height: 6.5rem;
+    padding: 0.35rem 0.4rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  /* Out-of-month days are tinted back rather than hidden, so a week that
+     straddles two months still reads as a whole week. */
+  .cal-day.is-out { background: var(--color-sand-50); }
+  .cal-day.is-out .cal-greg,
+  .cal-day.is-out .cal-badi { opacity: 0.45; }
+  .cal-day.is-holy { background: var(--cal-holy-tint); }
+  .cal-day.is-feast { background: var(--cal-feast-tint); }
+  .cal-day.is-out.is-holy { background: color-mix(in srgb, var(--cal-holy-tint) 45%, white); }
+  .cal-day.is-out.is-feast { background: color-mix(in srgb, var(--cal-feast-tint) 45%, white); }
+  .cal-day.is-today { box-shadow: inset 0 0 0 2px var(--color-teal-600); }
+
+  .cal-day-head { display: flex; align-items: baseline; gap: 0.4rem; }
+  .cal-greg {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    line-height: 1;
+  }
+  .cal-badi {
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-ink) 68%, transparent);
+    line-height: 1.15;
+  }
+  .cal-day.is-holy .cal-badi { color: var(--cal-holy-ink); font-weight: 600; }
+
+  .cal-badges { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+  .cal-badge {
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.32rem;
+    border-radius: 0.25rem;
+    color: white;
+    white-space: nowrap;
+  }
+  .cal-badge-holy-day { background: var(--cal-holy-ink); }
+  .cal-badge-feast { background: var(--cal-feast-ink); }
+  .cal-badge-month { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
+
+  .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; }
+  /* Every other tradition shares one quiet style — no tint, no badge. */
+  .cal-other {
+    font-size: 0.66rem;
+    line-height: 1.25;
+    color: color-mix(in srgb, var(--color-ink) 72%, transparent);
+  }
+  .cal-other.is-approx { border-left: 2px dotted var(--cal-line); padding-left: 0.25rem; }
+  .cal-event {
+    font-size: 0.68rem;
+    line-height: 1.25;
+    color: var(--color-teal-900);
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+  }
+  .cal-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--color-teal-600); flex: none; translate: 0 -1px;
+  }
+  .cal-time { font-variant-numeric: tabular-nums; opacity: 0.7; }
+
+  .cal-status { font-size: 0.75rem; color: color-mix(in srgb, var(--color-ink) 60%, transparent); min-height: 1.2em; margin: 0.5rem 0 0; }
+
+  .cal-legend {
+    display: flex; flex-wrap: wrap; gap: 0.4rem 1rem;
+    list-style: none; margin: 0.75rem 0 0; padding: 0;
+    font-size: 0.72rem; color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  }
+  .cal-legend li { display: flex; align-items: center; gap: 0.35rem; }
+  .swatch { width: 0.85rem; height: 0.85rem; border-radius: 0.2rem; border: 1px solid var(--cal-line); }
+  .swatch-holy { background: var(--cal-holy-tint); }
+  .swatch-feast { background: var(--cal-feast-tint); }
+  .swatch-month { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
+  .swatch-other { background: white; }
+  .cal-legend-note { font-style: italic; }
+
+  /* ---- administrator drawer ---------------------------------------------- */
+  .cal-scrim {
+    position: fixed; inset: 0; background: rgb(15 61 62 / 0.45); z-index: 40;
+  }
+  .cal-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+    width: min(24rem, 100vw);
+    background: var(--color-sand-50);
+    box-shadow: -8px 0 24px rgb(15 61 62 / 0.18);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 200ms ease;
+  }
+  .cal-drawer.is-open { transform: translateX(0); }
+  .cal-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.1rem; background: var(--color-teal-900); color: white;
+  }
+  .cal-drawer-head h3 { font-family: var(--font-display); font-size: 1.05rem; margin: 0; }
+  .cal-close { background: none; border: 0; color: white; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+  .cal-drawer-body { overflow-y: auto; padding: 1rem 1.1rem 2.5rem; display: grid; gap: 1.5rem; }
+  .cal-drawer-body h4 {
+    font-family: var(--font-display); font-size: 0.95rem; color: var(--color-teal-900);
+    margin: 0 0 0.35rem;
+  }
+  .cal-help { font-size: 0.75rem; line-height: 1.45; color: color-mix(in srgb, var(--color-ink) 70%, transparent); margin: 0 0 0.6rem; }
+  .cal-desc { font-size: 0.72rem; color: color-mix(in srgb, var(--color-ink) 65%, transparent); margin: 0.35rem 0; }
+  .cal-list { display: grid; gap: 0.3rem; }
+  .cal-item {
+    background: white; border: 1px solid var(--cal-line); border-radius: 0.45rem;
+    padding: 0.5rem 0.6rem;
+  }
+  .cal-item summary { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; list-style: none; }
+  .cal-item summary::-webkit-details-marker { display: none; }
+  .cal-toggle { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; flex: 1; cursor: pointer; }
+  .cal-tag {
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--color-sand-200); color: var(--color-ink);
+    padding: 0.08rem 0.3rem; border-radius: 0.25rem;
+  }
+  .cal-field { display: grid; gap: 0.2rem; font-size: 0.75rem; margin-top: 0.5rem; }
+  .cal-field input {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.35rem 0.5rem; font-size: 0.82rem; background: white;
+  }
+  .cal-field small { font-size: 0.68rem; color: color-mix(in srgb, var(--color-ink) 60%, transparent); }
+  .cal-add { margin-top: 0.6rem; }
+  .cal-primary, .cal-secondary {
+    margin-top: 0.6rem; border-radius: 0.4rem; padding: 0.42rem 0.8rem;
+    font-size: 0.8rem; cursor: pointer; border: 1px solid transparent;
+  }
+  .cal-primary { background: var(--color-teal-700); color: white; }
+  .cal-secondary { background: white; color: var(--color-teal-800); border-color: var(--cal-line); }
+  .cal-remove {
+    background: none; border: 0; color: var(--color-gold-700);
+    font-size: 0.72rem; cursor: pointer; padding: 0; text-decoration: underline;
+  }
+  .cal-google-row { display: grid; gap: 0.15rem; }
+  .cal-error { color: #a12; font-size: 0.75rem; margin: 0.4rem 0 0; }
+  .cal-copied { font-size: 0.75rem; color: var(--color-teal-700); margin-left: 0.5rem; }
+  .cal-toggle-name { flex: 1; }
+  .cal-admin-block {
+    border-top: 1px solid var(--cal-line);
+    padding-top: 1rem;
+  }
+  .cal-admin-block > summary {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    color: var(--color-teal-900);
+    cursor: pointer;
+    margin-bottom: 0.6rem;
+  }
+  .cal-admin-block > section,
+  .cal-admin-block [data-admin-panel] > section { margin-bottom: 1.5rem; }
+  .cal-verify-row { display: grid; gap: 0.2rem; }
+  .cal-verify-name { font-size: 0.82rem; font-weight: 600; color: var(--color-teal-900); }
+  .cal-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.68rem; text-align: left;
+    background: var(--color-sand-100); border: 1px solid var(--cal-line);
+    border-radius: 0.3rem; padding: 0.2rem 0.35rem; cursor: pointer;
+    color: var(--color-teal-800); word-break: break-all;
+  }
+  .cal-key:hover { background: var(--color-teal-50); }
+  .cal-drawer-body select {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.35rem 0.5rem; font-size: 0.82rem; background: white;
+  }
+  .cal-lock { display: grid; gap: 0.4rem; }
+  .cal-lock label { display: grid; gap: 0.25rem; font-size: 0.78rem; }
+  .cal-lock input {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem; padding: 0.4rem 0.5rem; background: white;
+  }
+
+  @media (max-width: 640px) {
+    .cal-grid { grid-template-columns: repeat(7, minmax(4.6rem, 1fr)); min-width: 33rem; }
+    .cal-day { min-height: 5rem; }
+  }
+</style>
