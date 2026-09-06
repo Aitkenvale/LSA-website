@@ -414,12 +414,17 @@
         const inSection = entries.filter((e) => e.section === section.id);
         const block = document.createElement('details');
         block.className = 'cal-section';
-        block.open = true;
+        block.open = config.sectionsOpen[section.id] !== false;
         block.dataset.section = section.id;
         block.innerHTML =
           `<summary>${escapeHtml(section.label)}` +
           `<span class="cal-section-count">${inSection.length}</span></summary>` +
           '<div class="cal-list" data-drop></div>';
+        block.addEventListener('toggle', () => {
+          config.sectionsOpen[section.id] = block.open;
+          saveConfig(config);
+        });
+
         const list = block.querySelector<HTMLElement>('[data-drop]')!;
 
         if (!inSection.length) {

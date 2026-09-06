@@ -280,6 +280,12 @@ export interface CalendarConfig {
   order: string[];
   /** Section overrides, where a calendar has been dragged out of its default. */
   sections: Record<string, CalendarSection>;
+  /**
+   * Which section headings are expanded. Remembered so that collapsing a
+   * section stays collapsed the next time the drawer is opened — the list is
+   * rebuilt from scratch each time, so without this it springs back open.
+   */
+  sectionsOpen: Record<string, boolean>;
 }
 
 export function defaultConfig(): CalendarConfig {
@@ -290,6 +296,7 @@ export function defaultConfig(): CalendarConfig {
     google: SEEDED_GOOGLE_CALENDARS.map((c) => ({ ...c })),
     order: [],
     sections: {},
+    sectionsOpen: Object.fromEntries(CALENDAR_SECTIONS.map((s) => [s.id, true])),
   };
 }
 
@@ -312,6 +319,9 @@ export function mergeConfig(stored: Partial<CalendarConfig> | null): CalendarCon
   }
   base.order = stored.order ?? [];
   base.sections = stored.sections ?? {};
+  // Merged rather than replaced, so a section added later starts open instead
+  // of being absent and defaulting to closed.
+  base.sectionsOpen = { ...base.sectionsOpen, ...(stored.sectionsOpen ?? {}) };
   return base;
 }
 
