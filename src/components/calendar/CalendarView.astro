@@ -63,11 +63,15 @@
 
   <p class="cal-status" data-status role="status"></p>
 
+  <!--
+    Only the two washes a reader has to interpret. "Feast" was listed with the
+    teal swatch and so was "Bahá'í month begins" — two names for one colour,
+    left over from when the Feast was a computed calendar of its own. "Other
+    faiths" showed a white swatch, which is to say no marking at all.
+  -->
   <ul class="cal-legend">
     <li><span class="swatch swatch-holy"></span> Holy Day</li>
-    <li><span class="swatch swatch-feast"></span> Feast</li>
     <li><span class="swatch swatch-month"></span> Bahá’í month begins</li>
-    <li><span class="swatch swatch-other"></span> Other faiths</li>
     <li class="cal-legend-note">* work suspended</li>
   </ul>
 
@@ -1567,10 +1571,9 @@
   }
   .cal-legend li { display: flex; align-items: center; gap: 0.35rem; }
   .swatch { width: 0.85rem; height: 0.85rem; border-radius: 0.2rem; border: 1px solid var(--cal-line); }
+  /* These must match the washes painted in the cells, not the badge colours. */
   .swatch-holy { background: var(--cal-holy-tint); }
-  .swatch-feast { background: var(--cal-feast-tint); }
-  .swatch-month { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
-  .swatch-other { background: white; }
+  .swatch-month { background: var(--cal-feast-tint); }
   .cal-legend-note { font-style: italic; }
 
   /* ---- administrator drawer ---------------------------------------------- */
