@@ -73,6 +73,7 @@
   <ul class="cal-legend">
     <li><span class="swatch swatch-holy"></span> Holy Day</li>
     <li><span class="swatch swatch-month"></span> Bahá’í month begins</li>
+    <li><span class="swatch swatch-ayyam"></span> Ayyám-i-Há</li>
     <li class="cal-legend-note">* work suspended</li>
   </ul>
 
@@ -321,8 +322,21 @@
     tip?: string;
   }
 
-  /** Which kind of Bahá'í observance an evening leads into. */
-  type EveKind = 'holy' | 'feast';
+  /**
+   * What a stretch of the calendar is.
+   *
+   * Ayyám-i-Há is its own thing and not a Feast: four or five intercalary days
+   * of hospitality, service and gift-giving that belong to no month. It is
+   * given its own colour rather than borrowing the Feast's, and it runs across
+   * all of its days rather than marking only the first.
+   */
+  type EveKind = 'holy' | 'feast' | 'ayyam';
+
+  /** What begins on an evening, and what to call it. */
+  interface EveMark {
+    kind: EveKind;
+    label: string;
+  }
 
   type View = 'gregorian' | 'badi' | 'cycle';
 
@@ -961,7 +975,7 @@
       const gridEnd = lastCell;
 
       // Paint the grid immediately so navigation feels instant, then fill it in.
-      paint(gridStart, gridEnd, period, new Map(), new Map());
+      paint(gridStart, gridEnd, period, new Map(), new Map(), new Map());
 
       status.textContent = 'Loading…';
       try {
@@ -970,7 +984,7 @@
         // after the grid leaves the last cell looking ordinary.
         const entries = await loadEntries(gridStart, addDays(gridEnd, 1));
         status.textContent = entries.warning ?? '';
-        paint(gridStart, gridEnd, period, entries.byDate, entries.eve);
+        paint(gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans);
       } catch {
         status.textContent = 'Could not load calendar dates.';
       }
@@ -978,10 +992,13 @@
 
     async function loadEntries(from: string, to: string) {
       const byDate = new Map<string, Entry[]>();
-      // A Bahá'í day begins at sunset, so the evening before a Holy Day or
-      // Feast already belongs to it. That evening is shaded in the previous
-      // day's cell rather than given an entry of its own.
-      const eve = new Map<string, EveKind>();
+      // A Bahá'í day begins at sunset, so the evening before an observance
+      // already belongs to it. That evening is shaded in the previous day's
+      // cell rather than given an entry of its own.
+      const eve = new Map<string, EveMark>();
+      // What each day itself is, which for Ayyám-i-Há is every one of its days
+      // and not merely the first.
+      const spans = new Map<string, EveKind>();
       let warning: string | undefined;
 
       const res = await fetch(`/api/holy-days.json?from=${from}&to=${to}`);
@@ -998,11 +1015,34 @@
         // A calendar with a view label shows that label instead of the real name.
         const name = o.name;
 
-        if (o.startsPreviousEvening && (kind === 'holy-day' || kind === 'month')) {
-          const evening = addDays(o.date, -1);
-          // A Holy Day's evening outranks a Feast's where both fall together.
-          if (kind === 'holy-day' || !eve.has(evening)) {
-            eve.set(evening, kind === 'holy-day' ? 'holy' : 'feast');
+        if (kind === 'holy-day' || kind === 'month') {
+          const isAyyam = o.name.startsWith('Ayyám-i-Há');
+          const isFast = o.name.startsWith('The Fast');
+          const spanKind: EveKind = kind === 'holy-day' ? 'holy' : isAyyam ? 'ayyam' : 'feast';
+
+          // The Fast is a month-long observance rather than a day to mark, so
+          // it takes no wash of its own.
+          if (!isFast) {
+            // Ayyám-i-Há colours every one of its days; a month start colours
+            // only the day the month begins.
+            const lastDay = isAyyam ? (o.endDate ?? o.date) : o.date;
+            for (const day of spanDays(o.date, lastDay)) {
+              if (spanKind === 'holy' || !spans.has(day)) spans.set(day, spanKind);
+            }
+
+            if (o.startsPreviousEvening) {
+              const evening = addDays(o.date, -1);
+              const label = isAyyam
+                ? 'Ayyám-i-Há'
+                : kind === 'holy-day'
+                  ? o.name
+                  // "Núr (Light)" reads better here as "the month of Núr".
+                  : `The month of ${o.name.replace(/\s*\([^)]*\)\s*$/, '')}`;
+              // A Holy Day's evening outranks anything else falling together.
+              if (spanKind === 'holy' || !eve.has(evening)) {
+                eve.set(evening, { kind: spanKind, label });
+              }
+            }
           }
         }
 
@@ -1072,7 +1112,7 @@
         }),
       );
       if (failures.length) warning = `Could not load: ${failures.join(', ')}.`;
-      return { byDate, eve, warning };
+      return { byDate, eve, spans, warning };
     }
 
     function paint(
@@ -1080,7 +1120,8 @@
       gridEnd: string,
       period: { first: string; last: string },
       byDate: Map<string, Entry[]>,
-      eve: Map<string, EveKind>,
+      eve: Map<string, EveMark>,
+      spans: Map<string, EveKind>,
     ) {
       const today = todayIso();
       const parts: string[] = [];
@@ -1097,11 +1138,10 @@
         const inMonth = day >= period.first && day <= period.last;
         const entries = byDate.get(day) ?? [];
         const holy = entries.some((e) => e.kind === 'holy-day');
-        // A Bahá'í month beginning carries the same weight as the Feast that
-        // normally falls on it, and is a computed fact rather than something a
-        // community has to enter, so it keeps the tint and the month's badge.
-        const monthStart = entries.some((e) => e.kind === 'month');
-        const special = holy || monthStart;
+        // What this day is comes from the spans rather than from the entries in
+        // the cell, because Ayyám-i-Há colours days that carry no entry at all.
+        const from = spans.get(day) ?? null;
+        const special = from !== null;
 
         const classes = ['cal-day'];
         if (!inMonth) classes.push('is-out');
@@ -1112,10 +1152,9 @@
         //   `from` — what this day already is, having begun last night;
         //   `to`   — what its own evening leads into.
         // The band is then drawn left to right across the pair.
-        const from = holy ? 'holy' : monthStart ? 'feast' : null;
         const evening = eve.get(day) ?? null;
         if (from) classes.push(`from-${from}`);
-        if (evening) classes.push(`to-${evening}`);
+        if (evening) classes.push(`to-${evening.kind}`);
 
         const badi = gregorianToBadi(day);
         // The Badí' view leads with the Badí' day and carries the Gregorian
@@ -1123,9 +1162,12 @@
         const leadNumber = view === 'badi' ? String(badi.day) : String(d.day);
         const holyEntry = entries.find((e) => e.kind === 'holy-day');
         const feastEntry = entries.find((e) => e.kind === 'feast');
+        // Name what actually begins. Saying "a Feast" on the evening before
+        // Ayyám-i-Há was simply wrong, and on the evening before a Holy Day it
+        // was less use than the Holy Day's own name.
         const headTip = holyEntry?.tip ?? feastEntry?.tip ??
           (evening
-            ? `title|${formatBadiDate(badi)}\neve|${evening === 'holy' ? 'A Holy Day' : 'A Feast'} begins at sunset this evening.`
+            ? `title|${formatBadiDate(badi)}\neve|${evening.label} begins at sunset this evening.`
             : '');
         // On a Holy Day the Badí' date is replaced by the Holy Day's name —
         // the name is what matters on that day.
@@ -1581,6 +1623,10 @@
     --cal-holy-ink: var(--color-gold-700);
     --cal-feast-tint: var(--color-teal-100);
     --cal-feast-ink: var(--color-teal-700);
+    /* Ayyám-i-Há: neither a Feast nor a Holy Day, so neither colour. A cool
+       blue, far enough from the Feast's teal to be told apart at a glance. */
+    --cal-ayyam-tint: #dbe6f7;
+    --cal-ayyam-ink: #3a5a9b;
     --cal-line: color-mix(in srgb, var(--color-teal-900) 14%, transparent);
     position: relative;
   }
@@ -1731,6 +1777,7 @@
   .cal-day {
     --holy: var(--cal-holy-tint);
     --feast: var(--cal-feast-tint);
+    --ayyam: var(--cal-ayyam-tint);
     --cell-from: transparent;
     --cell-to: transparent;
     background-color: white;
@@ -1748,8 +1795,10 @@
   }
   .cal-day.from-holy { --cell-from: var(--holy); }
   .cal-day.from-feast { --cell-from: var(--feast); }
+  .cal-day.from-ayyam { --cell-from: var(--ayyam); }
   .cal-day.to-holy { --cell-to: var(--holy); }
   .cal-day.to-feast { --cell-to: var(--feast); }
+  .cal-day.to-ayyam { --cell-to: var(--ayyam); }
 
   /*
    * Days either side of the period are shown tinted back rather than hidden,
@@ -1806,6 +1855,8 @@
   .cal-badge-holy-day { background: var(--cal-holy-ink); }
   .cal-badge-feast { background: var(--cal-feast-ink); }
   .cal-badge-month { background: var(--cal-feast-ink); }
+  /* The Ayyám-i-Há badge takes its own colour, matching its wash. */
+  .cal-day.from-ayyam .cal-badge-month { background: var(--cal-ayyam-ink); }
   .cal-badge-event { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
 
   .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; position: relative; }
@@ -1968,6 +2019,7 @@
   /* These must match the washes painted in the cells, not the badge colours. */
   .swatch-holy { background: var(--cal-holy-tint); }
   .swatch-month { background: var(--cal-feast-tint); }
+  .swatch-ayyam { background: var(--cal-ayyam-tint); }
   .cal-legend-note { font-style: italic; }
 
   /* ---- administrator drawer ---------------------------------------------- */
