@@ -4,18 +4,17 @@ import { getSiteSettings } from '../lib/site';
 
 const settings = await getSiteSettings();
 /*
- * The calendar sits between "What We Do" and "Community Centre", shown as an
- * icon with a divider before it. It is marked separately so both the desktop
- * and mobile menus render it the same way — as a symbol on desktop, where the
- * row is tight, and as a named link on mobile, where an unlabelled icon in a
- * list of words would be a guess.
+ * The calendar sits last, after "Community Centre", shown as an icon with a
+ * divider before it. It is marked separately so the two menus can render it
+ * differently — a symbol on desktop, where the row is tight, and a named link
+ * on mobile, where an unlabelled icon in a list of words would be a guess.
  */
 const links = [
   { href: '/', label: 'Home' },
   { href: '/what-we-believe/', label: 'What We Believe' },
   { href: '/what-we-do/', label: 'What We Do' },
-  { href: '/calendar/', label: 'Calendar', icon: true },
   { href: '/community-centre/', label: 'Community Centre' },
+  { href: '/calendar/', label: 'Calendar', icon: true },
 ];
 const path = Astro.url.pathname;
 const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
