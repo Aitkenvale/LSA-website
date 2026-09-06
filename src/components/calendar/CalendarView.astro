@@ -22,14 +22,15 @@
   <!--
     The three views the calendar will offer. Only the Gregorian one exists so
     far; the others are shown disabled rather than hidden so the shape of the
-    thing is visible, and so nobody wonders where they went. The cycle view will
-    additionally depend on the viewer's privileges.
+    thing is visible, and so nobody wonders where they went. The cycle view is
+    a planning tool rather than a calendar, so it opens only for those who have
+    signed in.
   -->
   <nav class="cal-views" aria-label="Calendar view">
     <button type="button" class="cal-view is-current" data-view="gregorian" aria-current="true">Gregorian</button>
     <button type="button" class="cal-view" data-view="badi" aria-current="false">Badí‘</button>
     <button type="button" class="cal-view" data-view="cycle" disabled aria-disabled="true"
-      title="Not built yet — and will need a community sign-in">Cycle</button>
+      title="Sign in to plan by cycle">Cycle</button>
   </nav>
 
   <header class="cal-bar">
@@ -167,8 +168,8 @@
         </section>
 
         <div data-admin-panel hidden>
-          <section>
-            <h4>Linked calendars</h4>
+          <details class="cal-admin-section">
+            <summary>Linked calendars</summary>
             <p class="cal-help">
               Calendars kept in Google or in Outlook, read by their
               <strong>private iCal address</strong>.
@@ -209,10 +210,10 @@
               <button type="button" class="cal-primary" data-add-google>Add calendar</button>
               <p class="cal-error" data-google-error hidden></p>
             </div>
-          </section>
+          </details>
 
-          <section>
-            <h4>Location</h4>
+          <details class="cal-admin-section">
+            <summary>Location</summary>
             <p class="cal-help">
               Used to work out the hours of the Fast, which runs from sunrise to
               sunset and so differs by town. Nothing else depends on it.
@@ -239,21 +240,20 @@
             </label>
             <p class="cal-desc" data-loc-preview></p>
             <p class="cal-error" data-loc-error hidden></p>
-          </section>
+          </details>
 
-          <section>
-            <h4>Planning cycles</h4>
+          <details class="cal-admin-section">
+            <summary>Planning cycles</summary>
             <p class="cal-help">
-              A cycle is a planning period — roughly three months of activity
-              ending in a reflection meeting. These are the Assembly's dates and
-              are the same for everyone; only which day of the week the grid
-              starts on is left to each reader.
+              A cycle is a planning period ending in a reflection meeting. These
+              are the Assembly's dates and are the same for everyone; only which
+              day of the week the grid starts on is left to each reader.
             </p>
             <p class="cal-help">
-              By default a cycle begins when a school term ends, because that is
-              what everyone's year is already built around. Three terms are
-              followed by a fortnight and one by six weeks, which is where three
-              cycles of twelve weeks and one long one come from.
+              A cycle begins on the first day of the school holidays. Only the
+              cycle now running and the eight after it are listed — a cycle that
+              has finished cannot be planned. As each one ends the rest move up
+              and a blank appears at the foot of the list.
             </p>
             <label class="cal-field">
               State or territory
@@ -264,28 +264,20 @@
               Load term dates
             </button>
             <p class="cal-error" data-cycle-error hidden></p>
-            <label class="cal-toggle cal-check">
-              <input type="checkbox" data-cycle-align />
-              <span>Align cycles to school terms</span>
-            </label>
-            <label class="cal-field">
-              A cycle begins on
-              <select data-cycle-day>
-                <option value="6">Saturday</option>
-                <option value="0">Sunday</option>
-                <option value="1">Monday</option>
-              </select>
-              <small>The first such day after term ends.</small>
-            </label>
-            <div class="cal-list" data-cycle-list></div>
-            <div class="cal-cycle-actions" data-cycle-manual hidden>
-              <button type="button" class="cal-secondary" data-cycle-add>Add a cycle</button>
-              <button type="button" class="cal-secondary" data-cycle-reset>Back to the term dates</button>
-            </div>
-          </section>
 
-          <section>
-            <h4>Dates to confirm</h4>
+            <div class="cal-list" data-cycle-list></div>
+
+            <h5>Phases</h5>
+            <p class="cal-help">
+              Expansion opens the cycle and Planning &amp; Reflection closes it.
+              Consolidation is whatever lies between, so it absorbs the
+              difference between a twelve-week cycle and a longer one.
+            </p>
+            <div class="cal-phase-grid" data-phase-grid></div>
+          </details>
+
+          <details class="cal-admin-section">
+            <summary>Dates to confirm</summary>
             <p class="cal-help">
               These dates depend on local observation or regional custom, so the
               calendar shows its best calculation until someone confirms them.
@@ -302,10 +294,10 @@
               </select>
             </label>
             <div class="cal-list" data-verify-list></div>
-          </section>
+          </details>
 
-          <section>
-            <h4>How these settings are stored</h4>
+          <details class="cal-admin-section">
+            <summary>How these settings are stored</summary>
             <p class="cal-help">
               Changes here are saved <strong>for everyone</strong>, straight away.
               Calendar names, addresses, colours, order and who may see what are
@@ -318,7 +310,7 @@
             </p>
             <button type="button" class="cal-secondary" data-copy-config>Copy configuration as a backup</button>
             <span class="cal-copied" data-copied hidden>Copied</span>
-          </section>
+          </details>
         </div>
       </details>
     </div>
@@ -340,18 +332,26 @@
     VisibleCalendar,
   } from '../../lib/calendar/config-store';
   import type { CycleSettings } from '../../lib/calendar/config-store';
-  import { DEFAULT_LOCATION, cycleBoundaries, defaultCycleSettings } from '../../lib/calendar/config-store';
-  import type { SchoolTerm, TermSource } from '../../lib/calendar/school-terms';
+  import { DEFAULT_LOCATION, defaultCycleSettings } from '../../lib/calendar/config-store';
+  import type {
+    Cycle, PhaseId, SchoolTerm, TermSource, WeekDay,
+  } from '../../lib/calendar/school-terms';
   import {
     AU_STATES,
     BUNDLED_TERMS,
+    CYCLES_SHOWN,
+    PASTEL_COLOURS,
+    PHASES,
     TERM_SOURCES,
     boundariesFromTerms,
     canLoadTerms,
-    cyclesFromBoundaries,
+    cycleWeekStarts,
     isAuState,
+    pastelValue,
+    phaseRuns,
+    upcomingCycles,
   } from '../../lib/calendar/school-terms';
-  import { TIERS, TIER_LABELS, type Tier } from '../../lib/calendar/tiers';
+  import { TIERS, TIER_LABELS, meetsTier, type Tier } from '../../lib/calendar/tiers';
   import {
     BADI_MONTHS,
     badiMonth,
@@ -529,6 +529,29 @@
       } catch {
         server = { tier: 'public', admin: false, calendars: [] };
       }
+      syncViewButtons();
+    }
+
+    /**
+     * The cycle view is for those doing the planning.
+     *
+     * It is a working view rather than a calendar — it shows how the weeks of
+     * a phase of work are laid out — so it opens at the community tier and
+     * stays shut, with a reason, below it.
+     */
+    function syncViewButtons() {
+      const button = root.querySelector<HTMLButtonElement>('[data-view="cycle"]')!;
+      const allowed = meetsTier(server.tier, 'community');
+      button.disabled = !allowed;
+      button.setAttribute('aria-disabled', String(!allowed));
+      button.title = allowed
+        ? 'Plan by cycle'
+        : 'Sign in to plan by cycle';
+      // Somebody signed out while looking at it must not be left there.
+      if (!allowed && view === 'cycle') {
+        root.querySelector<HTMLButtonElement>('[data-view="gregorian"]')!.click();
+      }
+      if (allowed && cycleStart === null) cycleStart = planningCycles()[0]?.start ?? null;
     }
 
     /**
@@ -556,6 +579,20 @@
         }));
     }
     let cursor = startOfMonth(todayIso());
+    /** Which cycle the planner is looking at, by its start date. */
+    let cycleStart: string | null = null;
+
+    /** The cycles worth planning: the one running, and eight ahead. */
+    function planningCycles(): Cycle[] {
+      const settings = server.config?.cycles ?? server.cycles;
+      return settings ? upcomingCycles(settings.boundaries, todayIso(), CYCLES_SHOWN) : [];
+    }
+
+    function activeCycle(): Cycle | null {
+      const cycles = planningCycles();
+      if (!cycles.length) return null;
+      return cycles.find((c) => c.start === cycleStart) ?? cycles[0];
+    }
     /*
      * Whether the administrator panel is open is the server's answer, not a
      * flag this page keeps. Previously a value in sessionStorage decided it,
@@ -570,7 +607,14 @@
 
     // ---- navigation -------------------------------------------------------
     function step(delta: number) {
-      if (view === 'badi') badiCursor = stepBadiMonth(badiCursor, delta);
+      if (view === 'cycle') {
+        // Only the cycles on the planner are reachable. A finished cycle
+        // cannot be planned, so there is nowhere useful to step back to.
+        const cycles = planningCycles();
+        const at = cycles.findIndex((c) => c.start === (activeCycle()?.start ?? ''));
+        const next = cycles[Math.min(cycles.length - 1, Math.max(0, at + delta))];
+        if (next) cycleStart = next.start;
+      } else if (view === 'badi') badiCursor = stepBadiMonth(badiCursor, delta);
       else cursor = shiftMonth(cursor, delta);
       void render();
     }
@@ -580,6 +624,7 @@
       cursor = startOfMonth(todayIso());
       const today = gregorianToBadi(todayIso());
       badiCursor = { year: today.year, month: today.month };
+      cycleStart = planningCycles()[0]?.start ?? null;
       void render();
     });
 
@@ -728,10 +773,8 @@
     const cycleSource = root.querySelector<HTMLElement>('[data-cycle-source]')!;
     const cycleLoad = root.querySelector<HTMLButtonElement>('[data-cycle-load]')!;
     const cycleError = root.querySelector<HTMLElement>('[data-cycle-error]')!;
-    const cycleAlign = root.querySelector<HTMLInputElement>('[data-cycle-align]')!;
-    const cycleDay = root.querySelector<HTMLSelectElement>('[data-cycle-day]')!;
     const cycleList = root.querySelector<HTMLElement>('[data-cycle-list]')!;
-    const cycleManual = root.querySelector<HTMLElement>('[data-cycle-manual]')!;
+    const phaseGrid = root.querySelector<HTMLElement>('[data-phase-grid]')!;
 
     for (const state of AU_STATES) {
       cycleState.insertAdjacentHTML(
@@ -769,85 +812,132 @@
       const src = settings.termsSource;
       const years = [...new Set(settings.terms.map((t) => t.year))].sort();
       const span = years.length ? `${years[0]}–${years[years.length - 1]}` : '';
-      return src
-        ? `${span} from ${src.name}, read ${src.checked}.`
-        : `${span}, entered by hand.`;
+      return src ? `${span} from ${src.name}, read ${src.checked}.` : `${span}, entered by hand.`;
     }
 
     function syncCycleFields() {
       const settings = cycleSettings();
       cycleState.value = settings.state;
-      cycleAlign.checked = settings.alignToSchoolTerms;
-      cycleDay.value = String(settings.alignDay);
       cycleSource.textContent = describeSource(settings);
       cycleLoad.hidden = !canLoadTerms(settings.state);
-      cycleManual.hidden = settings.alignToSchoolTerms;
       renderCycleList(settings);
+      renderPhaseFields(settings);
+    }
+
+    /**
+     * The dates on show: the cycle now running, and the eight after it.
+     *
+     * Boundaries already passed stay in the document — the current cycle's own
+     * start is one of them — but are not offered for editing, because there is
+     * nothing left to decide about them.
+     */
+    function visibleBoundaries(settings: CycleSettings): { from: number; slots: (string | undefined)[] } {
+      const all = [...new Set(settings.boundaries)].sort();
+      const today = todayIso();
+      let from = all.findIndex((b, i) => i + 1 >= all.length || all[i + 1] > today);
+      if (from < 0) from = Math.max(0, all.length - 1);
+      const slots: (string | undefined)[] = [];
+      for (let i = 0; i <= CYCLES_SHOWN; i += 1) slots.push(all[from + i]);
+      return { from, slots };
+    }
+
+    function writeSlots(settings: CycleSettings, slots: (string | undefined)[], from: number) {
+      const all = [...new Set(settings.boundaries)].sort();
+      const kept = all.slice(0, from);
+      const next = [...new Set([...kept, ...slots.filter((d): d is string => Boolean(d))])].sort();
+      void saveCycles({ ...settings, boundaries: next });
     }
 
     function renderCycleList(settings: CycleSettings) {
-      const boundaries = cycleBoundaries(settings);
-      const cycles = cyclesFromBoundaries(boundaries);
+      const { from, slots } = visibleBoundaries(settings);
+      const today = todayIso();
       cycleList.innerHTML = '';
 
-      if (!cycles.length) {
-        cycleList.innerHTML =
-          '<p class="cal-help cal-empty">No cycles yet. Two dates are needed before there is one.</p>';
-        return;
-      }
+      for (let i = 0; i < CYCLES_SHOWN; i += 1) {
+        const start = slots[i];
+        const next = slots[i + 1];
+        const end = next ? addDays(next, -1) : undefined;
+        const weeks = start && next ? Math.round(daysBetween(start, next) / 7) : null;
+        const current = Boolean(start && end && today >= start && today <= end);
 
-      const today = todayIso();
-      for (const cycle of cycles) {
         const row = document.createElement('div');
         row.className = 'cal-item cal-cycle';
-        const current = today >= cycle.start && today <= cycle.end;
         if (current) row.classList.add('is-current-cycle');
-
-        // Aligned, the dates are a consequence of the term dates and are shown
-        // rather than offered for editing; by hand, each start is a field.
-        const start = settings.alignToSchoolTerms
-          ? `<span class="cal-cycle-date">${escapeHtml(formatLongDate(cycle.start))}</span>`
-          : `<input type="date" class="cal-cycle-input" value="${cycle.start}" data-boundary="${cycle.start}" />`;
-
         row.innerHTML =
-          `<span class="cal-cycle-no">${cycle.number}</span>${start}` +
-          `<span class="cal-cycle-span">to ${escapeHtml(formatLongDate(cycle.end))}` +
-          `<small>${cycle.weeks} weeks${current ? ' · current' : ''}</small></span>` +
-          (settings.alignToSchoolTerms
-            ? ''
-            : `<button type="button" class="cal-remove" data-drop-boundary="${cycle.start}">Remove</button>`);
+          `<span class="cal-cycle-no">${i + 1}</span>` +
+          `<input type="date" class="cal-cycle-input" value="${start ?? ''}" data-slot="${i}" />` +
+          `<span class="cal-cycle-span">${end ? escapeHtml(`to ${formatLongDate(end)}`) : '—'}` +
+          `<small>${weeks === null ? 'add the next date' : `${weeks} weeks${current ? ' · current' : ''}`}</small></span>`;
         cycleList.appendChild(row);
       }
 
-      // The last boundary opens a cycle whose end is not yet known, so it is
-      // named rather than silently dropped.
-      const open = boundaries[boundaries.length - 1];
-      if (open) {
-        cycleList.insertAdjacentHTML(
-          'beforeend',
-          `<p class="cal-help">A cycle opens ${escapeHtml(formatLongDate(open))}. Its length is` +
-            ' unknown until the next term dates are added.</p>',
-        );
-      }
+      // The date that closes the last cycle is itself the start of the one
+      // after, so it is offered rather than left as a gap somebody cannot fill.
+      cycleList.insertAdjacentHTML(
+        'beforeend',
+        '<div class="cal-item cal-cycle cal-cycle-next">' +
+          '<span class="cal-cycle-no">→</span>' +
+          `<input type="date" class="cal-cycle-input" value="${slots[CYCLES_SHOWN] ?? ''}" data-slot="${CYCLES_SHOWN}" />` +
+          '<span class="cal-cycle-span">next opens<small>closes the ninth</small></span></div>',
+      );
 
-      for (const input of cycleList.querySelectorAll<HTMLInputElement>('[data-boundary]')) {
+      for (const input of cycleList.querySelectorAll<HTMLInputElement>('[data-slot]')) {
         input.addEventListener('change', () => {
           const settingsNow = cycleSettings();
-          const was = input.dataset.boundary!;
           const value = input.value;
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { syncCycleFields(); return; }
-          const next = settingsNow.manualBoundaries.filter((b) => b !== was);
-          next.push(value);
-          void saveCycles({ ...settingsNow, manualBoundaries: [...new Set(next)].sort() });
+          if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) { syncCycleFields(); return; }
+          const nextSlots = [...visibleBoundaries(settingsNow).slots];
+          nextSlots[Number(input.dataset.slot)] = value || undefined;
+          writeSlots(settingsNow, nextSlots, from);
         });
       }
-      for (const button of cycleList.querySelectorAll<HTMLButtonElement>('[data-drop-boundary]')) {
-        button.addEventListener('click', () => {
+    }
+
+    function renderPhaseFields(settings: CycleSettings) {
+      const options = (selected: string) =>
+        PASTEL_COLOURS.map(
+          (c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${escapeHtml(c.label)}</option>`,
+        ).join('');
+
+      phaseGrid.innerHTML = PHASES.map((phase) => {
+        const weeks =
+          phase.id === 'expansion'
+            ? settings.phases.expansionWeeks
+            : phase.id === 'reflection'
+              ? settings.phases.reflectionWeeks
+              : null;
+        const swatch =
+          `<span class="cal-phase-swatch" style="background:${pastelValue(settings.phaseColours[phase.id])}"></span>`;
+        return (
+          `<div class="cal-phase-row">` +
+          `${swatch}<span class="cal-phase-name">${escapeHtml(phase.name)}</span>` +
+          (weeks === null
+            ? '<span class="cal-phase-weeks cal-phase-rest">the rest</span>'
+            : `<input type="number" min="0" max="20" class="cal-phase-weeks" value="${weeks}" data-phase-weeks="${phase.id}" />`) +
+          `<select data-phase-colour="${phase.id}">${options(settings.phaseColours[phase.id])}</select>` +
+          `</div>`
+        );
+      }).join('');
+
+      for (const input of phaseGrid.querySelectorAll<HTMLInputElement>('[data-phase-weeks]')) {
+        input.addEventListener('change', () => {
           const settingsNow = cycleSettings();
-          const drop = button.dataset.dropBoundary!;
+          const value = Math.max(0, Math.min(20, Math.floor(Number(input.value) || 0)));
+          const phases = { ...settingsNow.phases };
+          if (input.dataset.phaseWeeks === 'expansion') phases.expansionWeeks = value;
+          else phases.reflectionWeeks = value;
+          void saveCycles({ ...settingsNow, phases });
+        });
+      }
+      for (const select of phaseGrid.querySelectorAll<HTMLSelectElement>('[data-phase-colour]')) {
+        select.addEventListener('change', () => {
+          const settingsNow = cycleSettings();
           void saveCycles({
             ...settingsNow,
-            manualBoundaries: settingsNow.manualBoundaries.filter((b) => b !== drop),
+            phaseColours: {
+              ...settingsNow.phaseColours,
+              [select.dataset.phaseColour as PhaseId]: select.value,
+            },
           });
         });
       }
@@ -864,37 +954,8 @@
         state,
         terms: bundled ? bundled.map((t) => ({ ...t })) : [],
         termsSource: bundled ? TERM_SOURCES[state] : undefined,
+        boundaries: bundled ? boundariesFromTerms(bundled) : [],
       });
-    });
-
-    cycleDay.addEventListener('change', () => {
-      void saveCycles({ ...cycleSettings(), alignDay: Number(cycleDay.value) as CycleSettings['alignDay'] });
-    });
-
-    cycleAlign.addEventListener('change', () => {
-      const settings = cycleSettings();
-      // Unticking seeds the manual list from what the terms currently give, so
-      // the dates are adjusted from where they were rather than from nothing.
-      const manualBoundaries = cycleAlign.checked
-        ? settings.manualBoundaries
-        : boundariesFromTerms(settings.terms, settings.alignDay);
-      void saveCycles({ ...settings, alignToSchoolTerms: cycleAlign.checked, manualBoundaries });
-    });
-
-    root.querySelector('[data-cycle-add]')!.addEventListener('click', () => {
-      const settings = cycleSettings();
-      const boundaries = cycleBoundaries(settings);
-      const last = boundaries[boundaries.length - 1] ?? todayIso();
-      // Twelve weeks on, the ordinary length, as a starting point to edit.
-      void saveCycles({
-        ...settings,
-        manualBoundaries: [...new Set([...settings.manualBoundaries, addDays(last, 84)])].sort(),
-      });
-    });
-
-    root.querySelector('[data-cycle-reset]')!.addEventListener('click', () => {
-      const settings = cycleSettings();
-      void saveCycles({ ...settings, alignToSchoolTerms: true, manualBoundaries: [] });
     });
 
     cycleLoad.addEventListener('click', async () => {
@@ -911,7 +972,12 @@
           cycleError.hidden = false;
           return;
         }
-        await saveCycles({ ...cycleSettings(), terms: body.terms, termsSource: body.source });
+        await saveCycles({
+          ...cycleSettings(),
+          terms: body.terms,
+          termsSource: body.source,
+          boundaries: boundariesFromTerms(body.terms),
+        });
       } catch {
         cycleError.textContent = 'Could not reach the catalogue.';
         cycleError.hidden = false;
@@ -1387,6 +1453,20 @@
      * came to that view for.
      */
     function currentPeriod() {
+      if (view === 'cycle') {
+        const cycle = activeCycle();
+        if (!cycle) {
+          const first = startOfMonth(todayIso());
+          return { first, last: addDays(shiftMonth(first, 1), -1), title: 'Cycle', subtitle: 'No cycle dates have been set.' };
+        }
+        return {
+          first: cycle.start,
+          last: cycle.end,
+          title: `Cycle ${cycle.number}`,
+          subtitle:
+            `${formatLongDate(cycle.start)} – ${formatLongDate(cycle.end)} · ${cycle.weeks} weeks`,
+        };
+      }
       if (view === 'badi') {
         const first = badiToGregorian(badiCursor.year, badiCursor.month, 1);
         const last = addDays(first, badiMonthLength(badiCursor) - 1);
@@ -1417,8 +1497,11 @@
 
       // Whole weeks either side, so a period that starts mid-week still reads
       // as weeks rather than as a ragged block. Which day a week opens on is
-      // the reader's, and differs between the views.
+      // the reader's, and differs between the views. A cycle begins when the
+      // holidays do, which can be any day, so its first row reaches back to
+      // whichever day the reader starts a week on.
       const ws = prefs.weekStart[view] ?? DEFAULT_WEEK_START[view];
+      grid.classList.toggle('is-cycle', view === 'cycle');
       const gridStart = addDays(period.first, -(((weekday(period.first) - ws) % 7 + 7) % 7));
       const lastCell = addDays(period.last, ((ws + 6 - weekday(period.last)) % 7 + 7) % 7);
       const gridEnd = lastCell;
@@ -1622,12 +1705,56 @@
       const parts: string[] = [];
 
       const ws = prefs.weekStart[view] ?? DEFAULT_WEEK_START[view];
+
+      /*
+       * The cycle view carries two slim columns down its left: the phase, and
+       * the week number. The phase is drawn once per run and spanned across
+       * its weeks rather than repeated on every row, which would be both noisy
+       * and redundant.
+       */
+      const cycle = view === 'cycle' ? activeCycle() : null;
+      const settings = server.config?.cycles ?? server.cycles ?? null;
+      const weekCount = cycle ? cycleWeekStarts(cycle, ws as WeekDay).length : 0;
+      const runs = cycle && settings ? phaseRuns(weekCount, settings.phases) : [];
+      const runAt = new Map(runs.map((r) => [r.from, r]));
+      const phaseName = new Map(PHASES.map((p) => [p.id, p.name]));
+
+      if (cycle) {
+        // The phase column is too narrow for a heading, and the rotated
+        // labels beneath it say what it is; the name is left for screen
+        // readers rather than clipped to "Phas".
+        parts.push(
+          '<div class="cal-weekday cal-corner" role="columnheader">' +
+            '<span class="cal-sr-only">Phase</span></div>',
+        );
+        parts.push('<div class="cal-weekday cal-corner" role="columnheader">Wk</div>');
+      }
       for (const name of [...WEEKDAY_NAMES.slice(ws), ...WEEKDAY_NAMES.slice(0, ws)]) {
         parts.push(`<div class="cal-weekday" role="columnheader">${name}</div>`);
       }
 
       let day = gridStart;
       while (day <= gridEnd) {
+        // Once per row, not once per day: the two leading columns belong to
+        // the week, and the grid only opens a new row on the reader's first
+        // day of the week.
+        const offset = daysBetween(gridStart, day);
+        if (cycle && offset % 7 === 0) {
+          const week = offset / 7 + 1;
+          const run = runAt.get(week);
+          if (run) {
+            const tint = pastelValue(settings!.phaseColours[run.phase]);
+            parts.push(
+              `<div class="cal-phase-cell" style="grid-column:1;grid-row:span ${run.weeks};` +
+                `background:${tint}"><span>${escapeHtml(phaseName.get(run.phase) ?? '')}</span></div>`,
+            );
+          }
+          const phase = runs.find((r) => week >= r.from && week < r.from + r.weeks);
+          const tint = phase ? pastelValue(settings!.phaseColours[phase.phase]) : 'transparent';
+          parts.push(
+            `<div class="cal-week-no" style="background:color-mix(in srgb, ${tint} 45%, white)">${week}</div>`,
+          );
+        }
         const d = parseIso(day);
         // Days either side of the period are shown tinted back rather than
         // blank, so a week that straddles two months still reads as a week.
@@ -2650,6 +2777,77 @@
     background: var(--color-sand-200); color: var(--color-ink);
     padding: 0.08rem 0.3rem; border-radius: 0.25rem;
   }
+  .cal-sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+
+  /* ---- cycle view ------------------------------------------------------- */
+
+  /*
+   * Two slim columns down the left: the phase, and the week number. Narrow on
+   * purpose — they are a margin on the weeks, not a third of the grid.
+   */
+  .cal-grid.is-cycle { grid-template-columns: 1.5rem 1.6rem repeat(7, minmax(0, 1fr)); }
+
+  .cal-phase-cell {
+    display: grid; place-items: center;
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 0.62rem; letter-spacing: 0.09em; text-transform: uppercase;
+    font-weight: 600; text-align: center;
+    color: color-mix(in srgb, var(--color-ink) 78%, transparent);
+    border-right: 1px solid var(--cal-line);
+    /* The label is drawn once per phase and centred in its run, so a long name
+       on a short phase is clipped rather than allowed to break the column. */
+    overflow: hidden;
+  }
+  .cal-week-no {
+    display: grid; place-items: center;
+    font-size: 0.7rem; font-variant-numeric: tabular-nums;
+    color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+    border-right: 1px solid var(--cal-line);
+  }
+  .cal-grid.is-cycle .cal-corner {
+    font-size: 0.55rem; letter-spacing: 0.02em; padding-inline: 0;
+  }
+
+  /* ---- phase settings ---------------------------------------------------- */
+  .cal-phase-grid { display: grid; gap: 0.35rem; margin-top: 0.5rem; }
+  .cal-phase-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+  .cal-phase-swatch {
+    flex: none; width: 0.9rem; height: 0.9rem; border-radius: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+  }
+  .cal-phase-name { flex: 1; }
+  .cal-phase-weeks { width: 3.2rem; text-align: center; }
+  input.cal-phase-weeks {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.2rem 0.3rem; font-size: 0.78rem; background: white;
+  }
+  .cal-phase-rest {
+    font-size: 0.7rem; color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .cal-phase-row select {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.2rem 0.3rem; font-size: 0.75rem; background: white;
+  }
+
+  /* Each administrator section collapses: the panel is long, and finding one
+     setting should not mean scrolling past four others. */
+  .cal-admin-section > summary {
+    cursor: pointer; list-style: none; font-weight: 600; font-size: 0.9rem;
+    padding: 0.45rem 0; border-top: 1px solid var(--cal-line);
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .cal-admin-section > summary::-webkit-details-marker { display: none; }
+  .cal-admin-section > summary::before {
+    content: '›'; display: inline-block; transition: transform 0.15s ease;
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .cal-admin-section[open] > summary::before { transform: rotate(90deg); }
+
+  .cal-cycle-next { opacity: 0.75; }
+
   /* The select sits on the same line as its label, unlike the stacked fields. */
   .cal-week-start {
     display: flex; align-items: center; justify-content: space-between;

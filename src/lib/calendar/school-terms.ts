@@ -132,52 +132,20 @@ export function canLoadTerms(state: AuStateId): boolean {
 }
 
 /**
- * Where the calendar's own record of cycles begins.
- *
- * The bundled term dates start with 2026, because a department stops
- * publishing a year once it has passed — the cycle running through January
- * 2026 began in December 2025, and that date can no longer be read from
- * anywhere official. Rather than guess it, the series simply starts at the
- * beginning of 2026 and an administrator can move it earlier if they have the
- * date to hand.
- */
-export const SERIES_START = '2026-01-01';
-
-/**
- * The day a cycle begins, given the day term ended.
+ * The day a cycle begins: the first day of the holidays.
  *
  * Term almost always ends on a Friday, but not always — Queensland's first
- * term of 2026 ends on the Thursday before Good Friday. Taking the first
- * chosen weekday on or after the day after term ends handles both, and gives a
- * grid whose first row is a whole week.
+ * term of 2026 ends on the Thursday before Good Friday. Either way the cycle
+ * opens the next morning. Where that lands in the week is a question for the
+ * grid, not for the date.
  */
-export function cycleStartAfter(termEnd: string, alignDay: WeekDay): string {
-  let day = addDays(termEnd, 1);
-  while (weekday(day) !== alignDay) day = addDays(day, 1);
-  return day;
+export function holidayStart(termEnd: string): string {
+  return addDays(termEnd, 1);
 }
 
-/** The first chosen weekday on or after a given date. */
-export function alignOnOrAfter(from: string, alignDay: WeekDay): string {
-  let day = from;
-  while (weekday(day) !== alignDay) day = addDays(day, 1);
-  return day;
-}
-
-/**
- * Cycle boundaries implied by a set of term dates.
- *
- * One boundary per term end, plus an opening boundary so that the first cycle
- * of the series is not lost for want of the previous year's dates.
- */
-export function boundariesFromTerms(
-  terms: SchoolTerm[],
-  alignDay: WeekDay,
-  seriesStart: string = SERIES_START,
-): string[] {
-  const found = new Set<string>([alignOnOrAfter(seriesStart, alignDay)]);
-  for (const term of terms) found.add(cycleStartAfter(term.end, alignDay));
-  return [...found].sort();
+/** Cycle boundaries implied by a set of term dates. */
+export function boundariesFromTerms(terms: SchoolTerm[]): string[] {
+  return [...new Set(terms.map((t) => holidayStart(t.end)))].sort();
 }
 
 export interface Cycle {
@@ -192,10 +160,10 @@ export interface Cycle {
 /**
  * Cycles between consecutive boundaries.
  *
- * The final boundary opens a cycle that cannot be closed until the next term's
- * dates are known, so it yields one cycle fewer than there are boundaries.
- * That is honest: showing a cycle whose end was invented would be worse than
- * showing one cycle less.
+ * The final boundary opens a cycle that cannot be closed until the next date
+ * is known, so it yields one cycle fewer than there are boundaries. That is
+ * honest: showing a cycle whose end was invented would be worse than showing
+ * one cycle less.
  */
 export function cyclesFromBoundaries(boundaries: string[]): Cycle[] {
   const sorted = [...new Set(boundaries)].sort();
@@ -215,4 +183,128 @@ export function cyclesFromBoundaries(boundaries: string[]): Cycle[] {
 
 export function cycleContaining(iso: string, cycles: Cycle[]): Cycle | null {
   return cycles.find((c) => iso >= c.start && iso <= c.end) ?? null;
+}
+
+/** How many cycles the planner shows: the one running, and eight ahead. */
+export const CYCLES_SHOWN = 9;
+
+/**
+ * The cycles worth looking at.
+ *
+ * A cycle that has finished cannot be planned and does not need adjusting, so
+ * it drops off the list rather than accumulating. As each one ends the rest
+ * move up and a blank appears at the bottom, to be filled in when the date is
+ * known.
+ */
+export function upcomingCycles(
+  boundaries: string[],
+  today: string,
+  count: number = CYCLES_SHOWN,
+): Cycle[] {
+  const all = cyclesFromBoundaries(boundaries);
+  const from = all.findIndex((c) => c.end >= today);
+  return from < 0 ? [] : all.slice(from, from + count);
+}
+
+/**
+ * The first day of the week a date falls in.
+ *
+ * A cycle begins when the holidays do, which can be any day; the grid still
+ * has to open on whichever day the reader has chosen, so the first row reaches
+ * back to it.
+ */
+export function startOfWeek(iso: string, weekStart: WeekDay): string {
+  return addDays(iso, -(((weekday(iso) - weekStart) % 7 + 7) % 7));
+}
+
+/** The weeks a cycle occupies once it is snapped out to whole weeks. */
+export function cycleWeekStarts(cycle: Cycle, weekStart: WeekDay): string[] {
+  const weeks: string[] = [];
+  let day = startOfWeek(cycle.start, weekStart);
+  while (day <= cycle.end) {
+    weeks.push(day);
+    day = addDays(day, 7);
+  }
+  return weeks;
+}
+
+// ---- phases ----------------------------------------------------------------
+
+export type PhaseId = 'expansion' | 'consolidation' | 'reflection';
+
+export const PHASES: { id: PhaseId; name: string }[] = [
+  { id: 'expansion', name: 'Expansion' },
+  { id: 'consolidation', name: 'Consolidation' },
+  { id: 'reflection', name: 'Planning & Reflection' },
+];
+
+export interface PhasePlan {
+  expansionWeeks: number;
+  reflectionWeeks: number;
+}
+
+export const DEFAULT_PHASE_PLAN: PhasePlan = { expansionWeeks: 2, reflectionWeeks: 2 };
+
+/**
+ * Which phase a week belongs to.
+ *
+ * Expansion opens the cycle and Planning & Reflection closes it, both at a
+ * fixed number of weeks; consolidation is whatever lies between, which is why
+ * it absorbs the difference between a twelve-week cycle and a sixteen-week one.
+ *
+ * A short cycle could be asked for more weeks than it has. Rather than let the
+ * two ends overlap — which would put a week in two phases at once — expansion
+ * is honoured first and reflection takes what is left.
+ */
+export function phaseForWeek(week: number, totalWeeks: number, plan: PhasePlan): PhaseId {
+  const expansion = Math.max(0, Math.min(Math.floor(plan.expansionWeeks), totalWeeks));
+  const reflection = Math.max(0, Math.min(Math.floor(plan.reflectionWeeks), totalWeeks - expansion));
+  if (week <= expansion) return 'expansion';
+  if (week > totalWeeks - reflection) return 'reflection';
+  return 'consolidation';
+}
+
+/** Each phase as a run of consecutive weeks, so a label can be drawn once. */
+export function phaseRuns(
+  totalWeeks: number,
+  plan: PhasePlan,
+): { phase: PhaseId; from: number; weeks: number }[] {
+  const runs: { phase: PhaseId; from: number; weeks: number }[] = [];
+  for (let week = 1; week <= totalWeeks; week += 1) {
+    const phase = phaseForWeek(week, totalWeeks, plan);
+    const last = runs[runs.length - 1];
+    if (last && last.phase === phase) last.weeks += 1;
+    else runs.push({ phase, from: week, weeks: 1 });
+  }
+  return runs;
+}
+
+// ---- phase colours ---------------------------------------------------------
+
+/**
+ * Pastels, because these columns run the whole height of the grid beside the
+ * days. A saturated band there would pull the eye away from the dates, which
+ * are what the view is for.
+ */
+export const PASTEL_COLOURS: { id: string; label: string; value: string }[] = [
+  { id: 'apricot', label: 'Apricot', value: '#f6e2cd' },
+  { id: 'blush', label: 'Blush', value: '#f2dcdc' },
+  { id: 'sand', label: 'Sand', value: '#efe6d2' },
+  { id: 'sage', label: 'Sage', value: '#dbe7d4' },
+  { id: 'mint', label: 'Mint', value: '#d6e8e2' },
+  { id: 'sky', label: 'Sky', value: '#d9e6f2' },
+  { id: 'lilac', label: 'Lilac', value: '#e3dcef' },
+  { id: 'stone', label: 'Stone', value: '#e6e4df' },
+];
+
+export type PhaseColours = Record<PhaseId, string>;
+
+export const DEFAULT_PHASE_COLOURS: PhaseColours = {
+  expansion: 'apricot',
+  consolidation: 'sage',
+  reflection: 'lilac',
+};
+
+export function pastelValue(id: string): string {
+  return (PASTEL_COLOURS.find((c) => c.id === id) ?? PASTEL_COLOURS[0]).value;
 }

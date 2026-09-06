@@ -18,8 +18,13 @@
 
 import type { CalendarSection } from './registry.ts';
 import { CALENDAR_SECTIONS, GENERATED_CALENDARS, SEEDED_GOOGLE_CALENDARS } from './registry.ts';
-import type { AuStateId, SchoolTerm, TermSource, WeekDay } from './school-terms.ts';
-import { BUNDLED_TERMS, TERM_SOURCES, boundariesFromTerms, isAuState } from './school-terms.ts';
+import type {
+  AuStateId, PhaseColours, PhasePlan, SchoolTerm, TermSource,
+} from './school-terms.ts';
+import {
+  BUNDLED_TERMS, DEFAULT_PHASE_COLOURS, DEFAULT_PHASE_PLAN, PASTEL_COLOURS, PHASES,
+  TERM_SOURCES, boundariesFromTerms, isAuState,
+} from './school-terms.ts';
 import type { Tier } from './tiers.ts';
 import { isTier, meetsTier } from './tiers.ts';
 
@@ -77,36 +82,27 @@ export const DEFAULT_LOCATION: CalendarLocation = {
  */
 export interface CycleSettings {
   state: AuStateId;
-  /** Whether boundaries follow the school terms or are set by hand. */
-  alignToSchoolTerms: boolean;
-  /** The weekday a cycle begins on. */
-  alignDay: WeekDay;
   /** Term dates for the chosen state: bundled, fetched, or corrected by hand. */
   terms: SchoolTerm[];
   /** Where those dates came from, so the panel can say so. */
   termsSource?: TermSource;
-  /** Boundaries set by hand. Used only when not aligned to the terms. */
-  manualBoundaries: string[];
+  /** The day each cycle begins, ascending. One more than there are cycles. */
+  boundaries: string[];
+  /** How many weeks the two fixed phases take; consolidation gets the rest. */
+  phases: PhasePlan;
+  phaseColours: PhaseColours;
 }
 
 export function defaultCycleSettings(state: AuStateId = 'qld'): CycleSettings {
   const terms = BUNDLED_TERMS[state];
   return {
     state,
-    alignToSchoolTerms: true,
-    // Saturday, so a cycle opens with the weekend that begins the holidays.
-    alignDay: 6,
     terms: terms ? terms.map((t) => ({ ...t })) : [],
-    termsSource: TERM_SOURCES[state],
-    manualBoundaries: [],
+    termsSource: terms ? TERM_SOURCES[state] : undefined,
+    boundaries: terms ? boundariesFromTerms(terms) : [],
+    phases: { ...DEFAULT_PHASE_PLAN },
+    phaseColours: { ...DEFAULT_PHASE_COLOURS },
   };
-}
-
-/** The boundaries in force, whichever way they are being decided. */
-export function cycleBoundaries(settings: CycleSettings): string[] {
-  return settings.alignToSchoolTerms
-    ? boundariesFromTerms(settings.terms, settings.alignDay)
-    : [...new Set(settings.manualBoundaries)].sort();
 }
 
 export interface StoredConfig {
@@ -193,24 +189,45 @@ function asTerms(value: unknown): SchoolTerm[] {
   return terms.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
 }
 
+function asPhasePlan(value: unknown): PhasePlan {
+  const raw = (value ?? {}) as Partial<PhasePlan>;
+  // A negative or absurd count would push a phase off the grid, so each is
+  // pinned to something a cycle could actually contain.
+  const clamp = (n: unknown, fallback: number) =>
+    Number.isFinite(n) && (n as number) >= 0 && (n as number) <= 20
+      ? Math.floor(n as number)
+      : fallback;
+  return {
+    expansionWeeks: clamp(raw.expansionWeeks, DEFAULT_PHASE_PLAN.expansionWeeks),
+    reflectionWeeks: clamp(raw.reflectionWeeks, DEFAULT_PHASE_PLAN.reflectionWeeks),
+  };
+}
+
+function asPhaseColours(value: unknown): PhaseColours {
+  const raw = (value ?? {}) as Partial<PhaseColours>;
+  const colours = { ...DEFAULT_PHASE_COLOURS };
+  for (const phase of PHASES) {
+    const id = raw[phase.id];
+    if (typeof id === 'string' && PASTEL_COLOURS.some((c) => c.id === id)) colours[phase.id] = id;
+  }
+  return colours;
+}
+
 function asCycles(value: unknown): CycleSettings {
   const base = defaultCycleSettings();
   if (!value || typeof value !== 'object') return base;
   const c = value as Partial<CycleSettings>;
   const state = isAuState(c.state) ? c.state : base.state;
-  const alignDay = ([0, 1, 2, 3, 4, 5, 6] as const).includes(c.alignDay as WeekDay)
-    ? (c.alignDay as WeekDay)
-    : base.alignDay;
   // Terms are kept as stored even when empty: a state with no bundled dates is
   // meant to show blanks for an administrator to fill, not Queensland's dates.
   const terms = 'terms' in (c as object) ? asTerms(c.terms) : base.terms;
   return {
     state,
-    alignToSchoolTerms: c.alignToSchoolTerms !== false,
-    alignDay,
     terms,
-    termsSource: c.termsSource ?? TERM_SOURCES[state],
-    manualBoundaries: asIsoDates(c.manualBoundaries),
+    termsSource: c.termsSource ?? (terms.length ? TERM_SOURCES[state] : undefined),
+    boundaries: 'boundaries' in (c as object) ? asIsoDates(c.boundaries) : base.boundaries,
+    phases: asPhasePlan(c.phases),
+    phaseColours: asPhaseColours(c.phaseColours),
   };
 }
 
