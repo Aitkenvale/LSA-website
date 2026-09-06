@@ -239,6 +239,7 @@
   import {
     CALENDAR_COLOURS,
     CALENDAR_SECTIONS,
+    GENERATED_CALENDARS,
     calendarColour,
     isSeededCalendar,
   } from '../../lib/calendar/registry';
@@ -339,14 +340,21 @@
       }
     }
 
-    /** An administrator's full document, shaped like the reader's list. */
+    /**
+     * An administrator's full document, shaped like the reader's list.
+     *
+     * A generated calendar has no stored name — it is called what it is, and
+     * that comes from the registry. Falling back to the id showed an
+     * administrator "bahai-months" where every other viewer saw "Bahá'í Months".
+     */
     function adminView(config: StoredConfig): VisibleCalendar[] {
       return [...config.calendars]
         .sort((a, b) => a.position - b.position)
         .map((c) => ({
           id: c.id,
           kind: c.kind,
-          name: c.name ?? c.id,
+          name: c.name || GENERATED_CALENDARS.find((g) => g.id === c.id)?.name || c.id,
+          confidence: GENERATED_CALENDARS.find((g) => g.id === c.id)?.confidence,
           defaultOn: true,
           colour: c.colour,
           section: c.section ?? 'bahai',
