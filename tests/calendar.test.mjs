@@ -392,3 +392,72 @@ test('verified dates: an offset link keeps its offset', () => {
   );
   assert.equal(applied.find((o) => overrideKey(o) === 'sikhism:hola-mohalla-2027').date, '2027-03-24');
 });
+
+test('iCalendar: resolves TZID against the feed’s own VTIMEZONE', () => {
+  // Sydney observes daylight saving; Brisbane does not. An event at 7pm Sydney
+  // is 6pm Brisbane in January and 7pm Brisbane in July. Ignoring TZID, as an
+  // earlier version did, silently reports both as 7pm.
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VTIMEZONE',
+    'TZID:AUS Eastern Standard Time',
+    'BEGIN:STANDARD',
+    'DTSTART:16010101T030000', 'TZOFFSETFROM:+1100', 'TZOFFSETTO:+1000',
+    'RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=1SU;BYMONTH=4',
+    'END:STANDARD',
+    'BEGIN:DAYLIGHT',
+    'DTSTART:16010101T020000', 'TZOFFSETFROM:+1000', 'TZOFFSETTO:+1100',
+    'RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=1SU;BYMONTH=10',
+    'END:DAYLIGHT',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    'UID:summer', 'SUMMARY:Summer meeting',
+    'DTSTART;TZID=AUS Eastern Standard Time:20270115T190000',
+    'DTEND;TZID=AUS Eastern Standard Time:20270115T203000',
+    'END:VEVENT',
+    'BEGIN:VEVENT',
+    'UID:winter', 'SUMMARY:Winter meeting',
+    'DTSTART;TZID=AUS Eastern Standard Time:20270715T190000',
+    'DTEND;TZID=AUS Eastern Standard Time:20270715T203000',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const events = parseIcs(ics, '2027-01-01', '2027-12-31', 10);
+  const summer = events.find((e) => e.uid.startsWith('summer'));
+  const winter = events.find((e) => e.uid.startsWith('winter'));
+
+  assert.equal(summer.date, '2027-01-15');
+  assert.equal(summer.startTime, '18:00', 'Sydney daylight time is an hour ahead of Brisbane');
+  assert.equal(summer.endTime, '19:30');
+  assert.equal(winter.date, '2027-07-15');
+  assert.equal(winter.startTime, '19:00', 'outside daylight saving the two agree');
+});
+
+test('iCalendar: an Outlook feed in Brisbane time is left alone', () => {
+  // The real shape Outlook publishes for a Queensland mailbox: a TZID whose
+  // standard and daylight offsets are identical, so nothing should move.
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VTIMEZONE',
+    'TZID:E. Australia Standard Time',
+    'BEGIN:STANDARD',
+    'DTSTART:16010101T000000', 'TZOFFSETFROM:+1000', 'TZOFFSETTO:+1000',
+    'END:STANDARD',
+    'BEGIN:DAYLIGHT',
+    'DTSTART:16010101T000000', 'TZOFFSETFROM:+1000', 'TZOFFSETTO:+1000',
+    'END:DAYLIGHT',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    'UID:t1', 'SUMMARY:TEST 01',
+    'DTSTART;TZID=E. Australia Standard Time:20260908T000000',
+    'DTEND;TZID=E. Australia Standard Time:20260908T003000',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+
+  const [event] = parseIcs(ics, '2026-09-01', '2026-09-30', 10);
+  assert.equal(event.date, '2026-09-08');
+  assert.equal(event.startTime, '00:00');
+  assert.equal(event.endTime, '00:30');
+});

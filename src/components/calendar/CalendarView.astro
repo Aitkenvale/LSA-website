@@ -174,8 +174,10 @@
 
 <script>
   import {
+    CALENDAR_COLOURS,
     GENERATED_CALENDARS,
     SEEDED_GOOGLE_CALENDARS,
+    calendarColour,
     listedCalendars,
     mergeConfig,
     defaultConfig,
@@ -208,6 +210,8 @@
     verified?: boolean;
     time?: string;
     badge?: string;
+    /** Dot colour, for calendars linked from Google or Outlook. */
+    colour?: string;
     /** Observance begins at sunset on the evening before this date. */
     startsPreviousEvening?: boolean;
     /** Full text for the hover card. */
@@ -420,6 +424,7 @@
         row.className = 'cal-item';
         row.innerHTML = `
           <summary>
+            <span class="cal-dot" data-g-dot style="background:${calendarColour(cal.colour)}"></span>
             <span class="cal-toggle-name">${escapeHtml(cal.name)}</span>
             <span class="cal-tag">${cal.icsUrl.trim() ? 'connected' : 'no address'}</span>
           </summary>
@@ -432,6 +437,17 @@
             <input type="text" data-g-view value="${escapeHtml(cal.viewLabel)}" placeholder="Show full detail" />
             <small>Shown instead of each event's real title. Leave empty to show real titles.</small>
           </label>
+          <div class="cal-field">
+            Colour
+            <div class="cal-swatches" data-g-colours>
+              ${CALENDAR_COLOURS.map(
+                (c) =>
+                  `<button type="button" class="cal-swatch${(cal.colour ?? 'teal') === c.id ? ' is-current' : ''}"` +
+                  ` data-colour="${c.id}" style="background:${c.value}" title="${c.label}">` +
+                  `<span class="sr-only">${c.label}</span></button>`,
+              ).join('')}
+            </div>
+          </div>
           <label class="cal-field">
             Secret iCal address
             <input type="url" data-g-url value="${escapeHtml(cal.icsUrl)}"
@@ -444,6 +460,19 @@
         const urlInput = row.querySelector<HTMLInputElement>('[data-g-url]')!;
         const summaryName = row.querySelector<HTMLElement>('.cal-toggle-name')!;
         const summaryTag = row.querySelector<HTMLElement>('.cal-tag')!;
+        const summaryDot = row.querySelector<HTMLElement>('[data-g-dot]')!;
+
+        row.querySelector('[data-g-colours]')!.addEventListener('click', (e) => {
+          const swatch = (e.target as HTMLElement).closest<HTMLElement>('[data-colour]');
+          if (!swatch) return;
+          cal.colour = swatch.dataset.colour!;
+          for (const other of row.querySelectorAll('.cal-swatch')) {
+            other.classList.toggle('is-current', other === swatch);
+          }
+          summaryDot.style.background = calendarColour(cal.colour);
+          saveConfig(config);
+          void render();
+        });
 
         const commit = () => {
           const url = urlInput.value.trim();
@@ -629,15 +658,18 @@
                   kind: 'event',
                   time: cal.viewLabel ? undefined : ev.startTime,
                   note: cal.viewLabel ? undefined : ev.location,
+                  colour: calendarColour(cal.colour),
                   tip: cal.viewLabel
                     ? `title|${cal.viewLabel}`
                     : [
                         `title|${ev.summary}`,
-                        [ev.startTime, ev.location].filter(Boolean).join(' · '),
-                        ev.description,
+                        `when|${formatEventTime(ev)}`,
+                        // Outlook sends DESCRIPTION:\n for an empty description,
+                        // which is truthy until it is trimmed.
+                        ev.location?.trim() ? `note|${ev.location.trim()}` : '',
+                        ev.description?.trim() ? `note|${ev.description.trim()}` : '',
                       ]
                         .filter(Boolean)
-                        .map((line, i) => (i === 0 ? line : `note|${line}`))
                         .join('\n'),
                 });
               }
@@ -721,7 +753,8 @@
           .filter((e) => e.group === 'community')
           .map(
             (e) => `<li class="cal-event" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
-              `<span class="cal-dot"></span>${e.time ? `<span class="cal-time">${e.time}</span> ` : ''}${escapeHtml(keepNameWhole(e.name))}</li>`,
+              `<span class="cal-dot"${e.colour ? ` style="background:${escapeHtml(e.colour)}"` : ''}></span>` +
+              `<span>${escapeHtml(keepNameWhole(e.name))}</span></li>`,
           )
           .join('');
 
@@ -849,6 +882,20 @@
   }
 
   // ---- helpers -------------------------------------------------------------
+
+  /** "7:00 pm – 9:30 pm", or "All day" when there is no time to show. */
+  function formatEventTime(ev: IcsEvent): string {
+    if (ev.allDay || !ev.startTime) return 'All day';
+    const clock = (hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      const suffix = h >= 12 ? 'pm' : 'am';
+      const hour = h % 12 === 0 ? 12 : h % 12;
+      return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
+    };
+    return ev.endTime && ev.endTime !== ev.startTime
+      ? `${clock(ev.startTime)} – ${clock(ev.endTime)}`
+      : clock(ev.startTime);
+  }
 
   const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -1459,6 +1506,22 @@
   }
   .cal-admin-block > section,
   .cal-admin-block [data-admin-panel] > section { margin-bottom: 1.5rem; }
+  .cal-swatches { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
+  .cal-swatch {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--cal-line);
+    cursor: pointer;
+    padding: 0;
+  }
+  .cal-swatch.is-current {
+    border-color: white;
+    box-shadow: 0 0 0 2px var(--color-teal-800);
+  }
+  .cal-item > summary .cal-dot { margin-right: 0.1rem; }
+
   .cal-verify-row { display: grid; gap: 0.2rem; }
   .cal-verify-name { font-size: 0.82rem; font-weight: 600; color: var(--color-teal-900); }
   .cal-key {

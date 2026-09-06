@@ -1,5 +1,5 @@
 /**
- * A small iCalendar reader, enough for Google Calendar feeds.
+ * A small iCalendar reader, enough for Google Calendar and Outlook feeds.
  *
  * Google emits one VEVENT per series with an RRULE, so recurring events have to
  * be expanded here. Supported: FREQ DAILY/WEEKLY/MONTHLY/YEARLY, INTERVAL,
@@ -77,6 +77,139 @@ function parseStamp(prop: RawProp): ParsedStamp | null {
     date: `${dt[1]}-${dt[2]}-${dt[3]}`,
     time: `${dt[4]}:${dt[5]}`,
     utc: dt[7] === 'Z',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Time zones
+// ---------------------------------------------------------------------------
+
+interface TzRule {
+  /** Offset from UTC in minutes. */
+  offsetMinutes: number;
+  /** Month the rule takes effect, 1–12, if it switches. */
+  month?: number;
+  /** Weekday it switches on, 0 = Sunday. */
+  weekday?: number;
+  /** Which weekday of the month; -1 means the last. */
+  nth?: number;
+}
+
+interface TimeZoneDef {
+  standard: TzRule;
+  daylight?: TzRule;
+}
+
+function parseOffset(value: string): number {
+  const m = /^([+-])(\d{2})(\d{2})$/.exec(value.trim());
+  if (!m) return 0;
+  const sign = m[1] === '-' ? -1 : 1;
+  return sign * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+const DAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
+/**
+ * Read the VTIMEZONE blocks a feed declares.
+ *
+ * Outlook stamps every event with a TZID and defines it here; Google usually
+ * emits UTC instead. Without this, a calendar kept in a daylight-saving state
+ * renders an hour out for half the year — silently, which is the worst kind of
+ * wrong for a calendar.
+ */
+function parseTimeZones(lines: string[]): Map<string, TimeZoneDef> {
+  const zones = new Map<string, TimeZoneDef>();
+  let tzid: string | null = null;
+  let section: 'STANDARD' | 'DAYLIGHT' | null = null;
+  let rule: Partial<TzRule> = {};
+
+  const commit = () => {
+    if (!tzid || !section || rule.offsetMinutes === undefined) return;
+    const zone = zones.get(tzid) ?? { standard: { offsetMinutes: 0 } };
+    if (section === 'STANDARD') zone.standard = rule as TzRule;
+    else zone.daylight = rule as TzRule;
+    zones.set(tzid, zone);
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('BEGIN:VTIMEZONE')) { tzid = null; continue; }
+    if (line.startsWith('END:VTIMEZONE')) { tzid = null; continue; }
+    if (!line.startsWith('TZID:') && !tzid && !line.startsWith('BEGIN:')) continue;
+
+    if (line.startsWith('TZID:')) { tzid = line.slice(5).trim(); continue; }
+    if (line.startsWith('BEGIN:STANDARD') || line.startsWith('BEGIN:DAYLIGHT')) {
+      section = line.endsWith('STANDARD') ? 'STANDARD' : 'DAYLIGHT';
+      rule = {};
+      continue;
+    }
+    if (line.startsWith('END:STANDARD') || line.startsWith('END:DAYLIGHT')) {
+      commit();
+      section = null;
+      continue;
+    }
+    if (!section) continue;
+    if (line.startsWith('TZOFFSETTO:')) rule.offsetMinutes = parseOffset(line.slice(11));
+    else if (line.startsWith('RRULE:')) {
+      const month = /BYMONTH=(\d+)/.exec(line);
+      const day = /BYDAY=(-?\d)?([A-Z]{2})/.exec(line);
+      if (month) rule.month = Number(month[1]);
+      if (day) {
+        rule.nth = day[1] ? Number(day[1]) : 1;
+        rule.weekday = DAY_CODES.indexOf(day[2]);
+      }
+    }
+  }
+  return zones;
+}
+
+/** Civil date a "nth weekday of month" rule falls on, in a given year. */
+function ruleDate(year: number, rule: TzRule): string | null {
+  if (!rule.month || rule.weekday === undefined || rule.nth === undefined) return null;
+  if (rule.nth > 0) {
+    const first = isoDate({ year, month: rule.month, day: 1 });
+    const shift = (rule.weekday - weekday(first) + 7) % 7;
+    return addDays(first, shift + (rule.nth - 1) * 7);
+  }
+  // Negative means counting back from the end of the month.
+  const nextMonth = rule.month === 12
+    ? isoDate({ year: year + 1, month: 1, day: 1 })
+    : isoDate({ year, month: rule.month + 1, day: 1 });
+  const last = addDays(nextMonth, -1);
+  const back = (weekday(last) - rule.weekday + 7) % 7;
+  return addDays(last, -back - (-rule.nth - 1) * 7);
+}
+
+/** Offset in minutes that a zone is running at on a given civil date. */
+function offsetOn(zone: TimeZoneDef, iso: string): number {
+  const { daylight, standard } = zone;
+  if (!daylight || daylight.offsetMinutes === standard.offsetMinutes) {
+    return standard.offsetMinutes;
+  }
+  const year = Number(iso.slice(0, 4));
+  const dstStart = ruleDate(year, daylight);
+  const stdStart = ruleDate(year, standard);
+  if (!dstStart || !stdStart) return standard.offsetMinutes;
+
+  return dstStart < stdStart
+    // Northern hemisphere: daylight runs between the two dates.
+    ? (iso >= dstStart && iso < stdStart ? daylight.offsetMinutes : standard.offsetMinutes)
+    // Southern: daylight wraps the new year, so it runs outside them.
+    : (iso >= dstStart || iso < stdStart ? daylight.offsetMinutes : standard.offsetMinutes);
+}
+
+/** Shift a stamp from `fromMinutes` east of UTC to `toHours` east of UTC. */
+function shiftBy(stamp: ParsedStamp, deltaMinutes: number): ParsedStamp {
+  if (!stamp.time || deltaMinutes === 0) return stamp;
+  const [y, m, d] = stamp.date.split('-').map(Number);
+  const [hh, mm] = stamp.time.split(':').map(Number);
+  const jd = gregorianToJD(y, m, d) + hh / 24 + (mm + deltaMinutes) / 1440;
+  const g = jdToGregorian(jd);
+  const frac = jd + 0.5 - Math.floor(jd + 0.5);
+  const total = Math.round(frac * 1440);
+  return {
+    date: isoDate(g),
+    time: `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`,
+    utc: false,
   };
 }
 
@@ -163,6 +296,7 @@ function expandRrule(rule: string, start: string, from: string, to: string): str
  */
 export function parseIcs(text: string, from: string, to: string, utcOffsetHours = 10): IcsEvent[] {
   const lines = unfold(text);
+  const zones = parseTimeZones(lines);
   const events: IcsEvent[] = [];
   let current: Record<string, RawProp> | null = null;
   let exdates: string[] = [];
@@ -174,7 +308,7 @@ export function parseIcs(text: string, from: string, to: string, utcOffsetHours 
       continue;
     }
     if (line.startsWith('END:VEVENT')) {
-      if (current) events.push(...buildEvents(current, exdates, from, to, utcOffsetHours));
+      if (current) events.push(...buildEvents(current, exdates, from, to, utcOffsetHours, zones));
       current = null;
       continue;
     }
@@ -200,16 +334,35 @@ function buildEvents(
   from: string,
   to: string,
   utcOffsetHours: number,
+  zones: Map<string, TimeZoneDef>,
 ): IcsEvent[] {
   const dtstart = props.DTSTART;
   if (!dtstart) return [];
   const rawStart = parseStamp(dtstart);
   if (!rawStart) return [];
   const allDay = dtstart.params.VALUE === 'DATE' || !rawStart.time;
-  const start = allDay ? rawStart : shiftToOffset(rawStart, utcOffsetHours);
+
+  /**
+   * Bring a stamp into the display timezone.
+   *
+   * Google writes UTC and marks it with a trailing Z. Outlook writes local time
+   * with a TZID naming a zone the feed defines, so that offset has to be looked
+   * up for the event's own date — a Sydney calendar is +11 in January and +10
+   * in July. A stamp with neither is taken as already local, which is all the
+   * standard allows us to assume.
+   */
+  const toDisplay = (stamp: ParsedStamp, prop: RawProp): ParsedStamp => {
+    if (allDay) return stamp;
+    if (stamp.utc) return shiftToOffset(stamp, utcOffsetHours);
+    const zone = prop.params.TZID ? zones.get(prop.params.TZID) : undefined;
+    if (!zone) return stamp;
+    return shiftBy(stamp, utcOffsetHours * 60 - offsetOn(zone, stamp.date));
+  };
+
+  const start = toDisplay(rawStart, dtstart);
 
   const rawEnd = props.DTEND ? parseStamp(props.DTEND) : null;
-  const end = rawEnd && !allDay ? shiftToOffset(rawEnd, utcOffsetHours) : rawEnd;
+  const end = rawEnd && props.DTEND ? (allDay ? rawEnd : toDisplay(rawEnd, props.DTEND)) : rawEnd;
   // An all-day DTEND is exclusive in iCalendar; make it inclusive.
   const spanDays = end ? Math.max(0, daysBetween(start.date, end.date) - (allDay ? 1 : 0)) : 0;
 

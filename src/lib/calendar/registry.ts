@@ -208,6 +208,27 @@ export const SEEDED_GOOGLE_CALENDARS: GoogleCalendarConfig[] = [
   },
 ];
 
+/**
+ * Colours an administrator can give a linked calendar, shown as the dot beside
+ * its events. A fixed set rather than a free colour picker: these have to sit
+ * against white, sand and two tint washes without disappearing or shouting, and
+ * they need to stay distinguishable from each other.
+ */
+export const CALENDAR_COLOURS: { id: string; label: string; value: string }[] = [
+  { id: 'teal', label: 'Teal', value: '#0e6e6b' },
+  { id: 'gold', label: 'Gold', value: '#a98721' },
+  { id: 'plum', label: 'Plum', value: '#7c4a72' },
+  { id: 'clay', label: 'Clay', value: '#a8563c' },
+  { id: 'moss', label: 'Moss', value: '#5c7a3f' },
+  { id: 'slate', label: 'Slate', value: '#4a5c6a' },
+  { id: 'berry', label: 'Berry', value: '#9c3f56' },
+  { id: 'ink', label: 'Ink', value: '#1e2528' },
+];
+
+export function calendarColour(id: string | undefined): string {
+  return CALENDAR_COLOURS.find((c) => c.id === id)?.value ?? CALENDAR_COLOURS[0].value;
+}
+
 export interface CalendarConfig {
   generated: Record<string, GeneratedCalendarSettings>;
   google: GoogleCalendarConfig[];
