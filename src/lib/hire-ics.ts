@@ -24,6 +24,8 @@ export interface HireEvent {
   purpose: string;
   attendance: string;
   location: string;
+  /** Address the booking is published from. Required by iTIP; see below. */
+  organiser: string;
 }
 
 /**
@@ -105,20 +107,22 @@ export function buildHireIcs(event: HireEvent, stamp: string): string {
     "PRODID:-//Bahá'í Community of Townsville//Centre hire//EN",
     'CALSCALE:GREGORIAN',
     /*
-     * No METHOD line, deliberately.
+     * METHOD and ORGANIZER together, which took three attempts to arrive at.
      *
-     * METHOD:PUBLISH makes this an iTIP message rather than plain calendar
-     * data, and RFC 5546 requires an ORGANIZER in one. Outlook enforces that
-     * and refused the file with "Couldn't import calendar"; Apple Calendar and
-     * Google accept it regardless, which is why it took a real Outlook to find.
+     * METHOD:PUBLISH alone is an iTIP message missing the ORGANIZER that RFC
+     * 5546 requires, and Outlook refused it. Removing METHOD made it plain
+     * calendar data, which imports perfectly through Add calendar → Upload
+     * from file — and still failed on the attachment, because the button in a
+     * message treats an .ics as an iTIP message and there was no longer one to
+     * read.
      *
-     * Adding an ORGANIZER would satisfy the rule but change what the file
-     * means — an invitation from somebody, rather than an entry to file. This
-     * is an approved booking being written into a diary, so it should be the
-     * second, and without METHOD it is.
+     * PUBLISH rather than REQUEST: this is an approved booking to be filed,
+     * not an invitation anybody should be accepting or declining.
      */
+    'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     `UID:${uid}`,
+    `ORGANIZER;CN=${escapeIcsText("Bahá'í Community of Townsville")}:mailto:${event.organiser}`,
     `DTSTAMP:${stamp}`,
     `DTSTART:${start}`,
     `DTEND:${end}`,

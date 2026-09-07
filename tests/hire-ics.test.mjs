@@ -14,6 +14,7 @@ const BOOKING = {
   purpose: 'Community gathering; with music, and refreshments',
   attendance: '40',
   location: "Bahá'í Centre, Townsville QLD",
+  organiser: 'no-reply@townsville.bahai.org.au',
 };
 const STAMP = '20260907T000000Z';
 
@@ -103,10 +104,13 @@ test('base64 round-trips the bytes, accents included', () => {
  * or neither does, and neither is right here: this is an entry to file, not an
  * invitation from somebody.
  */
-test('the file is calendar data, not an iTIP message', () => {
+test('METHOD and ORGANIZER are both present, or neither is', () => {
   const ics = buildHireIcs(BOOKING, STAMP);
   const hasMethod = /^METHOD:/m.test(ics);
   const hasOrganizer = /^ORGANIZER/m.test(ics);
-  assert.equal(hasMethod, hasOrganizer, 'METHOD and ORGANIZER must stand or fall together');
-  assert.equal(hasMethod, false, 'no METHOD: this is data to import, not an invitation');
+  assert.equal(hasMethod, hasOrganizer, 'a METHOD without an ORGANIZER is an invalid iTIP message');
+  assert.ok(hasMethod, 'the attachment button in Outlook reads this as an iTIP message');
+  assert.match(ics, /^METHOD:PUBLISH/m, 'PUBLISH, not REQUEST: nothing here is to be accepted');
+  // The line wraps at 75 octets, so it has to be unfolded before matching.
+  assert.match(unfold(ics), /ORGANIZER;CN=[^:]+:mailto:no-reply@townsville\.bahai\.org\.au/);
 });
