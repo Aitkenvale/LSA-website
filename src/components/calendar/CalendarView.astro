@@ -399,6 +399,24 @@
           </details>
 
           <details class="cal-admin-section">
+            <summary>Photographs</summary>
+            <p class="cal-help">
+              A camera appears on days that carried an event from a linked
+              calendar, and holds the photographs kept against that day. Each
+              of these is separate, because looking at a photograph, describing
+              one, taking a copy away and destroying one are different acts.
+            </p>
+            <p class="cal-help">
+              Whoever may see the details of an event is usually the right
+              answer for seeing its photographs. Everything starts with the
+              Assembly's administrators until you decide otherwise.
+            </p>
+            <div class="cal-perm-grid" data-photo-perms></div>
+            <p class="cal-error" data-photo-perm-error hidden></p>
+            <p class="cal-help" data-photo-perm-note></p>
+          </details>
+
+          <details class="cal-admin-section">
             <summary>Passkeys</summary>
             <p class="cal-help">
               A passkey signs you in with this device's own screen lock — a
@@ -921,6 +939,7 @@
           renderGoogleList();
           syncLocationFields();
           syncCycleFields();
+          renderPhotoPerms();
           void loadPasskeys();
           syncPublicToggles();
           void renderVerifyList();
@@ -1353,6 +1372,91 @@
         cycleLoad.textContent = 'Load term dates';
       }
     });
+
+    // ---- who may do what with photographs ----------------------------------
+
+    const photoPermGrid = root.querySelector<HTMLElement>('[data-photo-perms]')!;
+    const photoPermError = root.querySelector<HTMLElement>('[data-photo-perm-error]')!;
+    const photoPermNote = root.querySelector<HTMLElement>('[data-photo-perm-note]')!;
+
+    /*
+     * The five acts, in the order somebody thinks about them: who sees a
+     * photograph at all, who puts one there, who says what it shows, who takes
+     * a copy away, and who destroys it.
+     */
+    const PHOTO_ACTS: { key: keyof typeof photoMay; label: string; hint: string }[] = [
+      { key: 'view', label: 'See photographs', hint: 'Below this, the camera does not appear at all.' },
+      { key: 'upload', label: 'Add photographs', hint: 'Also who sees the camera on a day with none yet.' },
+      { key: 'edit', label: 'Describe photographs', hint: 'Write and change what a photograph shows.' },
+      { key: 'download', label: 'Download photographs', hint: 'A copy leaves the site and the permissions with it.' },
+      { key: 'delete', label: 'Delete photographs', hint: 'There is no undo.' },
+    ];
+
+    function renderPhotoPerms() {
+      const config = server.config;
+      if (!config) return;
+      const current = config.photos;
+
+      photoPermGrid.innerHTML = PHOTO_ACTS.map(({ key, label, hint }) => {
+        const options = TIERS.map(
+          (t) => `<option value="${t}"${current[key] === t ? ' selected' : ''}>${TIER_LABELS[t]}</option>`,
+        ).join('');
+        return (
+          '<div class="cal-perm-row">' +
+          `<span class="cal-perm-name">${escapeHtml(label)}<small>${escapeHtml(hint)}</small></span>` +
+          `<select data-photo-perm="${key}">${options}</select>` +
+          '</div>'
+        );
+      }).join('');
+
+      for (const select of photoPermGrid.querySelectorAll<HTMLSelectElement>('[data-photo-perm]')) {
+        select.addEventListener('change', async () => {
+          const key = select.dataset.photoPerm as keyof typeof photoMay;
+          const value = select.value as Tier;
+          photoPermError.hidden = true;
+
+          /*
+           * Seeing is the floor. Someone who may not see a photograph cannot
+           * meaningfully describe, download or destroy it, and a panel that
+           * let those be set above it would be describing something that could
+           * never happen. Raising the floor carries the rest up with it.
+           */
+          const next = { ...config.photos, [key]: value };
+          if (key === 'view') {
+            for (const act of ['upload', 'edit', 'download', 'delete'] as const) {
+              if (!meetsTier(next[act], value)) next[act] = value;
+            }
+          } else if (!meetsTier(value, next.view)) {
+            next.view = value;
+          }
+
+          config.photos = next;
+          if (await saveServerConfig(config)) {
+            renderPhotoPerms();
+            describePhotoPerms();
+            void render();
+          } else {
+            photoPermError.textContent = 'That could not be saved.';
+            photoPermError.hidden = false;
+          }
+        });
+      }
+      describePhotoPerms();
+    }
+
+    /** Say plainly what the settings add up to, since five tiers is a lot to hold. */
+    function describePhotoPerms() {
+      const p = server.config?.photos;
+      if (!p) { photoPermNote.textContent = ''; return; }
+      const same = new Set(Object.values(p)).size === 1;
+      photoPermNote.textContent = same
+        ? `Everything to do with photographs is limited to ${TIER_LABELS[p.view].toLowerCase()} and above.`
+        : `${TIER_LABELS[p.view]} and above can see photographs; `
+          + `${TIER_LABELS[p.upload].toLowerCase()} can add, `
+          + `${TIER_LABELS[p.edit].toLowerCase()} can describe, `
+          + `${TIER_LABELS[p.download].toLowerCase()} can download, `
+          + `${TIER_LABELS[p.delete].toLowerCase()} can delete.`;
+    }
 
     // ---- passkeys ----------------------------------------------------------
 
@@ -4129,6 +4233,23 @@
     font-size: 1rem;
   }
   .cal-admin-section h5:first-child { margin-top: 0.4rem; }
+
+  /* ---- who may do what with photographs ------------------------------------ */
+  .cal-perm-grid { display: grid; gap: 0.45rem; margin-top: 0.6rem; }
+  .cal-perm-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.8rem;
+  }
+  .cal-perm-name { flex: 1; min-width: 0; }
+  .cal-perm-name small {
+    display: block; font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-ink) 58%, transparent);
+  }
+  .cal-perm-row select {
+    flex: none;
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.25rem 0.35rem; font-size: 0.78rem; background: white;
+  }
 
   /* ---- the photograph viewer ----------------------------------------------- */
   .cal-lightbox {
