@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { getEntry } from 'astro:content';
+import { buildHireIcs, icsToBase64 } from '../../lib/hire-ics';
 
 export const prerender = false;
 
@@ -118,6 +119,8 @@ export const POST: APIRoute = async (context) => {
     `calendar in one click (pick "Bahai Centre" in the event window before saving):`,
     gcalUrl,
     ``,
+    `Or open the attached booking.ics, which adds the same event in any calendar.`,
+    ``,
     `— Sent from the website hire form. Reply to this email to contact the applicant.`,
   ];
 
@@ -144,7 +147,25 @@ export const POST: APIRoute = async (context) => {
     `<p style="margin:14px 0 4px;color:#555">Purpose</p><p style="margin:0;white-space:pre-wrap">${esc(purpose)}</p>`,
     `<p style="margin:18px 0"><a href="${gcalUrl}" style="background:#0e6e6b;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Add booking to the Bahai Centre calendar</a></p>`,
     `<p style="color:#555;font-size:13px">To approve: reply to this email (goes straight to the applicant), then use the button above — pick the <strong>Bahai Centre</strong> calendar in the event window before saving.</p>`,
+    `<p style="color:#555;font-size:13px">The attached <strong>booking.ics</strong> does the same thing in any calendar — Outlook, Apple Calendar or Google — if you would rather not use the button.</p>`,
   ].join('\n');
+
+  /*
+   * The same booking as a file, alongside the link rather than instead of it.
+   *
+   * The link pre-fills a form on Google's own site, which suits a diary kept
+   * in Google and nothing else. The file has no vendor in it: whichever
+   * calendar the Assembly settles on, the attachment keeps working without
+   * anybody editing this. Microsoft has already changed its equivalent link
+   * format once and broken every link built on the old one.
+   */
+  const ics = buildHireIcs(
+    {
+      name, email, phone, organisation, date, startTime, endTime, purpose, attendance,
+      location: settings?.data.address ?? "Bahá'í Centre, Townsville",
+    },
+    new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''),
+  );
 
   const send = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -156,6 +177,10 @@ export const POST: APIRoute = async (context) => {
       subject: `Hire application: ${date} ${startTime}–${endTime} (${name})`,
       text: lines.join('\n'),
       html,
+      // Only on the booking officer's copy. The applicant is told their
+      // request was received, which is not the same as a booking they should
+      // be putting in their diary.
+      attachments: [{ filename: 'booking.ics', content: icsToBase64(ics) }],
     }),
   });
 
