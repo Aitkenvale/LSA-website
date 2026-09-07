@@ -181,3 +181,64 @@ labels are currently applied in the browser, so a Google calendar's real event
 titles do reach the reader's device. That is acceptable while the whole
 deployment is behind a password and only administrators can attach a calendar.
 It must be moved to the server before the calendar is public.
+
+---
+
+## Merging the calendar branch into main
+
+The calendar runs on its own Worker, `lsa-calendar`, with its own bindings and
+secrets. `main` deploys to `lsa-website` and today uses neither KV nor R2. So
+merging is not only a code change: the live Worker has to be given everything
+the calendar Worker already has, or the calendar will deploy and come up empty.
+
+Nothing here risks the data itself. A KV namespace and an R2 bucket belong to
+the Cloudflare account, not to a Worker, so binding the same ones to
+`lsa-website` hands it the same contents. What can go wrong is binding a
+*different* namespace, or forgetting one — which breaks a feature rather than
+destroying anything, and is undone by fixing the binding.
+
+### Bindings to add to lsa-website
+
+Workers & Pages → lsa-website → Settings → Bindings.
+
+| Type | Variable | Points at |
+| --- | --- | --- |
+| KV namespace | `SESSION` | **the same namespace `lsa-calendar` uses** — not a new one |
+| R2 bucket | `PHOTOS` | the same bucket `lsa-calendar` uses |
+
+The KV namespace holds the calendar configuration, the enrolled passkeys and
+the passkey policy. Binding a fresh namespace would present an administrator
+with no calendars, no cycle dates and no way to sign in with a passkey, while
+the real configuration sat untouched in the namespace nobody was reading.
+
+### Secrets to add to lsa-website
+
+`SESSION_SECRET`, `ADMIN_CODE`, `CODE_COMMUNITY`, `CODE_HOODS`,
+`CODE_ASSEMBLY`, and `ADMIN_RECOVERY_CODE` if one is set.
+
+`SESSION_SECRET` must be the same value. It signs the session cookie, so a
+different one silently invalidates every session that already exists — people
+are not told they have been signed out, they simply find they are.
+
+### Things that must NOT come across
+
+- `sitePassword` in `src/content/settings/site.yml`. It is what put a password
+  wall in front of the public website twice. Confirm it is empty on main after
+  the merge, before anyone celebrates.
+- `calendarAccessCode`, likewise, unless the Assembly wants the calendar
+  gated after launch.
+- The Worker name in `wrangler.jsonc`: keep main's `lsa-website`. This is the
+  one line that conflicts, and it conflicts every time.
+
+### Verify after merging
+
+```
+curl -s https://townsville.bahai.org.au | grep -c 'Enter the access code'   # 0
+curl -s https://townsville.bahai.org.au | grep -c noindex                   # 0
+curl -s 'https://townsville.bahai.org.au/api/availability?month=<this month>'
+```
+
+Then sign in on the live calendar and confirm the configured calendars, the
+cycle dates and the enrolled passkeys are all present. If any of them are
+missing, the KV binding is pointing at the wrong namespace — fix the binding
+rather than reconfiguring anything.
