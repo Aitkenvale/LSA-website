@@ -164,7 +164,14 @@ export const POST: APIRoute = async (context) => {
       // Only on the booking officer's copy. The applicant is told their
       // request was received, which is not the same as a booking they should
       // be putting in their diary.
-      attachments: [{ filename: 'booking.ics', content: icsToBase64(ics) }],
+      attachments: [{
+        filename: 'booking.ics',
+        content: icsToBase64(ics),
+        // Declared, not inferred. Guessing from the .ics extension gives no
+        // charset, and a file containing "Bahá'í" is then decoded as if it
+        // were ASCII — which is enough for Outlook to refuse the import.
+        content_type: 'text/calendar; charset=utf-8',
+      }],
     }),
   });
 
