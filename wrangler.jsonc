@@ -15,6 +15,17 @@
   //
   "name": "lsa-website",
 
+  // Photos for the calendar. Declared here as well as in the dashboard so that
+  // `astro dev` gets its own local bucket instead of an undefined binding —
+  // the note Cloudflare shows when you add one is worth heeding.
+  //
+  // The KV namespace is deliberately not declared here: it needs an id, and
+  // the one that matters is the live namespace holding real configuration and
+  // real passkeys. Naming it in a file would invite a local run to write to it.
+  "r2_buckets": [
+    { "binding": "PHOTOS", "bucket_name": "lsa-calendar-photos" }
+  ],
+
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
