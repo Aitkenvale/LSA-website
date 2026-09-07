@@ -1333,9 +1333,13 @@
       if (policy) {
         passkeyRequire.checked = policy.requirePasskey;
         passkeyRequire.disabled = !passkeys.length && !policy.requirePasskey;
+        // The tick stays available once set, because it is the only way to
+        // allow the code again. Removing it would make the decision one-way,
+        // and a door with no handle on the inside is not a safer door.
         passkeyPolicyNote.textContent = policy.requirePasskey
-          ? 'The code no longer signs anyone in. If every enrolled device is lost, '
-            + 'the recovery code set on the Worker is the way back.'
+          ? 'The code no longer signs anyone in. Untick to allow it again — this '
+            + 'is the only way back to it. If every enrolled device is lost, the '
+            + 'recovery code set on the Worker is what remains.'
           : passkeys.length
             ? 'The code still works. Retire it once every administrator has enrolled.'
             : 'Enrol a passkey before this can be turned on.';
@@ -2948,7 +2952,14 @@
   /* The page title, in place of the hero the calendar used to sit beneath. */
   .cal-page-title {
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    /*
+     * The floor was 1.5rem, which never bent: at 24px the title needs 327px
+     * and a 320-wide phone offers 288, so it broke onto two lines and pushed
+     * everything below it down. The preferred size now falls fast enough to
+     * matter on a phone, and the floor sits where the title still fits on one
+     * line at the narrowest width.
+     */
+    font-size: clamp(1.2rem, 5.6vw, 2.25rem);
     font-weight: 600;
     color: var(--color-teal-900);
     text-align: center;
