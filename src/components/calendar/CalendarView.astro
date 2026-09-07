@@ -1067,6 +1067,16 @@
     }
 
     function renderPhaseFields(settings: CycleSettings) {
+      /*
+       * Redrawing replaces these controls, which would otherwise throw away
+       * the field being typed in mid-number. Whichever had focus is given it
+       * back, with the caret at the end so the next keystroke continues rather
+       * than overwrites.
+       */
+      const active = document.activeElement as HTMLElement | null;
+      const focused = active?.dataset?.phaseWeeks ?? active?.dataset?.phaseColour ?? null;
+      const focusedKind = active?.dataset?.phaseWeeks ? 'weeks' : 'colour';
+
       const options = (selected: string) =>
         PASTEL_COLOURS.map(
           (c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${escapeHtml(c.label)}</option>`,
@@ -1092,14 +1102,43 @@
         );
       }).join('');
 
+      /*
+       * Redraw as the number is typed, not only when the field is left.
+       *
+       * A number field fires `change` on blur or Enter, never on a keystroke.
+       * Planning & Reflection is the last control in this section, so there is
+       * often nothing to tab to and the field keeps focus — you type 4, look at
+       * the calendar, and nothing has happened. Expansion appeared to work only
+       * because reaching for the next control blurred it.
+       *
+       * A short wait keeps a two-digit number from being saved as its first
+       * digit on the way past.
+       */
+      let weeksTimer = 0;
+      const applyWeeks = (input: HTMLInputElement) => {
+        const settingsNow = cycleSettings();
+        const value = Math.max(0, Math.min(20, Math.floor(Number(input.value) || 0)));
+        const phases = { ...settingsNow.phases };
+        if (input.dataset.phaseWeeks === 'expansion') phases.expansionWeeks = value;
+        else phases.reflectionWeeks = value;
+        if (phases.expansionWeeks === settingsNow.phases.expansionWeeks
+            && phases.reflectionWeeks === settingsNow.phases.reflectionWeeks) return;
+        void saveCycles({ ...settingsNow, phases });
+      };
+
       for (const input of phaseGrid.querySelectorAll<HTMLInputElement>('[data-phase-weeks]')) {
+        input.addEventListener('input', () => {
+          window.clearTimeout(weeksTimer);
+          // An empty field is a number half-typed, not a request for zero weeks.
+          if (input.value.trim() === '') return;
+          weeksTimer = window.setTimeout(() => applyWeeks(input), 400);
+        });
         input.addEventListener('change', () => {
-          const settingsNow = cycleSettings();
-          const value = Math.max(0, Math.min(20, Math.floor(Number(input.value) || 0)));
-          const phases = { ...settingsNow.phases };
-          if (input.dataset.phaseWeeks === 'expansion') phases.expansionWeeks = value;
-          else phases.reflectionWeeks = value;
-          void saveCycles({ ...settingsNow, phases });
+          window.clearTimeout(weeksTimer);
+          applyWeeks(input);
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { window.clearTimeout(weeksTimer); applyWeeks(input); }
         });
       }
       for (const select of phaseGrid.querySelectorAll<HTMLSelectElement>('[data-phase-colour]')) {
@@ -1113,6 +1152,17 @@
             },
           });
         });
+      }
+
+      if (focused) {
+        const selector = focusedKind === 'weeks'
+          ? `[data-phase-weeks="${focused}"]`
+          : `[data-phase-colour="${focused}"]`;
+        // Focus only. setSelectionRange throws on a number input — the caret
+        // cannot be placed in one — and the exception aborted this function
+        // before it attached a single listener, which stopped the phase
+        // controls responding at all.
+        phaseGrid.querySelector<HTMLElement>(selector)?.focus();
       }
     }
 
