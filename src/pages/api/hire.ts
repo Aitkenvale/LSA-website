@@ -103,11 +103,11 @@ export const POST: APIRoute = async (context) => {
    * Queensland keeps no daylight saving, so there is no offset to lose.
    */
   /*
-   * Carriage returns, not bare newlines.
+   * Breaks as <br>, because this field is HTML.
    *
-   * The body arrived as one run-on line: "testing Contact: TEST5 Email:
-   * test@test.com Attendance: 1". Outlook's compose field drops a lone %0A,
-   * so the breaks have to be CRLF to survive the trip.
+   * The notes arrived as one run-on line. A bare newline was dropped, and so
+   * was a carriage return pair — neither survives the compose field, which
+   * turns out to read its body as markup rather than as text.
    */
   const detail = [
     `Name: ${name}`,
@@ -116,7 +116,7 @@ export const POST: APIRoute = async (context) => {
     organisation ? `Organisation: ${organisation}` : null,
     `Purpose: ${purpose}`,
     `Attendance: ${attendance}`,
-  ].filter((line): line is string => line !== null).join('\r\n');
+  ].filter((line): line is string => line !== null).join('<br>');
 
   const outlookUrl =
     'https://outlook.office.com/calendar/deeplink/compose?path=/calendar/action/compose' +
