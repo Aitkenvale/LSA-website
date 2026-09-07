@@ -4226,14 +4226,32 @@
   .cal-photos svg { width: 0.85rem; height: 0.85rem; }
   .cal-photos:hover, .cal-photos:focus-visible { color: var(--color-teal-900); }
   /* Faint on a day with nothing yet: an invitation, not an announcement. */
-  /* Grey against a day that had an event but no photographs yet; the teal of
-     everything else once it holds one, so a glance down the month shows which
-     days were recorded. */
+  /*
+   * Two states that cannot be mistaken for one another.
+   *
+   * Empty is a grey outline: an invitation, easy to ignore. Holding
+   * photographs is a filled badge, because scanning a month for the days that
+   * were recorded should not mean comparing shades of the same mark. A colour
+   * change alone was too quiet against a cell already carrying dots, faith
+   * symbols and two dates.
+   */
   .cal-photos.is-empty {
     color: color-mix(in srgb, var(--color-ink) 38%, transparent);
   }
   .cal-photos.is-empty:hover, .cal-photos.is-empty:focus-visible {
     color: var(--color-teal-700);
+  }
+  .cal-photos:not(.is-empty) {
+    background: var(--color-teal-700);
+    color: white;
+    border-radius: 999px;
+    padding: 0.14rem 0.4rem 0.14rem 0.3rem;
+    box-shadow: 0 1px 2px rgb(15 61 62 / 0.2);
+  }
+  .cal-photos:not(.is-empty):hover,
+  .cal-photos:not(.is-empty):focus-visible {
+    background: var(--color-teal-900);
+    color: white;
   }
   /* Bottom right, out of the way of the day's entries. */
   .cal-photos { align-self: flex-end; }
