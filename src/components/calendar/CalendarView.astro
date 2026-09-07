@@ -2694,12 +2694,16 @@
       place(target);
       void card.offsetWidth;
       card.classList.add('is-visible');
+      closing = false;
+      overCard = false;
     }
 
     function hide() {
       window.clearTimeout(showTimer);
       window.clearTimeout(hideTimer);
       hideTimer = undefined;
+      closing = false;
+      overCard = false;
       current = null;
       card.classList.remove('is-visible');
       card.hidden = true;
@@ -2711,36 +2715,50 @@
      * The card holds a link to join a meeting, and reaching it means moving
      * the pointer off the entry and across a gap. Closing on that movement
      * made the link impossible to press — the card vanished on the way to it.
-     * A short grace period is enough for the crossing, and entering the card
-     * cancels it entirely.
-     */
-    function scheduleHide() {
-      window.clearTimeout(hideTimer);
-      hideTimer = window.setTimeout(hide, 500);
-    }
-
-    /*
-     * A timer alone is the wrong instrument here: it punishes a slow hand and
-     * forgives a fast one, which is exactly backwards. Someone moving
-     * carefully towards the card is the person most likely to want it.
      *
-     * So while a close is pending, the pointer being anywhere near the card
-     * cancels it. The corridor between the entry and the card is generous
-     * enough to cross at any speed, and moving genuinely away still closes it.
+     * A plain timer was the first attempt and was the wrong instrument: it
+     * forgave a quick movement and punished a careful one, which is backwards.
+     * Cancelling on proximity was the second, and it never re-armed — once the
+     * pointer had been near the card the close was called off for good, so the
+     * card stayed up until another entry replaced it.
+     *
+     * What actually holds: while a close is pending, movement near the card
+     * keeps pushing it back, movement away brings it forward, and being on the
+     * card stops it entirely. Every one of those is a state, not a delay.
      */
     const NEAR = 48;
+    const LINGER = 500;
+    const LEAVING = 120;
+    let closing = false;
+    let overCard = false;
+
+    function cancelHide() {
+      closing = false;
+      window.clearTimeout(hideTimer);
+      hideTimer = undefined;
+    }
+
+    function scheduleHide(delay = LINGER) {
+      if (overCard) return;
+      closing = true;
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(hide, delay);
+    }
+
+    card.addEventListener('pointerenter', () => { overCard = true; cancelHide(); });
+    card.addEventListener('pointerleave', () => { overCard = false; scheduleHide(); });
+    // A link inside the card takes focus; that must not read as leaving.
+    card.addEventListener('focusin', cancelHide);
+
     document.addEventListener('pointermove', (e) => {
-      if (hideTimer === undefined || card.hidden) return;
+      if (!closing || card.hidden || overCard) return;
       const r = card.getBoundingClientRect();
       const near = e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR
         && e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR;
-      if (near) window.clearTimeout(hideTimer);
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(hide, near ? LINGER : LEAVING);
     }, { passive: true });
 
-    card.addEventListener('pointerenter', () => window.clearTimeout(hideTimer));
-    card.addEventListener('pointerleave', scheduleHide);
-    // A link inside the card takes focus; that must not read as leaving.
-    card.addEventListener('focusin', () => window.clearTimeout(hideTimer));
     card.addEventListener('focusout', (e) => {
       if (!card.contains(e.relatedTarget as Node | null)) scheduleHide();
     });
