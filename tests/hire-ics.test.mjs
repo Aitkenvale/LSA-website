@@ -75,7 +75,7 @@ test('the file is well formed, with CRLF endings throughout', () => {
   assert.ok(ics.startsWith('BEGIN:VCALENDAR\r\n'));
   assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
   assert.ok(!/[^\r]\n/.test(ics), 'a bare newline would break strict readers');
-  for (const required of ['VERSION:2.0', 'METHOD:PUBLISH', 'BEGIN:VEVENT', 'END:VEVENT']) {
+  for (const required of ['VERSION:2.0', 'BEGIN:VEVENT', 'END:VEVENT', 'UID:', 'DTSTAMP:']) {
     assert.ok(ics.includes(required), `missing ${required}`);
   }
   assert.equal(field(ics, 'SUMMARY'), 'Centre hire: Jane Example');
@@ -94,4 +94,19 @@ test('an absent phone or organisation leaves no empty line', () => {
 test('base64 round-trips the bytes, accents included', () => {
   const ics = buildHireIcs(BOOKING, STAMP);
   assert.equal(Buffer.from(icsToBase64(ics), 'base64').toString('utf8'), ics);
+});
+
+/*
+ * Outlook refused the file with "Couldn't import calendar" because it declared
+ * METHOD:PUBLISH without an ORGANIZER, which RFC 5546 requires of any iTIP
+ * message. Apple Calendar and Google accepted it either way. Either both go in
+ * or neither does, and neither is right here: this is an entry to file, not an
+ * invitation from somebody.
+ */
+test('the file is calendar data, not an iTIP message', () => {
+  const ics = buildHireIcs(BOOKING, STAMP);
+  const hasMethod = /^METHOD:/m.test(ics);
+  const hasOrganizer = /^ORGANIZER/m.test(ics);
+  assert.equal(hasMethod, hasOrganizer, 'METHOD and ORGANIZER must stand or fall together');
+  assert.equal(hasMethod, false, 'no METHOD: this is data to import, not an invitation');
 });

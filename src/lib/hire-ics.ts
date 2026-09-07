@@ -104,7 +104,19 @@ export function buildHireIcs(event: HireEvent, stamp: string): string {
     'VERSION:2.0',
     "PRODID:-//Bahá'í Community of Townsville//Centre hire//EN",
     'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
+    /*
+     * No METHOD line, deliberately.
+     *
+     * METHOD:PUBLISH makes this an iTIP message rather than plain calendar
+     * data, and RFC 5546 requires an ORGANIZER in one. Outlook enforces that
+     * and refused the file with "Couldn't import calendar"; Apple Calendar and
+     * Google accept it regardless, which is why it took a real Outlook to find.
+     *
+     * Adding an ORGANIZER would satisfy the rule but change what the file
+     * means — an invitation from somebody, rather than an entry to file. This
+     * is an approved booking being written into a diary, so it should be the
+     * second, and without METHOD it is.
+     */
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${stamp}`,
