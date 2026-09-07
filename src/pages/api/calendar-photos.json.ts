@@ -2,7 +2,8 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { readConfig } from '../../lib/calendar/config-store';
 import {
-  MAX_PHOTOS_PER_DAY, MAX_UPLOAD_BYTES, imageKey, isPhotoDate, newPhotoId, readDay, writeDay,
+  MAX_PHOTOS_PER_DAY, MAX_UPLOAD_BYTES, countsFor, imageKey, isPhotoDate, newPhotoId,
+  readDay, writeDay,
   type Photo,
 } from '../../lib/calendar/photo-store';
 import { meetsTier, readSession, sessionCookie } from '../../lib/calendar/tiers';
@@ -63,11 +64,31 @@ async function permissionsFor(request: Request) {
  * outside, which is the point.
  */
 export const GET: APIRoute = async ({ request, url }) => {
+  const { may } = await permissionsFor(request);
+
+  /*
+   * A range, for the grid: how many photographs each day holds, and nothing
+   * else. The cell needs a number, not a list, and asking for the whole month
+   * at once spares it a request per day.
+   */
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  if (from && to) {
+    if (!isPhotoDate(from) || !isPhotoDate(to)) return json({ error: 'Bad range.' }, 400);
+    if (!may.view) return json({ counts: {}, may });
+    const dates: string[] = [];
+    for (let d = from; d <= to && dates.length < 62; ) {
+      dates.push(d);
+      const [y, m, day] = d.split('-').map(Number);
+      d = new Date(Date.UTC(y, m - 1, day + 1)).toISOString().slice(0, 10);
+    }
+    return json({ counts: await countsFor(bucket(), dates), may });
+  }
+
   const date = url.searchParams.get('date') ?? '';
   if (!isPhotoDate(date)) return json({ error: 'A date is required.' }, 400);
-
-  const { may } = await permissionsFor(request);
-  if (!may.view) return json({ photos: [], may: { ...may } });
+  // Told nothing, not even that photographs exist here.
+  if (!may.view) return json({ photos: [], may });
 
   const day = await readDay(bucket(), date);
   return json({ photos: day.photos, may });

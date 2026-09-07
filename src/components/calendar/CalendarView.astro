@@ -665,6 +665,30 @@
         }));
     }
     let cursor = startOfMonth(todayIso());
+
+    /**
+     * How many photographs each day holds, and what this reader may do.
+     *
+     * Fetched for the whole grid at once rather than per cell. Someone who may
+     * not view gets an empty map and no marker anywhere — they are not told
+     * that photographs exist, which is the same rule the day endpoint follows.
+     */
+    let photoCounts: Record<string, number> = {};
+    let photoMay = { view: false, upload: false, edit: false, download: false, delete: false };
+
+    async function loadPhotoCounts(from: string, to: string) {
+      try {
+        const res = await fetch(`/api/calendar-photos.json?from=${from}&to=${to}`);
+        const body = (await res.json()) as {
+          counts?: Record<string, number>;
+          may?: typeof photoMay;
+        };
+        photoCounts = body.counts ?? {};
+        if (body.may) photoMay = body.may;
+      } catch {
+        photoCounts = {};
+      }
+    }
     /** Which cycle the planner is looking at, by its start date. */
     let cycleStart: string | null = null;
 
@@ -2020,7 +2044,12 @@
         // One day past the grid, so the evening band on the final cell knows
         // what it is leading into. Without it, an observance falling the day
         // after the grid leaves the last cell looking ordinary.
-        const entries = await loadEntries(gridStart, addDays(gridEnd, 1));
+        // Counts come alongside the entries rather than after them, so the
+        // grid is painted once with everything it needs.
+        const [entries] = await Promise.all([
+          loadEntries(gridStart, addDays(gridEnd, 1)),
+          loadPhotoCounts(gridStart, gridEnd),
+        ]);
         status.textContent = entries.warning ?? '';
         const shown = paint(
           gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans, entries.fastDays,
@@ -2418,12 +2447,44 @@
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
+            ${photoMarker(day)}
             ${fasting ? fastFooter(day) : ''}
           </div>`);
         day = addDays(day, 1);
       }
       grid.innerHTML = parts.join('');
       return shown;
+    }
+
+    /*
+     * The photograph marker: a camera and a count.
+     *
+     * Deliberately separate from the entry card. That card belongs to an
+     * event; photographs belong to the day, which is why they are keyed on a
+     * date in the first place. Putting them in the same popup would blur two
+     * things that were kept apart on purpose.
+     *
+     * Shown faintly on empty days to whoever may add one, so there is
+     * somewhere to start; shown to nobody else, so a reader who may not look
+     * is not told there is anything to look at.
+     */
+    function photoMarker(date: string): string {
+      const count = photoCounts[date] ?? 0;
+      if (!count && !photoMay.upload) return '';
+      if (count && !photoMay.view) return '';
+      const label = count
+        ? `${count} photograph${count === 1 ? '' : 's'} from ${formatLongDate(date)}`
+        : `Add a photograph from ${formatLongDate(date)}`;
+      return (
+        `<button type="button" class="cal-photos${count ? '' : ' is-empty'}" ` +
+        `data-photos="${date}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">` +
+        '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>' +
+        '<circle cx="12" cy="13" r="3.2"/></svg>' +
+        (count ? `<span class="cal-photos-n">${count}</span>` : '') +
+        '</button>'
+      );
     }
 
     /** Show only the key entries the grid actually uses. */
@@ -3684,6 +3745,27 @@
     font-size: 1rem;
   }
   .cal-admin-section h5:first-child { margin-top: 0.4rem; }
+
+  /* ---- photographs --------------------------------------------------------- */
+
+  /*
+   * Sits at the foot of the cell, out of the way of the day's entries. Small,
+   * because it is a marker that something exists rather than the thing itself:
+   * a cell is 87px across on a phone and a photograph there would be a stamp.
+   */
+  .cal-photos {
+    display: flex; align-items: center; gap: 0.15rem;
+    margin-top: auto; padding: 0.1rem 0.15rem 0;
+    background: none; border: 0; cursor: pointer;
+    color: var(--color-teal-700);
+    font-size: 0.66rem; font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .cal-photos svg { width: 0.85rem; height: 0.85rem; }
+  .cal-photos:hover, .cal-photos:focus-visible { color: var(--color-teal-900); }
+  /* Faint on a day with nothing yet: an invitation, not an announcement. */
+  .cal-photos.is-empty { opacity: 0.22; }
+  .cal-photos.is-empty:hover, .cal-photos.is-empty:focus-visible { opacity: 0.75; }
+  .cal-photos-n { font-weight: 600; }
 
   /* ---- passkeys ----------------------------------------------------------- */
   .cal-warn {
