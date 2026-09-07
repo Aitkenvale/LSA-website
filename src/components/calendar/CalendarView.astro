@@ -129,6 +129,55 @@
     </div>
   </div>
 
+  <!--
+    The photograph viewer.
+    Its own surface, not part of the entry card: that card describes an event,
+    these belong to the day.
+  -->
+  <div class="cal-scrim" data-photo-scrim hidden></div>
+  <div class="cal-lightbox" data-lightbox hidden role="dialog" aria-modal="true" aria-labelledby="cal-lightbox-title">
+    <div class="cal-lightbox-head">
+      <h3 id="cal-lightbox-title" data-lightbox-title>Photographs</h3>
+      <button type="button" class="cal-close" data-lightbox-close aria-label="Close">×</button>
+    </div>
+
+    <div class="cal-lightbox-body">
+      <div class="cal-lightbox-empty" data-lightbox-empty hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+          stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>
+          <circle cx="12" cy="13" r="3.2"/>
+        </svg>
+        <p class="cal-help" data-lightbox-empty-note>No photographs from this day yet.</p>
+      </div>
+
+      <figure class="cal-lightbox-figure" data-lightbox-figure hidden>
+        <button type="button" class="cal-lightbox-arrow is-prev" data-lightbox-prev aria-label="Previous photograph">‹</button>
+        <img data-lightbox-image alt="" />
+        <button type="button" class="cal-lightbox-arrow is-next" data-lightbox-next aria-label="Next photograph">›</button>
+      </figure>
+
+      <p class="cal-lightbox-count" data-lightbox-count hidden></p>
+
+      <label class="cal-field cal-lightbox-desc" data-lightbox-desc-field hidden>
+        Description
+        <textarea data-lightbox-desc rows="2" maxlength="500"
+          placeholder="What this shows — who is in it, and what was happening."></textarea>
+      </label>
+      <p class="cal-help cal-lightbox-desc-read" data-lightbox-desc-read hidden></p>
+
+      <p class="cal-error" data-lightbox-error hidden></p>
+
+      <div class="cal-lightbox-actions">
+        <button type="button" class="cal-secondary" data-lightbox-add hidden>Upload photo</button>
+        <button type="button" class="cal-secondary" data-lightbox-download hidden>Download</button>
+        <button type="button" class="cal-remove" data-lightbox-delete hidden>Delete</button>
+        <input type="file" accept="image/*" data-lightbox-file hidden multiple />
+      </div>
+      <p class="cal-help cal-lightbox-progress" data-lightbox-progress hidden></p>
+    </div>
+  </div>
+
   <!-- Administrator drawer -->
   <div class="cal-scrim" data-scrim hidden></div>
   <aside id="cal-drawer" class="cal-drawer" data-drawer hidden aria-label="Calendars">
@@ -415,6 +464,7 @@
   } from '../../lib/calendar/config-store';
   import type { CycleSettings } from '../../lib/calendar/config-store';
   import { DEFAULT_LOCATION, defaultCycleSettings } from '../../lib/calendar/config-store';
+  import { MAX_IMAGE_EDGE, MAX_PHOTOS_PER_DAY } from '../../lib/calendar/photo-store';
   import type {
     Cycle, PhaseId, SchoolTerm, TermSource, WeekDay,
   } from '../../lib/calendar/school-terms';
@@ -2447,7 +2497,7 @@
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
-            ${photoMarker(day)}
+            ${photoMarker(day, events !== '')}
             ${fasting ? fastFooter(day) : ''}
           </div>`);
         day = addDays(day, 1);
@@ -2468,10 +2518,21 @@
      * somewhere to start; shown to nobody else, so a reader who may not look
      * is not told there is anything to look at.
      */
-    function photoMarker(date: string): string {
+    function photoMarker(date: string, hasEvent: boolean): string {
       const count = photoCounts[date] ?? 0;
-      if (!count && !photoMay.upload) return '';
-      if (count && !photoMay.view) return '';
+
+      /*
+       * Shown against the days that had something happen — the ones carrying
+       * an event from a linked calendar — rather than against all thirty-odd.
+       *
+       * Except where photographs already exist. Those calendars are somebody
+       * else's, and an event deleted in Outlook would otherwise take the only
+       * way of reaching its photographs with it.
+       */
+      if (count > 0) {
+        if (!photoMay.view) return '';
+      } else if (!hasEvent || !photoMay.upload) return '';
+
       const label = count
         ? `${count} photograph${count === 1 ? '' : 's'} from ${formatLongDate(date)}`
         : `Add a photograph from ${formatLongDate(date)}`;
@@ -2487,7 +2548,270 @@
       );
     }
 
-    /** Show only the key entries the grid actually uses. */
+      // ---- the photograph viewer --------------------------------------------
+
+    interface StoredPhoto {
+      id: string; description: string; takenAt?: string; addedAt: string;
+      width: number; height: number; bytes: number;
+    }
+
+    const lightbox = root.querySelector<HTMLElement>('[data-lightbox]')!;
+    const lightboxScrim = root.querySelector<HTMLElement>('[data-photo-scrim]')!;
+    const lbTitle = root.querySelector<HTMLElement>('[data-lightbox-title]')!;
+    const lbEmpty = root.querySelector<HTMLElement>('[data-lightbox-empty]')!;
+    const lbEmptyNote = root.querySelector<HTMLElement>('[data-lightbox-empty-note]')!;
+    const lbFigure = root.querySelector<HTMLElement>('[data-lightbox-figure]')!;
+    const lbImage = root.querySelector<HTMLImageElement>('[data-lightbox-image]')!;
+    const lbCount = root.querySelector<HTMLElement>('[data-lightbox-count]')!;
+    const lbDescField = root.querySelector<HTMLElement>('[data-lightbox-desc-field]')!;
+    const lbDesc = root.querySelector<HTMLTextAreaElement>('[data-lightbox-desc]')!;
+    const lbDescRead = root.querySelector<HTMLElement>('[data-lightbox-desc-read]')!;
+    const lbError = root.querySelector<HTMLElement>('[data-lightbox-error]')!;
+    const lbAdd = root.querySelector<HTMLButtonElement>('[data-lightbox-add]')!;
+    const lbDownload = root.querySelector<HTMLButtonElement>('[data-lightbox-download]')!;
+    const lbDelete = root.querySelector<HTMLButtonElement>('[data-lightbox-delete]')!;
+    const lbFile = root.querySelector<HTMLInputElement>('[data-lightbox-file]')!;
+    const lbProgress = root.querySelector<HTMLElement>('[data-lightbox-progress]')!;
+
+    let lbDate = '';
+    let lbPhotos: StoredPhoto[] = [];
+    let lbAt = 0;
+
+    const lbShowError = (message: string) => {
+      lbError.textContent = message;
+      lbError.hidden = !message;
+    };
+
+    function renderLightbox() {
+      const photo = lbPhotos[lbAt];
+      lbTitle.textContent = formatLongDate(lbDate);
+
+      lbEmpty.hidden = Boolean(photo);
+      lbFigure.hidden = !photo;
+      lbCount.hidden = !photo || lbPhotos.length < 2;
+      lbEmptyNote.textContent = photoMay.upload
+        ? 'No photographs from this day yet.'
+        : 'No photographs from this day.';
+
+      if (photo) {
+        lbImage.src = `/api/calendar-photo?date=${lbDate}&id=${photo.id}`;
+        lbImage.alt = photo.description || `Photograph from ${formatLongDate(lbDate)}`;
+        lbCount.textContent = `${lbAt + 1} of ${lbPhotos.length}`;
+        lbDesc.value = photo.description;
+        lbDescRead.textContent = photo.description;
+      }
+
+      // Only the arrows that lead somewhere.
+      root.querySelector<HTMLElement>('[data-lightbox-prev]')!.hidden = lbPhotos.length < 2;
+      root.querySelector<HTMLElement>('[data-lightbox-next]')!.hidden = lbPhotos.length < 2;
+
+      lbDescField.hidden = !photo || !photoMay.edit;
+      lbDescRead.hidden = !photo || photoMay.edit || !photo.description;
+      lbAdd.hidden = !photoMay.upload || lbPhotos.length >= MAX_PHOTOS_PER_DAY;
+      lbAdd.textContent = lbPhotos.length ? 'Add another' : 'Upload photo';
+      lbDownload.hidden = !photo || !photoMay.download;
+      lbDelete.hidden = !photo || !photoMay.delete;
+    }
+
+    async function openLightbox(date: string) {
+      lbDate = date;
+      lbAt = 0;
+      lbShowError('');
+      lbProgress.hidden = true;
+      lightbox.hidden = false;
+      lightboxScrim.hidden = false;
+      try {
+        const res = await fetch(`/api/calendar-photos.json?date=${date}`);
+        const body = (await res.json()) as { photos?: StoredPhoto[]; may?: typeof photoMay };
+        lbPhotos = body.photos ?? [];
+        if (body.may) photoMay = body.may;
+      } catch {
+        lbPhotos = [];
+        lbShowError('Could not load the photographs just now.');
+      }
+      renderLightbox();
+    }
+
+    function closeLightbox() {
+      lightbox.hidden = true;
+      lightboxScrim.hidden = true;
+      lbImage.removeAttribute('src');
+      // The count in the cell may have changed while this was open.
+      void render();
+    }
+
+    // Named apart from the grid's own step(), which moves between months.
+    const stepPhoto = (delta: number) => {
+      if (lbPhotos.length < 2) return;
+      lbAt = (lbAt + delta + lbPhotos.length) % lbPhotos.length;
+      renderLightbox();
+    };
+
+    root.querySelector('[data-lightbox-prev]')!.addEventListener('click', () => stepPhoto(-1));
+    root.querySelector('[data-lightbox-next]')!.addEventListener('click', () => stepPhoto(1));
+    root.querySelector('[data-lightbox-close]')!.addEventListener('click', closeLightbox);
+    lightboxScrim.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', (e) => {
+      if (lightbox.hidden) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') stepPhoto(-1);
+      if (e.key === 'ArrowRight') stepPhoto(1);
+    });
+
+    grid.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLElement>('[data-photos]');
+      if (button) void openLightbox(button.dataset.photos!);
+    });
+
+    /*
+     * Resize in the browser before anything is sent.
+     *
+     * Orientation first, deliberately. A phone records which way up it was
+     * held in EXIF rather than in the pixels, and re-encoding through a canvas
+     * discards EXIF — so decoding without applying it would upload every
+     * portrait photograph on its side. Asking for it "from-image" bakes the
+     * rotation into the pixels while they still know about it.
+     *
+     * What goes with the EXIF is the location. A photograph taken at a Feast
+     * in someone's home carries their coordinates, and these are meant to be
+     * downloaded and passed around. Losing that is the point, not a side
+     * effect; the capture time is kept separately, as data, because a record
+     * wants to know when.
+     */
+    async function prepareForUpload(file: File) {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+      const width = Math.round(bitmap.width * scale);
+      const height = Math.round(bitmap.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close();
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.8));
+      if (!blob) throw new Error('This image could not be prepared.');
+      return { blob, width, height };
+    }
+
+    lbAdd.addEventListener('click', () => lbFile.click());
+    lbFile.addEventListener('change', async () => {
+      const files = [...(lbFile.files ?? [])];
+      lbFile.value = '';
+      if (!files.length) return;
+      lbShowError('');
+
+      const room = MAX_PHOTOS_PER_DAY - lbPhotos.length;
+      const chosen = files.slice(0, Math.max(0, room));
+      if (files.length > chosen.length) {
+        lbShowError(`Only ${room} more will fit on this day.`);
+      }
+
+      for (const [i, file] of chosen.entries()) {
+        lbProgress.hidden = false;
+        lbProgress.textContent = chosen.length > 1
+          ? `Preparing ${i + 1} of ${chosen.length}…`
+          : 'Preparing…';
+        try {
+          const { blob, width, height } = await prepareForUpload(file);
+          const form = new FormData();
+          form.append('photo', blob, 'photo.jpg');
+          form.append('width', String(width));
+          form.append('height', String(height));
+          const takenAt = await captureTime(file);
+          if (takenAt) form.append('takenAt', takenAt);
+
+          const res = await fetch(`/api/calendar-photos.json?date=${lbDate}`, {
+            method: 'POST',
+            body: form,
+          });
+          const body = (await res.json()) as { ok?: boolean; error?: string; photos?: StoredPhoto[] };
+          if (!body.ok) { lbShowError(body.error ?? 'That could not be added.'); break; }
+          lbPhotos = body.photos ?? lbPhotos;
+          // Land on what was just added, which is what someone expects to see.
+          lbAt = lbPhotos.length - 1;
+          renderLightbox();
+        } catch (err) {
+          lbShowError((err as Error).message || 'That image could not be read.');
+          break;
+        }
+      }
+      lbProgress.hidden = true;
+    });
+
+    /**
+     * When the camera took it, if the file says so.
+     *
+     * Read before the resize discards it, and kept as data rather than put
+     * back into the file. A record wants to know when a photograph was taken;
+     * nothing downstream needs the rest of what EXIF carries.
+     */
+    async function captureTime(file: File): Promise<string> {
+      try {
+        const head = new DataView(await file.slice(0, 131072).arrayBuffer());
+        if (head.getUint16(0) !== 0xffd8) return '';
+        let at = 2;
+        while (at + 4 < head.byteLength) {
+          if (head.getUint8(at) !== 0xff) break;
+          const marker = head.getUint8(at + 1);
+          const size = head.getUint16(at + 2);
+          if (marker === 0xe1) {
+            const text = new TextDecoder('latin1')
+              .decode(new Uint8Array(head.buffer, at + 4, Math.min(size, head.byteLength - at - 4)));
+            // "2026:09:14 10:30:00" is EXIF's own shape for a timestamp.
+            const found = /(\d{4}):(\d{2}):(\d{2}) (\d{2}:\d{2}:\d{2})/.exec(text);
+            if (found) return `${found[1]}-${found[2]}-${found[3]}T${found[4]}`;
+          }
+          at += 2 + size;
+        }
+      } catch { /* not a JPEG, or no EXIF: the added date will do */ }
+      return '';
+    }
+
+    lbDesc.addEventListener('change', async () => {
+      const photo = lbPhotos[lbAt];
+      if (!photo) return;
+      lbShowError('');
+      const res = await fetch(`/api/calendar-photos.json?date=${lbDate}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: photo.id, description: lbDesc.value }),
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string; photos?: StoredPhoto[] };
+      if (!body.ok) { lbShowError(body.error ?? 'That could not be saved.'); return; }
+      lbPhotos = body.photos ?? lbPhotos;
+    });
+
+    lbDownload.addEventListener('click', () => {
+      const photo = lbPhotos[lbAt];
+      if (photo) {
+        window.location.href = `/api/calendar-photo?date=${lbDate}&id=${photo.id}&download=1`;
+      }
+    });
+
+    lbDelete.addEventListener('click', async () => {
+      const photo = lbPhotos[lbAt];
+      if (!photo) return;
+      if (!window.confirm('Delete this photograph? It cannot be recovered.')) return;
+      lbShowError('');
+      const res = await fetch(`/api/calendar-photos.json?date=${lbDate}&id=${photo.id}`, {
+        method: 'DELETE',
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string; photos?: StoredPhoto[] };
+      if (!body.ok) { lbShowError(body.error ?? 'That could not be deleted.'); return; }
+      lbPhotos = body.photos ?? [];
+      /*
+       * Stay where you were, which is now the one that followed. Deleting
+       * several in a row then needs no navigation between them. At the end of
+       * the day's photographs there is nothing after, so step back; with none
+       * left the viewer falls to its empty state rather than closing, and the
+       * upload button is right there.
+       */
+      if (lbAt >= lbPhotos.length) lbAt = Math.max(0, lbPhotos.length - 1);
+      renderLightbox();
+    });
+
+  /** Show only the key entries the grid actually uses. */
     function updateLegend(shown: Set<string>) {
       for (const item of root.querySelectorAll<HTMLElement>('[data-legend-for]')) {
         item.hidden = !shown.has(item.dataset.legendFor!);
@@ -3746,6 +4070,70 @@
   }
   .cal-admin-section h5:first-child { margin-top: 0.4rem; }
 
+  /* ---- the photograph viewer ----------------------------------------------- */
+  .cal-lightbox {
+    position: fixed; z-index: 70;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(46rem, calc(100vw - 1.5rem));
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+    background: white; color: var(--color-ink);
+    border-radius: 0.7rem;
+    box-shadow: 0 10px 40px rgb(15 61 62 / 0.28);
+    display: flex; flex-direction: column;
+  }
+  .cal-lightbox-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.6rem; padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--cal-line);
+  }
+  .cal-lightbox-head h3 { margin: 0; font-size: 1rem; }
+  .cal-lightbox-body { padding: 0.9rem; display: grid; gap: 0.6rem; }
+
+  /* The arrows sit over the image rather than beside it, so a tall photograph
+     and a wide one are framed the same way. */
+  .cal-lightbox-figure { position: relative; margin: 0; display: grid; place-items: center; }
+  .cal-lightbox-figure img {
+    max-width: 100%; max-height: min(62vh, 34rem);
+    border-radius: 0.4rem; background: var(--color-sand-100);
+  }
+  .cal-lightbox-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 2.4rem; height: 2.4rem; border-radius: 50%;
+    border: 0; cursor: pointer; font-size: 1.5rem; line-height: 1;
+    background: rgb(255 255 255 / 0.85); color: var(--color-teal-900);
+    box-shadow: 0 1px 6px rgb(15 61 62 / 0.2);
+  }
+  .cal-lightbox-arrow.is-prev { left: 0.4rem; }
+  .cal-lightbox-arrow.is-next { right: 0.4rem; }
+  .cal-lightbox-arrow:hover { background: white; }
+
+  /* The empty state: a large mark and the way to begin. */
+  .cal-lightbox-empty { display: grid; place-items: center; gap: 0.5rem; padding: 2.2rem 0 1.4rem; }
+  .cal-lightbox-empty svg {
+    width: 5.5rem; height: 5.5rem;
+    color: color-mix(in srgb, var(--color-teal-900) 22%, transparent);
+  }
+  .cal-lightbox-count {
+    margin: 0; text-align: center; font-size: 0.75rem;
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+  .cal-lightbox-desc textarea {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.4rem 0.5rem; font: inherit; font-size: 0.82rem; background: white;
+    resize: vertical;
+  }
+  .cal-lightbox-desc-read { margin: 0; font-size: 0.85rem; }
+  .cal-lightbox-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .cal-lightbox-actions .cal-remove { margin-top: 0; margin-left: auto; }
+  .cal-lightbox-progress { margin: 0; }
+
+  @media (max-width: 640px) {
+    .cal-lightbox { width: calc(100vw - 1rem); max-height: calc(100vh - 1.5rem); }
+    .cal-lightbox-figure img { max-height: 52vh; }
+  }
+
   /* ---- photographs --------------------------------------------------------- */
 
   /*
@@ -3763,8 +4151,17 @@
   .cal-photos svg { width: 0.85rem; height: 0.85rem; }
   .cal-photos:hover, .cal-photos:focus-visible { color: var(--color-teal-900); }
   /* Faint on a day with nothing yet: an invitation, not an announcement. */
-  .cal-photos.is-empty { opacity: 0.22; }
-  .cal-photos.is-empty:hover, .cal-photos.is-empty:focus-visible { opacity: 0.75; }
+  /* Grey against a day that had an event but no photographs yet; the teal of
+     everything else once it holds one, so a glance down the month shows which
+     days were recorded. */
+  .cal-photos.is-empty {
+    color: color-mix(in srgb, var(--color-ink) 38%, transparent);
+  }
+  .cal-photos.is-empty:hover, .cal-photos.is-empty:focus-visible {
+    color: var(--color-teal-700);
+  }
+  /* Bottom right, out of the way of the day's entries. */
+  .cal-photos { align-self: flex-end; }
   .cal-photos-n { font-weight: 600; }
 
   /* ---- passkeys ----------------------------------------------------------- */
