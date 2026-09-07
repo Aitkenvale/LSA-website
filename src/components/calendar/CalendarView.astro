@@ -163,6 +163,10 @@
         Description
         <textarea data-lightbox-desc rows="2" maxlength="500"
           placeholder="What this shows — who is in it, and what was happening."></textarea>
+        <span class="cal-lightbox-saved" data-lightbox-saved hidden>Saved</span>
+        <button type="button" class="cal-secondary cal-lightbox-save" data-lightbox-save hidden>
+          Save description
+        </button>
       </label>
       <p class="cal-help cal-lightbox-desc-read" data-lightbox-desc-read hidden></p>
 
@@ -172,6 +176,7 @@
         <button type="button" class="cal-secondary" data-lightbox-add hidden>Upload photo</button>
         <button type="button" class="cal-secondary" data-lightbox-download hidden>Download</button>
         <button type="button" class="cal-remove" data-lightbox-delete hidden>Delete</button>
+        <button type="button" class="cal-primary" data-lightbox-done>Done</button>
         <input type="file" accept="image/*" data-lightbox-file hidden multiple />
       </div>
       <p class="cal-help cal-lightbox-progress" data-lightbox-progress hidden></p>
@@ -2588,7 +2593,9 @@
 
       lbEmpty.hidden = Boolean(photo);
       lbFigure.hidden = !photo;
-      lbCount.hidden = !photo || lbPhotos.length < 2;
+      // Shown whenever there is a photograph, including the only one. "1 of 1"
+      // is not redundant here: it is the confirmation that it was kept.
+      lbCount.hidden = !photo;
       lbEmptyNote.textContent = photoMay.upload
         ? 'No photographs from this day yet.'
         : 'No photographs from this day.';
@@ -2606,6 +2613,7 @@
       root.querySelector<HTMLElement>('[data-lightbox-next]')!.hidden = lbPhotos.length < 2;
 
       lbDescField.hidden = !photo || !photoMay.edit;
+      syncDescriptionState();
       lbDescRead.hidden = !photo || photoMay.edit || !photo.description;
       lbAdd.hidden = !photoMay.upload || lbPhotos.length >= MAX_PHOTOS_PER_DAY;
       lbAdd.textContent = lbPhotos.length ? 'Add another' : 'Upload photo';
@@ -2649,11 +2657,28 @@
 
     root.querySelector('[data-lightbox-prev]')!.addEventListener('click', () => stepPhoto(-1));
     root.querySelector('[data-lightbox-next]')!.addEventListener('click', () => stepPhoto(1));
-    root.querySelector('[data-lightbox-close]')!.addEventListener('click', closeLightbox);
-    lightboxScrim.addEventListener('click', closeLightbox);
+    /*
+     * Leaving with something unsaved asks rather than discards. The wording
+     * says which way is which, because "are you sure" next to a photograph
+     * somebody has just described is not a question anyone should have to
+     * think about twice.
+     */
+    async function leaveLightbox() {
+      const photo = lbPhotos[lbAt];
+      if (photo && lbDesc.value !== photo.description && !lbSave.hidden) {
+        if (window.confirm('Save the description before closing?')) {
+          if (!(await saveDescription())) return;
+        }
+      }
+      closeLightbox();
+    }
+
+    root.querySelector('[data-lightbox-close]')!.addEventListener('click', () => void leaveLightbox());
+    root.querySelector('[data-lightbox-done]')!.addEventListener('click', () => void leaveLightbox());
+    lightboxScrim.addEventListener('click', () => void leaveLightbox());
     document.addEventListener('keydown', (e) => {
       if (lightbox.hidden) return;
-      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'Escape') void leaveLightbox();
       if (e.key === 'ArrowLeft') stepPhoto(-1);
       if (e.key === 'ArrowRight') stepPhoto(1);
     });
@@ -2768,19 +2793,54 @@
       return '';
     }
 
-    lbDesc.addEventListener('change', async () => {
+    /*
+     * An explicit save, and a way to see that it happened.
+     *
+     * Saving quietly when the field lost focus was not enough: a description
+     * typed and then dismissed by clicking away gave no sign it had been kept,
+     * and the request was still in flight as the window closed. Now the button
+     * appears the moment the text differs from what is stored, and the word
+     * "Saved" appears when it no longer does.
+     */
+    const lbSave = root.querySelector<HTMLButtonElement>('[data-lightbox-save]')!;
+    const lbSaved = root.querySelector<HTMLElement>('[data-lightbox-saved]')!;
+
+    function syncDescriptionState() {
       const photo = lbPhotos[lbAt];
-      if (!photo) return;
+      const changed = Boolean(photo) && lbDesc.value !== (photo?.description ?? '');
+      lbSave.hidden = !changed;
+      if (changed) lbSaved.hidden = true;
+    }
+
+    async function saveDescription(): Promise<boolean> {
+      const photo = lbPhotos[lbAt];
+      if (!photo || lbDesc.value === photo.description) return true;
       lbShowError('');
-      const res = await fetch(`/api/calendar-photos.json?date=${lbDate}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: photo.id, description: lbDesc.value }),
-      });
-      const body = (await res.json()) as { ok?: boolean; error?: string; photos?: StoredPhoto[] };
-      if (!body.ok) { lbShowError(body.error ?? 'That could not be saved.'); return; }
-      lbPhotos = body.photos ?? lbPhotos;
-    });
+      lbSave.disabled = true;
+      lbSave.textContent = 'Saving…';
+      try {
+        const res = await fetch(`/api/calendar-photos.json?date=${lbDate}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: photo.id, description: lbDesc.value }),
+        });
+        const body = (await res.json()) as { ok?: boolean; error?: string; photos?: StoredPhoto[] };
+        if (!body.ok) { lbShowError(body.error ?? 'That could not be saved.'); return false; }
+        lbPhotos = body.photos ?? lbPhotos;
+        lbSaved.hidden = false;
+        syncDescriptionState();
+        return true;
+      } catch {
+        lbShowError('Could not reach the server to save that.');
+        return false;
+      } finally {
+        lbSave.disabled = false;
+        lbSave.textContent = 'Save description';
+      }
+    }
+
+    lbDesc.addEventListener('input', syncDescriptionState);
+    lbSave.addEventListener('click', () => void saveDescription());
 
     lbDownload.addEventListener('click', () => {
       const photo = lbPhotos[lbAt];
@@ -4094,7 +4154,18 @@
      and a wide one are framed the same way. */
   .cal-lightbox-figure { position: relative; margin: 0; display: grid; place-items: center; }
   .cal-lightbox-figure img {
-    max-width: 100%; max-height: min(62vh, 34rem);
+    /*
+     * Never distorted. object-fit defaults to `fill`, which stretches an image
+     * to whatever box it is given the moment anything constrains both
+     * dimensions — and a room full of people is not a thing to render slightly
+     * wider than it was. `contain` with auto dimensions makes that impossible
+     * rather than merely unlikely.
+     */
+    max-width: 100%;
+    max-height: min(62vh, 34rem);
+    width: auto;
+    height: auto;
+    object-fit: contain;
     border-radius: 0.4rem; background: var(--color-sand-100);
   }
   .cal-lightbox-arrow {
@@ -4123,6 +4194,10 @@
     border: 1px solid var(--cal-line); border-radius: 0.35rem;
     padding: 0.4rem 0.5rem; font: inherit; font-size: 0.82rem; background: white;
     resize: vertical;
+  }
+  .cal-lightbox-save { margin-top: 0.35rem; justify-self: start; }
+  .cal-lightbox-saved {
+    margin-top: 0.2rem; font-size: 0.72rem; color: var(--color-teal-700);
   }
   .cal-lightbox-desc-read { margin: 0; font-size: 0.85rem; }
   .cal-lightbox-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
