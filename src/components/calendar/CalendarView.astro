@@ -176,6 +176,12 @@
             <input type="password" data-admin-input autocomplete="off" />
           </label>
           <button type="button" class="cal-primary" data-admin-submit>Unlock</button>
+          <div class="cal-passkey-signin" data-admin-passkey hidden>
+            <p class="cal-or"><span>or</span></p>
+            <button type="button" class="cal-secondary" data-admin-passkey-use>
+              Unlock with a passkey
+            </button>
+          </div>
           <p class="cal-error" data-admin-error hidden>That code was not recognised.</p>
         </section>
 
@@ -1399,10 +1405,24 @@
         nameInput.value = '';
         renderPasskeys(finished.passkeys as PasskeySummary[], await currentPolicy());
       } catch (err) {
-        // A refusal at the device is not an error worth shouting about.
-        const message = (err as Error).name === 'NotAllowedError'
+        /*
+         * InvalidStateError has one meaning here, and it is not a fault: this
+         * authenticator already holds a passkey for this calendar, so the
+         * browser refused to make a second. It happens the first time somebody
+         * reaches for their phone after enrolling on a Mac — the passkey went
+         * into iCloud Keychain and the phone already has it. The raw wording,
+         * "the object is in an invalid state", says none of that.
+         */
+        const name = (err as Error).name;
+        const message = name === 'NotAllowedError'
           ? 'That was cancelled, or took too long.'
-          : (err as Error).message;
+          : name === 'InvalidStateError'
+            ? 'This device already has a passkey for this calendar — it will have '
+              + 'synced from another of your devices. It can sign in already; there '
+              + 'is nothing to add.'
+            : name === 'NotSupportedError'
+              ? 'This device cannot make a passkey of the kind this calendar asks for.'
+              : 'The passkey could not be made on this device.';
         showPasskeyError(message);
       }
     });
@@ -1509,6 +1529,30 @@
         adminError.hidden = false;
       }
     }
+    // Offered only when there is a passkey to use, so nobody is sent to a
+    // dialog that can only disappoint them.
+    const adminPasskeyBlock = root.querySelector<HTMLElement>('[data-admin-passkey]')!;
+    void (async () => {
+      if (typeof PublicKeyCredential === 'undefined' || !navigator.credentials) return;
+      try {
+        const body = (await (await fetch('/api/passkey.json')).json()) as { available?: boolean };
+        adminPasskeyBlock.hidden = !body.available;
+      } catch { /* leave it hidden */ }
+    })();
+
+    root.querySelector('[data-admin-passkey-use]')!.addEventListener('click', async () => {
+      adminError.hidden = true;
+      const body = await passkeySignIn();
+      if (!body.ok) {
+        if (body.error) { adminError.textContent = body.error; adminError.hidden = false; }
+        return;
+      }
+      await loadServerConfig();
+      syncLock();
+      syncPublicToggles();
+      void render();
+    });
+
     root.querySelector('[data-admin-submit]')!.addEventListener('click', () => void tryUnlock());
     adminInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void tryUnlock();
@@ -2771,6 +2815,56 @@
     return s.replace(/[&<>"']/g, (c) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
     );
+  }
+
+  /**
+   * Sign in with a passkey.
+   *
+   * Shared, because there are two places a person reasonably tries: the
+   * sign-in dialog behind the person icon, and the administrator lock inside
+   * the settings drawer. Somebody who has just enrolled a passkey opens the
+   * drawer, is asked for a code, and concludes the passkey did nothing.
+   */
+  async function passkeySignIn(): Promise<{ ok: boolean; error?: string; tier?: string; label?: string }> {
+    if (typeof PublicKeyCredential === 'undefined' || !navigator.credentials) {
+      return { ok: false, error: 'This browser cannot use a passkey.' };
+    }
+    try {
+      const startRes = await fetch('/api/passkey.json', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'sign-in-start' }),
+      });
+      const started = (await startRes.json()) as { ok?: boolean; error?: string; options?: any };
+      if (!started.ok) return { ok: false, error: started.error ?? 'No passkey is enrolled.' };
+
+      const o = started.options;
+      const assertion = (await navigator.credentials.get({
+        publicKey: { ...o, challenge: b64uToBytes(o.challenge), allowCredentials: [] },
+      })) as PublicKeyCredential | null;
+      if (!assertion) return { ok: false, error: '' };
+      const response = assertion.response as AuthenticatorAssertionResponse;
+
+      const finishRes = await fetch('/api/passkey.json', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sign-in-finish',
+          credentialId: assertion.id,
+          clientDataJSON: bytesToB64u(new Uint8Array(response.clientDataJSON)),
+          authenticatorData: bytesToB64u(new Uint8Array(response.authenticatorData)),
+          signature: bytesToB64u(new Uint8Array(response.signature)),
+        }),
+      });
+      return (await finishRes.json()) as { ok: boolean; error?: string; tier?: string; label?: string };
+    } catch (err) {
+      return {
+        ok: false,
+        error: (err as Error).name === 'NotAllowedError'
+          ? 'That was cancelled, or took too long.'
+          : 'Could not use a passkey just now.',
+      };
+    }
   }
 
   function loadPrefs(): Prefs {
