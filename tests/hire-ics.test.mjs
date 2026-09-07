@@ -42,7 +42,8 @@ test('the four characters iCalendar reserves are escaped', () => {
   assert.equal(escapeIcsText('a\nb'), 'a\\nb');
   // A purpose with a semicolon must not split the DESCRIPTION into parameters.
   const ics = buildHireIcs(BOOKING, STAMP);
-  assert.match(unfold(ics), /DESCRIPTION:Community gathering\\; with music\\, and refreshments/);
+  // The purpose now sits on its own labelled line, after the contact details.
+  assert.match(unfold(ics), /Purpose: Community gathering\\; with music\\, and refreshments/);
 });
 
 test('lines are folded at 75 octets, and never inside a character', () => {
@@ -79,7 +80,7 @@ test('the file is well formed, with CRLF endings throughout', () => {
   for (const required of ['VERSION:2.0', 'BEGIN:VEVENT', 'END:VEVENT', 'UID:', 'DTSTAMP:']) {
     assert.ok(ics.includes(required), `missing ${required}`);
   }
-  assert.equal(field(ics, 'SUMMARY'), 'Centre hire: Jane Example');
+  assert.equal(field(ics, 'SUMMARY'), 'Jane Example');
   assert.match(unfold(ics), /LOCATION:Bahá'í Centre\\, Townsville QLD/);
 });
 
@@ -88,8 +89,7 @@ test('an absent phone or organisation leaves no empty line', () => {
   const description = ics.split('\r\n').find((l) => l.startsWith('DESCRIPTION:'));
   assert.ok(!description.includes('Phone:'));
   assert.ok(!description.includes('Organisation:'));
-  // The blank line separating the purpose from the contact details survives.
-  assert.match(description, /refreshments\\n\\nContact: Jane Example/);
+  assert.match(description, /DESCRIPTION:Name: Jane Example\\nEmail: jane@example\.org/);
 });
 
 test('base64 round-trips the bytes, accents included', () => {
