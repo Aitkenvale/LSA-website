@@ -9,10 +9,12 @@ import { getSiteSettings } from '../lib/site';
 interface Props {
   title?: string;
   description?: string;
+  /** Keep this page out of search results, whatever the site-wide gate says. */
+  noindex?: boolean;
 }
 
 const settings = await getSiteSettings();
-const { title, description = settings.tagline } = Astro.props;
+const { title, description = settings.tagline, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} · ${settings.siteName}` : settings.siteName;
 ---
 
@@ -20,6 +22,15 @@ const fullTitle = title ? `${title} · ${settings.siteName}` : settings.siteName
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      iOS inflates text on its own judgement when a column looks narrow to it,
+      which changes sizes the layout was measured against. Pinning it does not
+      stop anyone zooming — that stays the reader's to do — it only stops the
+      browser deciding for them.
+    -->
+    <style is:inline>
+      html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    </style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
     <title>{fullTitle}</title>
@@ -29,7 +40,7 @@ const fullTitle = title ? `${title} · ${settings.siteName}` : settings.siteName
     <meta property="og:type" content="website" />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
     <link rel="sitemap" href="/sitemap-index.xml" />
-    {settings.sitePassword && <meta name="robots" content="noindex" />}
+    {(settings.sitePassword || noindex) && <meta name="robots" content="noindex" />}
     {
       settings.sitePassword && (
         <script is:inline define:vars={{ gatePw: settings.sitePassword }}>

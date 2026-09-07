@@ -1,6 +1,20 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+
+  // This is the live website's Worker. The calendar now lives here too, on
+  // the same Worker, rather than on the branch it was built on.
+  //
+  // The name matters more than it looks. While the calendar had its own
+  // branch, that branch carried a different name here to stop a hand-run
+  // `npx wrangler deploy` reaching the live site. What it never protected
+  // against was Cloudflare Workers Builds, which deploys to whichever Worker
+  // its project is bound to regardless of this file — twice, the website
+  // project built the calendar branch and served it as the live site, putting
+  // a password in front of the public website. The protection was turning OFF
+  // "Builds for non-production branches" on the website project.
+  //
   "name": "lsa-website",
+
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {

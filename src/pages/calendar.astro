@@ -1,0 +1,47 @@
+---
+import Base from '../layouts/Base.astro';
+import CalendarView from '../components/calendar/CalendarView.astro';
+import { getSiteSettings } from '../lib/site';
+
+const settings = await getSiteSettings();
+---
+
+<Base
+  title="Community calendar"
+  description="Bahá'í Holy Days, Feasts and community events for Townsville, alongside the holy days of other faiths."
+  noindex={!settings.showCalendarLink}
+>
+  {
+    /*
+     * While an access code is set the calendar is not public. This is the same
+     * casual deterrent the pre-launch site gate uses — enough to keep the page
+     * out of general circulation while the Assembly considers it, and not to be
+     * mistaken for access control.
+     */
+    settings.calendarAccessCode && (
+      <script is:inline define:vars={{ code: settings.calendarAccessCode }}>
+        (function () {
+          try {
+            if (sessionStorage.getItem('calendar-gate') === code) return;
+            var entered = prompt('The community calendar is being prepared.\n\nEnter the access code to preview it:');
+            if (entered === code) {
+              sessionStorage.setItem('calendar-gate', code);
+              return;
+            }
+          } catch (e) {}
+          window.location.replace('/');
+        })();
+      </script>
+    )
+  }
+
+  <!--
+    No page hero here, deliberately. The calendar is the page: a full-width
+    image band would push the grid below the fold on a laptop, and the first
+    thing a reader wants is to see this month.
+  -->
+  <div class="mx-auto w-full max-w-6xl px-4 pt-6 pb-10 sm:px-6">
+    <h1 class="cal-page-title">Bahá’í Community Calendar</h1>
+    <CalendarView />
+  </div>
+</Base>

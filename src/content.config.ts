@@ -13,6 +13,29 @@ const brisbaneDate = z.union([z.string(), z.date()]).transform((v) => {
   return new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}+10:00`);
 });
 
+// The CMS may emit a bare YAML date, which the parser turns into a Date; keep
+// everything in this calendar as plain ISO strings so no timezone can intrude.
+const isoDay = z.union([z.string(), z.date()]).transform((v) =>
+  v instanceof Date ? v.toISOString().slice(0, 10) : v.trim(),
+);
+
+const calendarOverrides = defineCollection({
+  loader: glob({ pattern: '**/*.{yml,yaml}', base: './src/content/calendar' }),
+  schema: z.object({
+    overrides: z
+      .array(
+        z.object({
+          key: z.string(),
+          date: isoDay.optional(),
+          endDate: isoDay.optional(),
+          source: z.string(),
+          recordedOn: isoDay.optional(),
+        }),
+      )
+      .default([]),
+  }),
+});
+
 const events = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/events' }),
   schema: ({ image }) =>
@@ -127,11 +150,31 @@ const settings = defineCollection({
     }),
     // Non-empty = pre-launch gate active (casual deterrent, not security)
     sitePassword: z.string().default(''),
+    // Non-empty = the calendar is not yet public; clear it once the Assembly
+    // approves. Like sitePassword this is a casual deterrent, not access
+    // control — this repository is public, so treat the code as visible.
+    // The administrator code is deliberately NOT here: it lives in the
+    // ADMIN_CODE Worker secret and is checked server-side.
+    calendarAccessCode: z.string().default(''),
+    /*
+     * Whether the calendar is announced on the site.
+     *
+     * Off, the page still answers at its address — this is not access control,
+     * and nothing private is behind it in any case, since a reader who has not
+     * signed in sees only Holy Days and public holidays. What it withholds is
+     * an invitation to something the Assembly has not yet approved.
+     *
+     * One switch with three consequences: the header link, the robots
+     * instruction on the page, and whether it appears in the sitemap. Kept
+     * together so none can be turned on while another is forgotten.
+     */
+    showCalendarLink: z.boolean().default(false),
   }),
 });
 
 export const collections = {
   events,
+  calendarOverrides,
   announcements,
   pages,
   extraPages,

@@ -441,6 +441,51 @@ content:
         label: Text
         type: rich-text
 
+  - name: calendarOverrides
+    label: Calendar verified dates
+    description: >-
+      Corrects or confirms calculated holy day dates. Most dates are calculated
+      exactly and need nothing here. A few — Islamic, Hindu, Buddhist, Jain and
+      the lunar Sikh dates — depend on local observation or regional custom, and
+      are shown as "approximate" until confirmed here.
+    type: file
+    path: src/content/calendar/overrides.yml
+    fields:
+      - name: overrides
+        label: Verified dates
+        type: object
+        list: true
+        fields:
+          - name: key
+            label: Which date
+            description: >-
+              Copy this from the calendar's settings drawer, under "Dates to
+              confirm". It looks like islam:ramadan-1448.
+            type: string
+            required: true
+          - name: date
+            label: Correct date
+            description: Leave empty to confirm the calculated date without changing it.
+            type: date
+            options: { format: yyyy-MM-dd }
+          - name: endDate
+            label: Correct last day (optional)
+            description: Only for observances that run over several days.
+            type: date
+            options: { format: yyyy-MM-dd }
+          - name: source
+            label: Source
+            description: >-
+              Where this date came from — for example "Australian National Imams
+              Council announcement, 6 February 2027". Recorded so the decision
+              can be checked later.
+            type: string
+            required: true
+          - name: recordedOn
+            label: Recorded on
+            type: date
+            options: { format: yyyy-MM-dd }
+
   - name: settings
     label: Site settings
     description: Contact details and site-wide text.
@@ -462,6 +507,22 @@ content:
       - { name: phone, label: Phone (optional), type: string }
       - { name: address, label: Address, type: string, required: true }
       - { name: facebook, label: Facebook page link (optional), type: string }
+      - name: calendarAccessCode
+        label: Calendar access code
+        description: >-
+          While this is set, the community calendar is private and asks for this
+          code. Clear it to make the calendar public. This is a casual gate, not
+          a password — the website's code is public, so do not reuse a code that
+          matters elsewhere.
+        type: string
+      - name: showCalendarLink
+        label: Show the calendar in the menu
+        description: >-
+          Off while the Assembly is still considering the calendar. The page
+          still works for anyone given its address; it is simply not announced,
+          not indexed by search engines, and not listed in the sitemap. Turn on
+          once the calendar is approved.
+        type: boolean
       - name: footer
         label: Footer
         type: object

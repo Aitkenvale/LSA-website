@@ -1,0 +1,4002 @@
+---
+/**
+ * The community calendar — Gregorian view.
+ *
+ * PRESENTATION ONLY — expected to change. The current look was sketched from a
+ * printed wall calendar purely as a starting point; that is a separate piece of
+ * work with its own constraints and this page is not bound to it. Nothing below
+ * the presentation layer depends on these choices: the calendar engines return
+ * plain dated occurrences, so the whole view can be redesigned without touching
+ * them.
+ *
+ * The ideas worth keeping, whatever the design becomes:
+ *   - each cell shows both the Gregorian and the Badí‘ date;
+ *   - Bahá'í days lead, and are distinguished from each other by hue;
+ *   - all other traditions share one quiet subordinate style, rather than
+ *     competing for attention with a colour each;
+ *   - days outside the displayed month are tinted back, not hidden.
+ */
+---
+
+<div class="calendar">
+  <!--
+    The three views the calendar will offer. Only the Gregorian one exists so
+    far; the others are shown disabled rather than hidden so the shape of the
+    thing is visible, and so nobody wonders where they went. The cycle view is
+    a planning tool rather than a calendar, so it opens only for those who have
+    signed in.
+  -->
+  <nav class="cal-views" aria-label="Calendar view">
+    <button type="button" class="cal-view is-current" data-view="gregorian" aria-current="true">Gregorian</button>
+    <button type="button" class="cal-view" data-view="badi" aria-current="false">Badí‘</button>
+    <button type="button" class="cal-view" data-view="cycle" disabled aria-disabled="true"
+      title="Sign in to plan by cycle">Cycle</button>
+  </nav>
+
+  <header class="cal-bar">
+    <div class="cal-nav">
+      <button type="button" class="cal-btn" data-nav="prev" aria-label="Previous month">‹</button>
+      <button type="button" class="cal-btn cal-btn-text" data-nav="today">Today</button>
+      <button type="button" class="cal-btn" data-nav="next" aria-label="Next month">›</button>
+    </div>
+    <div class="cal-heading">
+      <h2 class="cal-title" data-title aria-live="polite">&nbsp;</h2>
+      <p class="cal-badi-year" data-badi-year></p>
+    </div>
+    <div class="cal-actions">
+      <button type="button" class="cal-icon-btn" data-open-signin aria-haspopup="dialog" title="Sign in">
+        <span class="sr-only">Sign in</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.6" />
+          <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+        </svg>
+      </button>
+      <button type="button" class="cal-burger" data-open-drawer aria-expanded="false" aria-controls="cal-drawer">
+      <span class="sr-only">Choose calendars</span>
+        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="cal-grid-wrap">
+    <div class="cal-grid" data-grid role="grid" aria-label="Month view"></div>
+  </div>
+
+  <p class="cal-status" data-status role="status"></p>
+
+  <!--
+    Only the two washes a reader has to interpret. "Feast" was listed with the
+    teal swatch and so was "Bahá'í month begins" — two names for one colour,
+    left over from when the Feast was a computed calendar of its own. "Other
+    faiths" showed a white swatch, which is to say no marking at all.
+  -->
+  <!--
+    Only what is actually on screen. A key explaining a colour the reader
+    cannot see is noise, and in the Badí‘ view a single month often shows just
+    one or two of these.
+  -->
+  <ul class="cal-legend" data-legend>
+    <li data-legend-for="holy" hidden><span class="swatch swatch-holy"></span> Holy Day</li>
+    <li data-legend-for="feast" hidden><span class="swatch swatch-month"></span> Bahá’í month begins</li>
+    <li data-legend-for="ayyam" hidden><span class="swatch swatch-ayyam"></span> Ayyám-i-Há</li>
+    <li data-legend-for="fast" hidden><span class="swatch swatch-fast"></span> The Fast — sunrise to sunset</li>
+    <li data-legend-for="work" class="cal-legend-note" hidden>* work suspended</li>
+  </ul>
+
+  <!--
+    Signing in.
+
+    The code is checked on the server and never reaches the page; what comes
+    back is a signed cookie naming a tier. A reader who is not signed in sees
+    the public calendar, which is the default rather than a fallback.
+  -->
+  <div class="cal-scrim" data-signin-scrim hidden></div>
+  <div class="cal-signin" data-signin hidden role="dialog" aria-modal="true" aria-labelledby="cal-signin-title">
+    <div class="cal-signin-head">
+      <h3 id="cal-signin-title">Sign in</h3>
+      <button type="button" class="cal-close" data-close-signin aria-label="Close">×</button>
+    </div>
+    <div class="cal-signin-body">
+      <p class="cal-help">
+        You are viewing as <strong data-tier-label>the public</strong>.
+      </p>
+
+      <div data-signin-form>
+        <p class="cal-help">Enter the code for your group.</p>
+        <label class="cal-field">
+          Access code
+          <input type="password" data-signin-code autocomplete="current-password" />
+        </label>
+        <button type="button" class="cal-primary" data-signin-submit>Sign in</button>
+        <p class="cal-error" data-signin-error hidden></p>
+
+        <div class="cal-passkey-signin" data-passkey-signin hidden>
+          <p class="cal-or"><span>or</span></p>
+          <button type="button" class="cal-secondary" data-passkey-use>
+            Sign in with a passkey
+          </button>
+          <p class="cal-help">For administrators, using this device's own screen lock.</p>
+        </div>
+      </div>
+
+      <div data-signout-form hidden>
+        <p class="cal-help">
+          Signing out returns this device to the public calendar.
+        </p>
+        <button type="button" class="cal-secondary" data-signout>Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Administrator drawer -->
+  <div class="cal-scrim" data-scrim hidden></div>
+  <aside id="cal-drawer" class="cal-drawer" data-drawer hidden aria-label="Calendars">
+    <div class="cal-drawer-head">
+      <h3>Calendars</h3>
+      <button type="button" class="cal-close" data-close-drawer aria-label="Close settings">×</button>
+    </div>
+
+    <div class="cal-drawer-body" data-drawer-body>
+      <!--
+        Choosing which calendars to see is a reader's decision, not an
+        administrator's — the drawer opens for everyone and this section is
+        always available. Only configuration sits behind the code below.
+      -->
+      <section>
+        <h4 data-show-heading>Show calendars</h4>
+        <p class="cal-help">
+          Choose which calendars appear in this view. Each view remembers its
+          own, so the Badí‘ view can stay uncluttered while the Gregorian one
+          shows everything. Your choices are remembered on this device only, and
+          do not change what anyone else sees.
+        </p>
+        <label class="cal-week-start">
+          <span>Week starts on</span>
+          <select data-week-start>
+            <option value="6">Saturday</option>
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+          </select>
+        </label>
+        <p class="cal-help cal-week-note" data-week-start-note hidden>
+          Set by the Assembly, so that a week number means the same to everyone
+          planning to it.
+        </p>
+        <div class="cal-list" data-public-list></div>
+      </section>
+
+      <details class="cal-admin-block">
+        <summary>Administrator settings</summary>
+
+        <section class="cal-lock" data-lock>
+          <p class="cal-help">These settings are for Assembly administrators.</p>
+          <label>
+            Administrator code
+            <input type="password" data-admin-input autocomplete="off" />
+          </label>
+          <button type="button" class="cal-primary" data-admin-submit>Unlock</button>
+          <div class="cal-passkey-signin" data-admin-passkey hidden>
+            <p class="cal-or"><span>or</span></p>
+            <button type="button" class="cal-secondary" data-admin-passkey-use>
+              Unlock with a passkey
+            </button>
+          </div>
+          <p class="cal-error" data-admin-error hidden>That code was not recognised.</p>
+        </section>
+
+        <div data-admin-panel hidden>
+          <details class="cal-admin-section">
+            <summary>Linked calendars</summary>
+            <p class="cal-help">
+              Calendars kept in Google or in Outlook, read by their
+              <strong>private iCal address</strong>.
+            </p>
+            <ul class="cal-help cal-where">
+              <li>
+                <strong>Google Calendar</strong> — Settings → Integrate calendar →
+                Secret address in iCal format
+              </li>
+              <li>
+                <strong>Outlook</strong> — Settings → Calendar → Shared calendars →
+                Publish a calendar → choose <em>Can view all details</em>, then take
+                the ICS link
+              </li>
+            </ul>
+            <p class="cal-help">
+              Either address lets anyone holding it read the calendar without signing
+              in, so treat it as a password. To revoke one, unpublish and republish
+              the calendar — that issues a new address and kills the old one.
+            </p>
+            <div class="cal-list" data-google-list></div>
+
+            <div class="cal-add">
+              <h5>Add New Calendar</h5>
+              <label class="cal-field">
+                Calendar name
+                <input type="text" data-new-name placeholder="LSA Meetings" />
+              </label>
+              <label class="cal-field">
+                View label
+                <input type="text" data-new-view-label placeholder="LSA Meeting" />
+                <small>Leave empty to show real event titles.</small>
+              </label>
+              <label class="cal-field">
+                Private iCal address
+                <input type="url" data-new-url placeholder="https://calendar.google.com/… or https://outlook.office365.com/…" />
+              </label>
+              <button type="button" class="cal-primary" data-add-google>Add calendar</button>
+              <p class="cal-error" data-google-error hidden></p>
+            </div>
+          </details>
+
+          <details class="cal-admin-section">
+            <summary>Location</summary>
+            <p class="cal-help">
+              Used to work out the hours of the Fast, which runs from sunrise to
+              sunset and so differs by town. Nothing else depends on it.
+            </p>
+            <label class="cal-field">
+              Place name
+              <input type="text" data-loc-name placeholder="Townsville" />
+              <small>Shown when explaining whose sunrise these times are.</small>
+            </label>
+            <label class="cal-field">
+              Latitude
+              <input type="number" step="0.0001" data-loc-lat placeholder="-19.2589" />
+              <small>Negative south of the equator.</small>
+            </label>
+            <label class="cal-field">
+              Longitude
+              <input type="number" step="0.0001" data-loc-lon placeholder="146.8169" />
+              <small>Negative west of Greenwich.</small>
+            </label>
+            <label class="cal-field">
+              Hours ahead of UTC
+              <input type="number" step="0.5" data-loc-tz placeholder="10" />
+              <small>Queensland is +10 all year, having no daylight saving.</small>
+            </label>
+            <p class="cal-desc" data-loc-preview></p>
+            <p class="cal-error" data-loc-error hidden></p>
+          </details>
+
+          <details class="cal-admin-section">
+            <summary>Planning cycles</summary>
+            <p class="cal-help">
+              A cycle is a planning period ending in a reflection meeting. These
+              are the Assembly's dates and are the same for everyone; only which
+              day of the week the grid starts on is left to each reader.
+            </p>
+            <p class="cal-help">
+              A cycle begins on the first day of the school holidays. Only the
+              cycle now running and the eight after it are listed — a cycle that
+              has finished cannot be planned. As each one ends the rest move up
+              and a blank appears at the foot of the list.
+            </p>
+            <label class="cal-field">
+              State or territory
+              <select data-cycle-state></select>
+              <small data-cycle-source></small>
+            </label>
+            <button type="button" class="cal-secondary" data-cycle-load hidden>
+              Load term dates
+            </button>
+            <button type="button" class="cal-secondary" data-cycle-reset-terms>
+              Reset dates to this state's terms
+            </button>
+            <p class="cal-error" data-cycle-error hidden></p>
+
+            <div class="cal-list" data-cycle-list></div>
+
+            <label class="cal-field">
+              A cycle week begins on
+              <select data-cycle-week-start>
+                <option value="6">Saturday</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+              </select>
+              <small>Everyone sees the cycle grid this way, so a week number
+                means the same to all who plan by it.</small>
+            </label>
+
+            <h5>Plans</h5>
+            <p class="cal-help">
+              Cycles are numbered from the beginning of each Plan, which is why
+              this one is spoken of as 183–18. A Plan begins at Riḍván and runs
+              until the next does, so a name and a start date are enough.
+              Finished Plans stay on the list, so that looking back at an
+              earlier cycle names the Plan it actually belonged to.
+            </p>
+            <div class="cal-list" data-plan-list></div>
+            <div class="cal-plan-add">
+              <input type="text" data-new-plan-name placeholder="Ten Year Plan" />
+              <input type="date" data-new-plan-start />
+              <button type="button" class="cal-secondary" data-add-plan>Add</button>
+            </div>
+            <p class="cal-error" data-plan-error hidden></p>
+
+            <h5>Phases</h5>
+            <p class="cal-help">
+              Expansion opens the cycle and Planning &amp; Reflection closes it.
+              Consolidation is whatever lies between, so it absorbs the
+              difference between a twelve-week cycle and a longer one.
+            </p>
+            <div class="cal-phase-grid" data-phase-grid></div>
+          </details>
+
+          <details class="cal-admin-section">
+            <summary>Dates to confirm</summary>
+            <p class="cal-help">
+              These dates depend on local observation or regional custom, so the
+              calendar shows its best calculation until someone confirms them.
+              Copy a reference below, then record the announced date under
+              <strong>Calendar verified dates</strong> in the site's content
+              editor. Confirming a date without changing it is worth doing too — it
+              removes the “approximate” mark.
+            </p>
+            <label class="cal-field">
+              Show dates for
+              <select data-verify-window>
+                <option value="12">the next 12 months</option>
+                <option value="24">the next 2 years</option>
+              </select>
+            </label>
+            <div class="cal-list" data-verify-list></div>
+          </details>
+
+          <details class="cal-admin-section">
+            <summary>Passkeys</summary>
+            <p class="cal-help">
+              A passkey signs you in with this device's own screen lock — a
+              fingerprint, a face, a PIN. Nothing is typed, so there is no code
+              to share, to write down, or to be talked out of you: a passkey
+              only works on the site it was made for.
+            </p>
+            <p class="cal-help">
+              Each device needs its own. A passkey made here will not work once
+              the calendar moves to its own address, where you would enrol
+              again.
+            </p>
+            <div class="cal-list" data-passkey-list></div>
+            <div class="cal-plan-add">
+              <input type="text" data-passkey-name placeholder="Michael's laptop" />
+              <button type="button" class="cal-secondary" data-passkey-add>Add a passkey</button>
+            </div>
+            <p class="cal-error" data-passkey-error hidden></p>
+
+            <h5>The administrator code</h5>
+            <p class="cal-help">
+              Until it is retired, the code and a passkey both work — which is
+              what makes the first enrolment possible. Retiring it is the point
+              at which passkeys stop being a convenience and become the door.
+            </p>
+            <label class="cal-toggle cal-check">
+              <input type="checkbox" data-passkey-require />
+              <span>Retire the administrator code</span>
+            </label>
+            <p class="cal-help" data-passkey-policy-note></p>
+            <p class="cal-help" data-passkey-recovery></p>
+          </details>
+
+          <details class="cal-admin-section">
+            <summary>How these settings are stored</summary>
+            <p class="cal-help">
+              Changes here are saved <strong>for everyone</strong>, straight away.
+              Calendar names, addresses, colours, order and who may see what are
+              the community's settings, not this device's.
+            </p>
+            <p class="cal-help">
+              A reader's own choices — which calendars they have switched on, and
+              which sections they have collapsed — stay on their own device and
+              affect nobody else.
+            </p>
+            <button type="button" class="cal-secondary" data-copy-config>Copy configuration as a backup</button>
+            <span class="cal-copied" data-copied hidden>Copied</span>
+          </details>
+        </div>
+      </details>
+    </div>
+  </aside>
+</div>
+
+<script>
+  import {
+    CALENDAR_COLOURS,
+    CALENDAR_SECTIONS,
+    GENERATED_CALENDARS,
+    calendarColour,
+    isSeededCalendar,
+  } from '../../lib/calendar/registry';
+  import type {
+    CalendarLocation,
+    StoredCalendar,
+    StoredConfig,
+    VisibleCalendar,
+  } from '../../lib/calendar/config-store';
+  import type { CycleSettings } from '../../lib/calendar/config-store';
+  import { DEFAULT_LOCATION, defaultCycleSettings } from '../../lib/calendar/config-store';
+  import type {
+    Cycle, PhaseId, SchoolTerm, TermSource, WeekDay,
+  } from '../../lib/calendar/school-terms';
+  import type { Plan } from '../../lib/calendar/plans';
+  import { nameCycle, planEnd, planQuarterBoundaries, sortPlans } from '../../lib/calendar/plans';
+  import {
+    AU_STATES,
+    BUNDLED_TERMS,
+    CYCLES_SHOWN,
+    PASTEL_COLOURS,
+    PHASES,
+    TERM_SOURCES,
+    boundariesFromTerms,
+    canLoadTerms,
+    cycleWeekStarts,
+    cyclesFromBoundaries,
+    isAuState,
+    pastelValue,
+    phaseRuns,
+    upcomingCycles,
+  } from '../../lib/calendar/school-terms';
+  import { TIERS, TIER_LABELS, meetsTier, type Tier } from '../../lib/calendar/tiers';
+  import { b64uToBytes, bytesToB64u } from '../../lib/calendar/webauthn';
+  import {
+    BADI_MONTHS,
+    badiMonth,
+    badiMonthLength,
+    badiToGregorian,
+    formatBadiDate,
+    gregorianToBadi,
+    nawRuz,
+    stepBadiMonth,
+    type BadiMonthRef,
+  } from '../../lib/calendar/badi';
+  import {
+    addDays,
+    daysBetween,
+    formatHours,
+    isoDate,
+    parseIso,
+    sunriseHours,
+    sunsetHours,
+    weekday,
+  } from '../../lib/calendar/astronomy';
+  import type { Occurrence } from '../../lib/calendar/types';
+  import type { IcsEvent } from '../../lib/calendar/ics';
+
+  /**
+   * Only preferences live here now.
+   *
+   * Which calendars exist, what they are called and who may see them is the
+   * community's, not this device's — it comes from the server and an
+   * administrator sets it once for everyone. What stays local is which
+   * calendars this reader has switched on and which sections they have
+   * collapsed: nobody else is affected by either.
+   */
+  const PREFS_KEY = 'townsville-calendar-prefs';
+
+  interface Prefs {
+    /**
+     * Which calendars are switched on, per view.
+     *
+     * The views are read for different reasons, so they want different
+     * calendars. Someone looking at the Badí‘ view is usually after the months
+     * and Holy Days and does not want eight other traditions in the way;
+     * looking at the Gregorian one they may well want them. Sharing a single
+     * set meant every switch had to be undone on the way back.
+     */
+    enabled: Record<View, Record<string, boolean>>;
+    /**
+     * Which day each view's week begins on.
+     *
+     * Also per view, and for the same reason. A month reads naturally starting
+     * on a Sunday or a Monday, but a planning cycle begins when a school term
+     * ends — on the Saturday of the holidays — and a grid whose rows start on
+     * some other day puts every cycle boundary in the middle of a row.
+     */
+    weekStart: Record<View, number>;
+    sectionsOpen: Record<string, boolean>;
+  }
+
+  /** Sunday for the two month views; Saturday for the cycle, which begins there. */
+  const DEFAULT_WEEK_START: Record<View, number> = { gregorian: 0, badi: 0, cycle: 6 };
+
+  /** The only days a week is offered starting on. */
+  const WEEK_START_CHOICES = [6, 0, 1];
+
+  const VIEW_LABELS: Record<View, string> = {
+    gregorian: 'Gregorian',
+    badi: 'Badí‘',
+    cycle: 'Cycle',
+  };
+
+  function emptyEnabled(): Record<View, Record<string, boolean>> {
+    return { gregorian: {}, badi: {}, cycle: {} };
+  }
+
+  function defaultWeekStarts(): Record<View, number> {
+    return { ...DEFAULT_WEEK_START };
+  }
+
+  /** What the configuration endpoint returns, depending on who is asking. */
+  interface ConfigResponse {
+    tier: Tier;
+    admin: boolean;
+    calendars?: VisibleCalendar[];
+    config?: StoredConfig;
+    location?: CalendarLocation;
+    /** Sent to community and above, who are the only tiers with a cycle view. */
+    cycles?: CycleSettings;
+  }
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const MONTH_SHORT = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  /** Calendars that have a symbol to sit beside their entries. */
+  const FAITHS_WITH_ICONS = new Set([
+    'buddhism', 'christian', 'hinduism', 'islam',
+    'jainism', 'judaism', 'orthodox', 'sikhism',
+  ]);
+
+  /** An event as rendered, whatever its source. */
+  interface Entry {
+    calendarId: string;
+    name: string;
+    group: 'bahai' | 'other-faith' | 'community';
+    kind: 'holy-day' | 'feast' | 'month' | 'other' | 'event';
+    workSuspended?: boolean;
+    note?: string;
+    approximate?: boolean;
+    verified?: boolean;
+    time?: string;
+    badge?: string;
+    /** Dot colour, for calendars linked from Google or Outlook. */
+    colour?: string;
+    /** Observance begins at sunset on the evening before this date. */
+    startsPreviousEvening?: boolean;
+    /** Full text for the hover card. */
+    tip?: string;
+  }
+
+  /**
+   * What a stretch of the calendar is.
+   *
+   * Ayyám-i-Há is its own thing and not a Feast: four or five intercalary days
+   * of hospitality, service and gift-giving that belong to no month. It is
+   * given its own colour rather than borrowing the Feast's, and it runs across
+   * all of its days rather than marking only the first.
+   */
+  type EveKind = 'holy' | 'feast' | 'ayyam';
+
+  /** What begins on an evening, and what to call it. */
+  interface EveMark {
+    kind: EveKind;
+    label: string;
+  }
+
+  type View = 'gregorian' | 'badi' | 'cycle';
+
+  function init(root: HTMLElement) {
+    const prefs = loadPrefs();
+    let view: View = 'gregorian';
+    let badiCursor: BadiMonthRef = (() => {
+      const today = gregorianToBadi(todayIso());
+      return { year: today.year, month: today.month };
+    })();
+    /** What the server says this reader may see. Refreshed when the tier changes. */
+    let server: ConfigResponse = { tier: 'public', admin: false, calendars: [] };
+
+    /** The calendars this reader may see, in the order the community set. */
+    const listed = (): VisibleCalendar[] => server.calendars ?? [];
+    const linkedCalendars = () => listed().filter((c) => c.kind === 'linked');
+
+    /**
+     * Whether a reader has this calendar switched on. Their own choice wins;
+     * otherwise the calendar's own default, so a first visit is not blank.
+     */
+    const isEnabled = (id: string): boolean =>
+      prefs.enabled[view]?.[id] ?? listed().find((c) => c.id === id)?.defaultOn ?? false;
+
+    async function loadServerConfig(): Promise<void> {
+      try {
+        const res = await fetch('/api/calendar-config.json');
+        const body = (await res.json()) as ConfigResponse;
+        // An administrator receives the whole document, including addresses;
+        // everyone else receives only what their tier may know. Both are
+        // normalised to the same list for rendering.
+        server = body.admin && body.config
+          ? { ...body, calendars: adminView(body.config), location: body.config.location }
+          : body;
+      } catch {
+        server = { tier: 'public', admin: false, calendars: [] };
+      }
+      syncViewButtons();
+    }
+
+    /**
+     * The cycle view is for those doing the planning.
+     *
+     * It is a working view rather than a calendar — it shows how the weeks of
+     * a phase of work are laid out — so it opens at the community tier and
+     * stays shut, with a reason, below it.
+     */
+    function syncViewButtons() {
+      const button = root.querySelector<HTMLButtonElement>('[data-view="cycle"]')!;
+      const allowed = meetsTier(server.tier, 'community');
+      button.disabled = !allowed;
+      button.setAttribute('aria-disabled', String(!allowed));
+      button.title = allowed
+        ? 'Plan by cycle'
+        : 'Sign in to plan by cycle';
+      // Somebody signed out while looking at it must not be left there.
+      if (!allowed && view === 'cycle') {
+        root.querySelector<HTMLButtonElement>('[data-view="gregorian"]')!.click();
+      }
+      if (allowed && cycleStart === null) cycleStart = currentCycle()?.start ?? null;
+    }
+
+    /**
+     * An administrator's full document, shaped like the reader's list.
+     *
+     * A generated calendar has no stored name — it is called what it is, and
+     * that comes from the registry. Falling back to the id showed an
+     * administrator "bahai-months" where every other viewer saw "Bahá'í Months".
+     */
+    function adminView(config: StoredConfig): VisibleCalendar[] {
+      return [...config.calendars]
+        .sort((a, b) => a.position - b.position)
+        .map((c) => ({
+          id: c.id,
+          kind: c.kind,
+          name: c.name || GENERATED_CALENDARS.find((g) => g.id === c.id)?.name || c.id,
+          confidence: GENERATED_CALENDARS.find((g) => g.id === c.id)?.confidence,
+          defaultOn: true,
+          colour: c.colour,
+          section: c.section ?? 'bahai',
+          showsDetail: true,
+          viewLabel: c.viewLabel,
+          after: c.after,
+          position: c.position,
+        }));
+    }
+    let cursor = startOfMonth(todayIso());
+    /** Which cycle the planner is looking at, by its start date. */
+    let cycleStart: string | null = null;
+
+    /**
+     * Which day a week opens on.
+     *
+     * The reader's own choice in the month views; the Assembly's in the cycle
+     * view, where "week 7" has to mean the same seven days to everyone
+     * discussing the plan.
+     */
+    function weekStartFor(v: View): WeekDay {
+      if (v === 'cycle') {
+        const settings = server.config?.cycles ?? server.cycles;
+        return (settings?.weekStart ?? DEFAULT_WEEK_START.cycle) as WeekDay;
+      }
+      return (prefs.weekStart[v] ?? DEFAULT_WEEK_START[v]) as WeekDay;
+    }
+
+    /**
+     * Every cycle the stored dates describe, finished ones included.
+     *
+     * Not the same list the administrator edits. A cycle that has passed
+     * cannot be planned and is not worth adjusting, which is why it drops off
+     * the settings; but it can certainly be looked at, the same as any past
+     * month in the other views. Reading back is how a cycle gets reviewed.
+     */
+    function allCycles(): Cycle[] {
+      const settings = server.config?.cycles ?? server.cycles;
+      if (!settings) return [];
+      const real = [...new Set(settings.boundaries)].sort();
+      if (!real.length) return [];
+      /*
+       * Before the term dates begin, the Plan's own quarters stand in, so the
+       * view reaches back to the earliest Plan on the list rather than stopping
+       * where Queensland's archive happens to run out.
+       */
+      const backfill = planQuarterBoundaries(settings.plans, real[0]);
+      return cyclesFromBoundaries([...backfill, ...real]);
+    }
+
+    /** Where the real term dates start; everything earlier is the Plan's. */
+    function firstLocalBoundary(): string | null {
+      const settings = server.config?.cycles ?? server.cycles;
+      const real = settings ? [...new Set(settings.boundaries)].sort() : [];
+      return real[0] ?? null;
+    }
+
+    /** The cycle running today, which is where the view opens. */
+    function currentCycle(): Cycle | null {
+      const settings = server.config?.cycles ?? server.cycles;
+      if (!settings) return null;
+      return upcomingCycles(settings.boundaries, todayIso(), CYCLES_SHOWN)[0] ?? null;
+    }
+
+    function activeCycle(): Cycle | null {
+      const cycles = allCycles();
+      if (!cycles.length) return null;
+      return cycles.find((c) => c.start === cycleStart) ?? currentCycle() ?? cycles[0];
+    }
+    /*
+     * Whether the administrator panel is open is the server's answer, not a
+     * flag this page keeps. Previously a value in sessionStorage decided it,
+     * which meant the page could show itself the panel; now it can only show
+     * what a session the server recognises entitles it to.
+     */
+
+    const grid = root.querySelector<HTMLElement>('[data-grid]')!;
+    const title = root.querySelector<HTMLElement>('[data-title]')!;
+    const badiYearEl = root.querySelector<HTMLElement>('[data-badi-year]')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+
+    // ---- navigation -------------------------------------------------------
+    function step(delta: number) {
+      if (view === 'cycle') {
+        // Stepping walks every cycle the stored dates cover, back as well as
+        // forward. It stops at the ends of that series rather than wrapping.
+        const cycles = allCycles();
+        const at = cycles.findIndex((c) => c.start === (activeCycle()?.start ?? ''));
+        const next = cycles[Math.min(cycles.length - 1, Math.max(0, at + delta))];
+        if (next) cycleStart = next.start;
+      } else if (view === 'badi') badiCursor = stepBadiMonth(badiCursor, delta);
+      else cursor = shiftMonth(cursor, delta);
+      void render();
+    }
+    root.querySelector('[data-nav="prev"]')!.addEventListener('click', () => step(-1));
+    root.querySelector('[data-nav="next"]')!.addEventListener('click', () => step(1));
+    root.querySelector('[data-nav="today"]')!.addEventListener('click', () => {
+      cursor = startOfMonth(todayIso());
+      const today = gregorianToBadi(todayIso());
+      badiCursor = { year: today.year, month: today.month };
+      cycleStart = currentCycle()?.start ?? null;
+      void render();
+    });
+
+    for (const button of root.querySelectorAll<HTMLButtonElement>('[data-view]')) {
+      button.addEventListener('click', () => {
+        if (button.disabled) return;
+        const next = button.dataset.view as View;
+        if (next === view) return;
+
+        /*
+         * Switching views keeps you where you were. Without this the other view
+         * stayed wherever it had last been left, so switching could jump months
+         * for no reason a reader could see.
+         *
+         * Anchored on the MIDDLE of what is on screen, not its first day. The
+         * two calendars are offset by around three weeks, so the first day of a
+         * Gregorian month usually falls in the previous Bahá'í one — anchoring
+         * there sent September to Asmá' and then back to August, having moved a
+         * month by standing still. A midpoint lands inside the corresponding
+         * period both ways, so switching and switching back returns you where
+         * you began.
+         *
+         * Ayyám-i-Há is the exception: four days cannot round-trip through a
+         * month, and nothing can make them.
+         */
+        const period = currentPeriod();
+        const anchor = addDays(period.first, Math.floor(daysBetween(period.first, period.last) / 2));
+        view = next;
+        if (next === 'badi') {
+          const at = gregorianToBadi(anchor);
+          badiCursor = { year: at.year, month: at.month };
+        } else if (next === 'gregorian') {
+          cursor = startOfMonth(anchor);
+        }
+
+        for (const other of root.querySelectorAll('[data-view]')) {
+          other.classList.toggle('is-current', other === button);
+          other.setAttribute('aria-current', String(other === button));
+        }
+        // The list is per-view, so it has to be redrawn even when the drawer is
+        // already open behind the switch.
+        syncPublicToggles();
+        void render();
+      });
+    }
+
+    // ---- drawer -----------------------------------------------------------
+    const drawer = root.querySelector<HTMLElement>('[data-drawer]')!;
+    const scrim = root.querySelector<HTMLElement>('[data-scrim]')!;
+    const burger = root.querySelector<HTMLButtonElement>('[data-open-drawer]')!;
+    const lock = root.querySelector<HTMLElement>('[data-lock]')!;
+    const panel = root.querySelector<HTMLElement>('[data-admin-panel]')!;
+
+    function openDrawer() {
+      drawer.hidden = false;
+      scrim.hidden = false;
+      burger.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => drawer.classList.add('is-open'));
+      syncPublicToggles();
+      syncLock();
+    }
+    function closeDrawer() {
+      drawer.classList.remove('is-open');
+      burger.setAttribute('aria-expanded', 'false');
+      setTimeout(() => {
+        drawer.hidden = true;
+        scrim.hidden = true;
+      }, 200);
+    }
+    burger.addEventListener('click', openDrawer);
+    scrim.addEventListener('click', closeDrawer);
+    root.querySelector('[data-close-drawer]')!.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !drawer.hidden) closeDrawer();
+    });
+
+    function syncLock() {
+      lock.hidden = server.admin;
+      panel.hidden = !server.admin;
+      if (server.admin) {
+        // The administrator's document — with addresses — only arrives once the
+        // server has recognised the session, so re-ask before drawing it.
+        void loadServerConfig().then(() => {
+          renderGoogleList();
+          syncLocationFields();
+          syncCycleFields();
+          void loadPasskeys();
+          syncPublicToggles();
+          void renderVerifyList();
+          void render();
+        });
+      }
+    }
+
+    /** The community's location, which sets the hours of the Fast. */
+    function syncLocationFields() {
+      const config = server.config;
+      if (!config) return;
+      const loc = config.location ?? DEFAULT_LOCATION;
+      root.querySelector<HTMLInputElement>('[data-loc-name]')!.value = loc.name;
+      root.querySelector<HTMLInputElement>('[data-loc-lat]')!.value = String(loc.latitude);
+      root.querySelector<HTMLInputElement>('[data-loc-lon]')!.value = String(loc.longitude);
+      root.querySelector<HTMLInputElement>('[data-loc-tz]')!.value = String(loc.utcOffsetHours);
+      showLocationPreview(loc);
+    }
+
+    /** Today's sunrise and sunset, so a wrong coordinate is obvious at once. */
+    function showLocationPreview(loc: CalendarLocation) {
+      const preview = root.querySelector<HTMLElement>('[data-loc-preview]')!;
+      const rise = sunriseHours(todayIso(), loc);
+      const set = sunsetHours(todayIso(), loc);
+      preview.textContent =
+        rise === null || set === null
+          ? 'The sun does not rise or set there today.'
+          : `Today in ${loc.name}: sunrise ${formatHours(rise)}, sunset ${formatHours(set)}.`;
+    }
+
+    for (const field of ['[data-loc-name]', '[data-loc-lat]', '[data-loc-lon]', '[data-loc-tz]']) {
+      root.querySelector(field)!.addEventListener('change', async () => {
+        const config = server.config;
+        if (!config) return;
+        const error = root.querySelector<HTMLElement>('[data-loc-error]')!;
+        error.hidden = true;
+        const next: CalendarLocation = {
+          name: root.querySelector<HTMLInputElement>('[data-loc-name]')!.value.trim() || 'here',
+          latitude: Number(root.querySelector<HTMLInputElement>('[data-loc-lat]')!.value),
+          longitude: Number(root.querySelector<HTMLInputElement>('[data-loc-lon]')!.value),
+          utcOffsetHours: Number(root.querySelector<HTMLInputElement>('[data-loc-tz]')!.value),
+        };
+        if (
+          !Number.isFinite(next.latitude) || Math.abs(next.latitude) > 90 ||
+          !Number.isFinite(next.longitude) || Math.abs(next.longitude) > 180 ||
+          !Number.isFinite(next.utcOffsetHours) || Math.abs(next.utcOffsetHours) > 14
+        ) {
+          error.textContent = 'Latitude must be within ±90, longitude ±180, and the offset ±14.';
+          error.hidden = false;
+          return;
+        }
+        config.location = next;
+        showLocationPreview(next);
+        if (await saveServerConfig(config)) void render();
+      });
+    }
+
+    // ---- planning cycles ---------------------------------------------------
+    const cycleState = root.querySelector<HTMLSelectElement>('[data-cycle-state]')!;
+    const cycleSource = root.querySelector<HTMLElement>('[data-cycle-source]')!;
+    const cycleLoad = root.querySelector<HTMLButtonElement>('[data-cycle-load]')!;
+    const cycleError = root.querySelector<HTMLElement>('[data-cycle-error]')!;
+    const cycleList = root.querySelector<HTMLElement>('[data-cycle-list]')!;
+    const phaseGrid = root.querySelector<HTMLElement>('[data-phase-grid]')!;
+    const planList = root.querySelector<HTMLElement>('[data-plan-list]')!;
+    const cycleWeekStart = root.querySelector<HTMLSelectElement>('[data-cycle-week-start]')!;
+
+    for (const state of AU_STATES) {
+      cycleState.insertAdjacentHTML(
+        'beforeend',
+        `<option value="${state.id}">${escapeHtml(state.name)}</option>`,
+      );
+    }
+
+    const cycleSettings = (): CycleSettings =>
+      server.config?.cycles ?? server.cycles ?? defaultCycleSettings();
+
+    async function saveCycles(next: CycleSettings) {
+      const config = server.config;
+      if (!config) return;
+      config.cycles = next;
+      if (await saveServerConfig(config)) {
+        syncCycleFields();
+        void render();
+      }
+    }
+
+    /**
+     * Say plainly where the dates came from and when they were read.
+     *
+     * A term date that has quietly gone stale is the failure worth guarding
+     * against, so the panel always shows its provenance rather than presenting
+     * the table as simply true.
+     */
+    function describeSource(settings: CycleSettings): string {
+      if (!settings.terms.length) {
+        return canLoadTerms(settings.state)
+          ? 'No dates yet — load them, or enter the cycles by hand below.'
+          : 'This state does not publish its term dates as data. Enter the cycles by hand below.';
+      }
+      const src = settings.termsSource;
+      const years = [...new Set(settings.terms.map((t) => t.year))].sort();
+      const span = years.length ? `${years[0]}–${years[years.length - 1]}` : '';
+      return src ? `${span} from ${src.name}, read ${src.checked}.` : `${span}, entered by hand.`;
+    }
+
+    function syncCycleFields() {
+      const settings = cycleSettings();
+      cycleState.value = settings.state;
+      cycleSource.textContent = describeSource(settings);
+      cycleLoad.hidden = !canLoadTerms(settings.state);
+      cycleWeekStart.value = String(settings.weekStart);
+      renderCycleList(settings);
+      renderPlanList(settings);
+      renderPhaseFields(settings);
+    }
+
+    /**
+     * The Plans, oldest first, each closed by the one after it.
+     *
+     * A Plan is removable because one can be entered wrongly, but removing the
+     * Plan a cycle belongs to leaves that cycle named by the Plan before it —
+     * so the list says which one is running rather than leaving it to be
+     * inferred from the dates.
+     */
+    function renderPlanList(settings: CycleSettings) {
+      const plans = sortPlans(settings.plans);
+      planList.innerHTML = '';
+      if (!plans.length) {
+        planList.innerHTML =
+          '<p class="cal-help cal-empty">No Plans. Cycles will be numbered only by date.</p>';
+        return;
+      }
+
+      const today = todayIso();
+      for (const plan of plans) {
+        const ends = planEnd(plan, plans);
+        const running = plan.start <= today && (!ends || ends >= today);
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-plan';
+        if (running) row.classList.add('is-current-cycle');
+        row.innerHTML =
+          `<span class="cal-plan-name">${escapeHtml(plan.name)}` +
+          `<small>${escapeHtml(formatLongDate(plan.start))} — ` +
+          `${ends ? escapeHtml(formatLongDate(ends)) : 'continuing'}` +
+          `${running ? ' · running' : ''}</small></span>` +
+          `<button type="button" class="cal-remove" data-drop-plan="${escapeHtml(plan.start)}">Remove</button>`;
+        planList.appendChild(row);
+      }
+
+      for (const button of planList.querySelectorAll<HTMLButtonElement>('[data-drop-plan]')) {
+        button.addEventListener('click', () => {
+          const settingsNow = cycleSettings();
+          void saveCycles({
+            ...settingsNow,
+            plans: settingsNow.plans.filter((p) => p.start !== button.dataset.dropPlan),
+          });
+        });
+      }
+    }
+
+    /**
+     * The dates on show: the cycle now running, and the eight after it.
+     *
+     * Boundaries already passed stay in the document — the current cycle's own
+     * start is one of them — but are not offered for editing, because there is
+     * nothing left to decide about them.
+     */
+    function visibleBoundaries(settings: CycleSettings): { from: number; slots: (string | undefined)[] } {
+      const all = [...new Set(settings.boundaries)].sort();
+      const today = todayIso();
+      let from = all.findIndex((b, i) => i + 1 >= all.length || all[i + 1] > today);
+      if (from < 0) from = Math.max(0, all.length - 1);
+      const slots: (string | undefined)[] = [];
+      for (let i = 0; i <= CYCLES_SHOWN; i += 1) slots.push(all[from + i]);
+      return { from, slots };
+    }
+
+    function writeSlots(settings: CycleSettings, slots: (string | undefined)[], from: number) {
+      const all = [...new Set(settings.boundaries)].sort();
+      const kept = all.slice(0, from);
+      const next = [...new Set([...kept, ...slots.filter((d): d is string => Boolean(d))])].sort();
+      void saveCycles({ ...settings, boundaries: next });
+    }
+
+    function renderCycleList(settings: CycleSettings) {
+      const { from, slots } = visibleBoundaries(settings);
+      const today = todayIso();
+      cycleList.innerHTML = '';
+
+      for (let i = 0; i < CYCLES_SHOWN; i += 1) {
+        const start = slots[i];
+        const next = slots[i + 1];
+        const end = next ? addDays(next, -1) : undefined;
+        const weeks = start && next ? Math.round(daysBetween(start, next) / 7) : null;
+        const current = Boolean(start && end && today >= start && today <= end);
+
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-cycle';
+        if (current) row.classList.add('is-current-cycle');
+        row.innerHTML =
+          `<span class="cal-cycle-no">${i + 1}</span>` +
+          `<input type="date" class="cal-cycle-input" value="${start ?? ''}" data-slot="${i}" />` +
+          `<span class="cal-cycle-span">${end ? escapeHtml(`to ${formatLongDate(end)}`) : '—'}` +
+          `<small>${weeks === null ? 'add the next date' : `${weeks} weeks${current ? ' · current' : ''}`}</small></span>`;
+        cycleList.appendChild(row);
+      }
+
+      // The date that closes the last cycle is itself the start of the one
+      // after, so it is offered rather than left as a gap somebody cannot fill.
+      cycleList.insertAdjacentHTML(
+        'beforeend',
+        '<div class="cal-item cal-cycle cal-cycle-next">' +
+          '<span class="cal-cycle-no">→</span>' +
+          `<input type="date" class="cal-cycle-input" value="${slots[CYCLES_SHOWN] ?? ''}" data-slot="${CYCLES_SHOWN}" />` +
+          '<span class="cal-cycle-span">next opens<small>closes the ninth</small></span></div>',
+      );
+
+      for (const input of cycleList.querySelectorAll<HTMLInputElement>('[data-slot]')) {
+        input.addEventListener('change', () => {
+          const settingsNow = cycleSettings();
+          const value = input.value;
+          if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) { syncCycleFields(); return; }
+          const nextSlots = [...visibleBoundaries(settingsNow).slots];
+          nextSlots[Number(input.dataset.slot)] = value || undefined;
+          writeSlots(settingsNow, nextSlots, from);
+        });
+      }
+    }
+
+    function renderPhaseFields(settings: CycleSettings) {
+      /*
+       * Redrawing replaces these controls, which would otherwise throw away
+       * the field being typed in mid-number. Whichever had focus is given it
+       * back, with the caret at the end so the next keystroke continues rather
+       * than overwrites.
+       */
+      const active = document.activeElement as HTMLElement | null;
+      const focused = active?.dataset?.phaseWeeks ?? active?.dataset?.phaseColour ?? null;
+      const focusedKind = active?.dataset?.phaseWeeks ? 'weeks' : 'colour';
+
+      const options = (selected: string) =>
+        PASTEL_COLOURS.map(
+          (c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${escapeHtml(c.label)}</option>`,
+        ).join('');
+
+      phaseGrid.innerHTML = PHASES.map((phase) => {
+        const weeks =
+          phase.id === 'expansion'
+            ? settings.phases.expansionWeeks
+            : phase.id === 'reflection'
+              ? settings.phases.reflectionWeeks
+              : null;
+        const swatch =
+          `<span class="cal-phase-swatch" style="background:${pastelValue(settings.phaseColours[phase.id])}"></span>`;
+        return (
+          `<div class="cal-phase-row">` +
+          `${swatch}<span class="cal-phase-name">${escapeHtml(phase.name)}</span>` +
+          (weeks === null
+            ? '<span class="cal-phase-weeks cal-phase-rest">the rest</span>'
+            : `<input type="number" min="0" max="20" class="cal-phase-weeks" value="${weeks}" data-phase-weeks="${phase.id}" />`) +
+          `<select data-phase-colour="${phase.id}">${options(settings.phaseColours[phase.id])}</select>` +
+          `</div>`
+        );
+      }).join('');
+
+      /*
+       * Redraw as the number is typed, not only when the field is left.
+       *
+       * A number field fires `change` on blur or Enter, never on a keystroke.
+       * Planning & Reflection is the last control in this section, so there is
+       * often nothing to tab to and the field keeps focus — you type 4, look at
+       * the calendar, and nothing has happened. Expansion appeared to work only
+       * because reaching for the next control blurred it.
+       *
+       * A short wait keeps a two-digit number from being saved as its first
+       * digit on the way past.
+       */
+      let weeksTimer = 0;
+      const applyWeeks = (input: HTMLInputElement) => {
+        const settingsNow = cycleSettings();
+        const value = Math.max(0, Math.min(20, Math.floor(Number(input.value) || 0)));
+        const phases = { ...settingsNow.phases };
+        if (input.dataset.phaseWeeks === 'expansion') phases.expansionWeeks = value;
+        else phases.reflectionWeeks = value;
+        if (phases.expansionWeeks === settingsNow.phases.expansionWeeks
+            && phases.reflectionWeeks === settingsNow.phases.reflectionWeeks) return;
+        void saveCycles({ ...settingsNow, phases });
+      };
+
+      for (const input of phaseGrid.querySelectorAll<HTMLInputElement>('[data-phase-weeks]')) {
+        input.addEventListener('input', () => {
+          window.clearTimeout(weeksTimer);
+          // An empty field is a number half-typed, not a request for zero weeks.
+          if (input.value.trim() === '') return;
+          weeksTimer = window.setTimeout(() => applyWeeks(input), 400);
+        });
+        input.addEventListener('change', () => {
+          window.clearTimeout(weeksTimer);
+          applyWeeks(input);
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { window.clearTimeout(weeksTimer); applyWeeks(input); }
+        });
+      }
+      for (const select of phaseGrid.querySelectorAll<HTMLSelectElement>('[data-phase-colour]')) {
+        select.addEventListener('change', () => {
+          const settingsNow = cycleSettings();
+          void saveCycles({
+            ...settingsNow,
+            phaseColours: {
+              ...settingsNow.phaseColours,
+              [select.dataset.phaseColour as PhaseId]: select.value,
+            },
+          });
+        });
+      }
+
+      if (focused) {
+        const selector = focusedKind === 'weeks'
+          ? `[data-phase-weeks="${focused}"]`
+          : `[data-phase-colour="${focused}"]`;
+        // Focus only. setSelectionRange throws on a number input — the caret
+        // cannot be placed in one — and the exception aborted this function
+        // before it attached a single listener, which stopped the phase
+        // controls responding at all.
+        phaseGrid.querySelector<HTMLElement>(selector)?.focus();
+      }
+    }
+
+    /*
+     * Re-read the bundled table.
+     *
+     * The dates are stored once and then belong to the Assembly, which is what
+     * lets them be corrected by hand — but it also means a table that has since
+     * been extended will not appear on its own. This says "take the shipped
+     * dates again", and is the only way back to them short of changing state
+     * and changing it back.
+     */
+    root.querySelector('[data-cycle-reset-terms]')!.addEventListener('click', () => {
+      const settings = cycleSettings();
+      const bundled = BUNDLED_TERMS[settings.state];
+      const error = root.querySelector<HTMLElement>('[data-cycle-error]')!;
+      if (!bundled) {
+        error.textContent = 'No dates ship for that state. Enter the cycles by hand.';
+        error.hidden = false;
+        return;
+      }
+      if (!window.confirm(
+        'Replace the cycle dates with the dates that ship for this state? Any you have edited by hand will be lost.',
+      )) return;
+      error.hidden = true;
+      void saveCycles({
+        ...settings,
+        terms: bundled.map((t) => ({ ...t })),
+        termsSource: TERM_SOURCES[settings.state],
+        boundaries: boundariesFromTerms(bundled),
+      });
+    });
+
+    cycleWeekStart.addEventListener('change', () => {
+      void saveCycles({ ...cycleSettings(), weekStart: Number(cycleWeekStart.value) as WeekDay });
+    });
+
+    root.querySelector('[data-add-plan]')!.addEventListener('click', () => {
+      const nameInput = root.querySelector<HTMLInputElement>('[data-new-plan-name]')!;
+      const startInput = root.querySelector<HTMLInputElement>('[data-new-plan-start]')!;
+      const error = root.querySelector<HTMLElement>('[data-plan-error]')!;
+      const name = nameInput.value.trim();
+      const start = startInput.value;
+      error.hidden = true;
+
+      if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+        error.textContent = 'A Plan needs both a name and the Riḍván it begins on.';
+        error.hidden = false;
+        return;
+      }
+      const settings = cycleSettings();
+      if (settings.plans.some((p) => p.start === start)) {
+        error.textContent = 'A Plan already begins on that day.';
+        error.hidden = false;
+        return;
+      }
+      nameInput.value = '';
+      startInput.value = '';
+      void saveCycles({ ...settings, plans: sortPlans([...settings.plans, { name, start }]) });
+    });
+
+    cycleState.addEventListener('change', () => {
+      const state = cycleState.value;
+      if (!isAuState(state)) return;
+      const bundled = BUNDLED_TERMS[state];
+      // Changing state must not leave the previous state's dates in place —
+      // that would silently plan the community's year to another state's terms.
+      void saveCycles({
+        ...cycleSettings(),
+        state,
+        terms: bundled ? bundled.map((t) => ({ ...t })) : [],
+        termsSource: bundled ? TERM_SOURCES[state] : undefined,
+        boundaries: bundled ? boundariesFromTerms(bundled) : [],
+      });
+    });
+
+    cycleLoad.addEventListener('click', async () => {
+      const settings = cycleSettings();
+      cycleError.hidden = true;
+      cycleLoad.disabled = true;
+      cycleLoad.textContent = 'Loading…';
+      try {
+        const res = await fetch(`/api/school-terms.json?state=${settings.state}`);
+        const body = (await res.json()) as
+          { ok: true; terms: SchoolTerm[]; source: TermSource } | { ok: false; error: string };
+        if (!body.ok) {
+          cycleError.textContent = body.error;
+          cycleError.hidden = false;
+          return;
+        }
+        await saveCycles({
+          ...cycleSettings(),
+          terms: body.terms,
+          termsSource: body.source,
+          boundaries: boundariesFromTerms(body.terms),
+        });
+      } catch {
+        cycleError.textContent = 'Could not reach the catalogue.';
+        cycleError.hidden = false;
+      } finally {
+        cycleLoad.disabled = false;
+        cycleLoad.textContent = 'Load term dates';
+      }
+    });
+
+    // ---- passkeys ----------------------------------------------------------
+
+    const passkeyList = root.querySelector<HTMLElement>('[data-passkey-list]')!;
+    const passkeyError = root.querySelector<HTMLElement>('[data-passkey-error]')!;
+    const passkeyRequire = root.querySelector<HTMLInputElement>('[data-passkey-require]')!;
+    const passkeyPolicyNote = root.querySelector<HTMLElement>('[data-passkey-policy-note]')!;
+
+    interface PasskeySummary { id: string; name: string; createdAt: string; lastUsedAt?: string }
+
+    const supportsPasskeys = () =>
+      typeof PublicKeyCredential !== 'undefined' && Boolean(navigator.credentials);
+
+    async function passkeyCall(payload: Record<string, unknown>) {
+      const res = await fetch('/api/passkey.json', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return (await res.json()) as Record<string, unknown>;
+    }
+
+    function showPasskeyError(message: string) {
+      passkeyError.textContent = message;
+      passkeyError.hidden = false;
+    }
+
+    /** Whether the Worker actually holds a recovery secret. Set by loadPasskeys. */
+    let recoveryConfigured: boolean | null = null;
+
+    function renderRecoveryNote() {
+      const note = root.querySelector<HTMLElement>('[data-passkey-recovery]')!;
+      if (recoveryConfigured === null) { note.textContent = ''; return; }
+      note.textContent = recoveryConfigured
+        ? 'A recovery code is set on the Worker.'
+        : 'No recovery code is set on the Worker. Add ADMIN_RECOVERY_CODE before '
+          + 'retiring the code, or losing every enrolled device would mean losing access.';
+      note.classList.toggle('cal-warn', !recoveryConfigured);
+    }
+
+    function renderPasskeys(passkeys: PasskeySummary[], policy?: { requirePasskey: boolean }) {
+      passkeyList.innerHTML = '';
+      if (!passkeys.length) {
+        passkeyList.innerHTML =
+          '<p class="cal-help cal-empty">No passkeys yet. The administrator code still signs you in.</p>';
+      }
+      for (const key of passkeys) {
+        const row = document.createElement('div');
+        row.className = 'cal-item cal-plan';
+        row.innerHTML =
+          `<span class="cal-plan-name">${escapeHtml(key.name)}` +
+          `<small>added ${escapeHtml(key.createdAt)}` +
+          `${key.lastUsedAt ? ` · last used ${escapeHtml(key.lastUsedAt)}` : ' · not yet used'}</small></span>` +
+          `<button type="button" class="cal-remove" data-drop-passkey="${escapeHtml(key.id)}">Remove</button>`;
+        passkeyList.appendChild(row);
+      }
+      if (policy) {
+        passkeyRequire.checked = policy.requirePasskey;
+        passkeyRequire.disabled = !passkeys.length && !policy.requirePasskey;
+        // The tick stays available once set, because it is the only way to
+        // allow the code again. Removing it would make the decision one-way,
+        // and a door with no handle on the inside is not a safer door.
+        passkeyPolicyNote.textContent = policy.requirePasskey
+          ? 'The code no longer signs anyone in. Untick to allow it again — this '
+            + 'is the only way back to it. If every enrolled device is lost, the '
+            + 'recovery code set on the Worker is what remains.'
+          : passkeys.length
+            ? 'The code still works. Retire it once every administrator has enrolled.'
+            : 'Enrol a passkey before this can be turned on.';
+      }
+
+      for (const button of passkeyList.querySelectorAll<HTMLButtonElement>('[data-drop-passkey]')) {
+        button.addEventListener('click', async () => {
+          const name = button.closest('.cal-plan')?.querySelector('.cal-plan-name')?.textContent ?? 'this passkey';
+          if (!window.confirm(`Remove ${name}? That device will no longer sign in.`)) return;
+          passkeyError.hidden = true;
+          const body = await passkeyCall({ action: 'remove', id: button.dataset.dropPasskey });
+          if (!body.ok) { showPasskeyError(String(body.error ?? 'Could not remove it.')); return; }
+          renderPasskeys(body.passkeys as PasskeySummary[], await currentPolicy());
+        });
+      }
+    }
+
+    async function currentPolicy(): Promise<{ requirePasskey: boolean }> {
+      const body = await passkeyCall({ action: 'list' });
+      return (body.policy as { requirePasskey: boolean }) ?? { requirePasskey: false };
+    }
+
+    async function loadPasskeys() {
+      if (!server.admin) return;
+      const body = await passkeyCall({ action: 'list' });
+      if (body.ok) {
+        recoveryConfigured = body.recoveryConfigured === true;
+        renderPasskeys(body.passkeys as PasskeySummary[], body.policy as { requirePasskey: boolean });
+        renderRecoveryNote();
+      }
+    }
+
+    root.querySelector('[data-passkey-add]')!.addEventListener('click', async () => {
+      passkeyError.hidden = true;
+      if (!supportsPasskeys()) {
+        showPasskeyError('This browser cannot make a passkey.');
+        return;
+      }
+      const nameInput = root.querySelector<HTMLInputElement>('[data-passkey-name]')!;
+      const name = nameInput.value.trim() || 'Passkey';
+      try {
+        const started = await passkeyCall({ action: 'register-start' });
+        if (!started.ok) { showPasskeyError(String(started.error ?? 'Could not start.')); return; }
+        const o = started.options as Record<string, any>;
+
+        const created = (await navigator.credentials.create({
+          publicKey: {
+            ...o,
+            challenge: b64uToBytes(o.challenge),
+            user: { ...o.user, id: b64uToBytes(o.user.id) },
+            excludeCredentials: (o.excludeCredentials ?? []).map((c: any) => ({
+              ...c, id: b64uToBytes(c.id),
+            })),
+          },
+        })) as PublicKeyCredential | null;
+        if (!created) { showPasskeyError('No passkey was made.'); return; }
+        const response = created.response as AuthenticatorAttestationResponse;
+
+        const finished = await passkeyCall({
+          action: 'register-finish',
+          name,
+          credentialId: created.id,
+          clientDataJSON: bytesToB64u(new Uint8Array(response.clientDataJSON)),
+          attestationObject: bytesToB64u(new Uint8Array(response.attestationObject)),
+        });
+        if (!finished.ok) { showPasskeyError(String(finished.error ?? 'Could not enrol it.')); return; }
+        nameInput.value = '';
+        renderPasskeys(finished.passkeys as PasskeySummary[], await currentPolicy());
+      } catch (err) {
+        /*
+         * InvalidStateError has one meaning here, and it is not a fault: this
+         * authenticator already holds a passkey for this calendar, so the
+         * browser refused to make a second. It happens the first time somebody
+         * reaches for their phone after enrolling on a Mac — the passkey went
+         * into iCloud Keychain and the phone already has it. The raw wording,
+         * "the object is in an invalid state", says none of that.
+         */
+        const name = (err as Error).name;
+        const message = name === 'NotAllowedError'
+          ? 'That was cancelled, or took too long.'
+          : name === 'InvalidStateError'
+            ? 'This device already has a passkey for this calendar — it will have '
+              + 'synced from another of your devices. It can sign in already; there '
+              + 'is nothing to add.'
+            : name === 'NotSupportedError'
+              ? 'This device cannot make a passkey of the kind this calendar asks for.'
+              : 'The passkey could not be made on this device.';
+        showPasskeyError(message);
+      }
+    });
+
+    passkeyRequire.addEventListener('change', async () => {
+      passkeyError.hidden = true;
+      // Retiring the code with no way back is allowed, but not by accident.
+      if (passkeyRequire.checked && recoveryConfigured === false
+          && !window.confirm(
+            'No recovery code is set on the Worker. If every enrolled device is lost, '
+            + 'nobody will be able to sign in as an administrator. Retire the code anyway?',
+          )) {
+        passkeyRequire.checked = false;
+        return;
+      }
+      const body = await passkeyCall({ action: 'policy', requirePasskey: passkeyRequire.checked });
+      if (!body.ok) {
+        passkeyRequire.checked = !passkeyRequire.checked;
+        showPasskeyError(String(body.error ?? 'Could not change that.'));
+        return;
+      }
+      await loadPasskeys();
+    });
+
+    const verifyList = root.querySelector<HTMLElement>('[data-verify-list]')!;
+    const verifyWindow = root.querySelector<HTMLSelectElement>('[data-verify-window]')!;
+    verifyWindow.addEventListener('change', () => void renderVerifyList());
+
+    /** List the occurrences still resting on a calculation, so they can be confirmed. */
+    async function renderVerifyList() {
+      const months = Number(verifyWindow.value) || 12;
+      const from = todayIso();
+      const to = shiftMonth(startOfMonth(from), months);
+      verifyList.innerHTML = '<p class="cal-help">Loading…</p>';
+      let occurrences: Occurrence[];
+      try {
+        const res = await fetch(`/api/holy-days.json?from=${from}&to=${to}`);
+        occurrences = ((await res.json()) as { occurrences: Occurrence[] }).occurrences;
+      } catch {
+        verifyList.innerHTML = '<p class="cal-help">Could not load dates.</p>';
+        return;
+      }
+      const pending = occurrences.filter((o) => o.confidence === 'approximate');
+      const verified = occurrences.filter((o) => o.confidence === 'verified').length;
+
+      if (!pending.length) {
+        verifyList.innerHTML = `<p class="cal-help">Every date in this window is exact or confirmed${verified ? ` (${verified} confirmed)` : ''}.</p>`;
+        return;
+      }
+      verifyList.innerHTML =
+        `<p class="cal-help">${pending.length} calculated ${pending.length === 1 ? 'date' : 'dates'}${verified ? `, ${verified} already confirmed` : ''}.</p>` +
+        pending
+          .map(
+            (o) => `
+            <div class="cal-item cal-verify-row">
+              <div class="cal-verify-name">${escapeHtml(o.name)}</div>
+              <div class="cal-desc">${formatLongDate(o.date)}${o.endDate ? ` – ${formatLongDate(o.endDate)}` : ''}</div>
+              <button type="button" class="cal-key" data-copy-key="${escapeHtml(o.calendarId)}:${escapeHtml(o.key)}">
+                ${escapeHtml(o.calendarId)}:${escapeHtml(o.key)}
+              </button>
+            </div>`,
+          )
+          .join('');
+    }
+
+    verifyList.addEventListener('click', async (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-copy-key]');
+      if (!btn) return;
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copyKey!);
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => (btn.textContent = original), 1200);
+      } catch {
+        /* clipboard unavailable — the reference is still visible to select */
+      }
+    });
+
+    const adminInput = root.querySelector<HTMLInputElement>('[data-admin-input]')!;
+    const adminError = root.querySelector<HTMLElement>('[data-admin-error]')!;
+    // The code is held in a Worker secret and checked on the server — it is
+    // never sent to the browser, so it cannot be read out of the page.
+    async function tryUnlock() {
+      adminError.hidden = true;
+      try {
+        const res = await fetch('/api/calendar-admin.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ code: adminInput.value }),
+        });
+        const body = (await res.json()) as { ok?: boolean; error?: string };
+        if (!body.ok) {
+          adminError.textContent = body.error ?? 'That code was not recognised.';
+          adminError.hidden = false;
+          return;
+        }
+        adminInput.value = '';
+        // The cookie the server just set is what makes this an administrator;
+        // asking again is how the page finds out.
+        await loadServerConfig();
+        syncLock();
+      } catch {
+        adminError.textContent = 'Could not check the code just now.';
+        adminError.hidden = false;
+      }
+    }
+    // Offered only when there is a passkey to use, so nobody is sent to a
+    // dialog that can only disappoint them.
+    const adminPasskeyBlock = root.querySelector<HTMLElement>('[data-admin-passkey]')!;
+    void (async () => {
+      if (typeof PublicKeyCredential === 'undefined' || !navigator.credentials) return;
+      try {
+        const body = (await (await fetch('/api/passkey.json')).json()) as { available?: boolean };
+        adminPasskeyBlock.hidden = !body.available;
+      } catch { /* leave it hidden */ }
+    })();
+
+    root.querySelector('[data-admin-passkey-use]')!.addEventListener('click', async () => {
+      adminError.hidden = true;
+      const body = await passkeySignIn();
+      if (!body.ok) {
+        if (body.error) { adminError.textContent = body.error; adminError.hidden = false; }
+        return;
+      }
+      await loadServerConfig();
+      syncLock();
+      syncPublicToggles();
+      void render();
+    });
+
+    root.querySelector('[data-admin-submit]')!.addEventListener('click', () => void tryUnlock());
+    adminInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void tryUnlock();
+    });
+
+    // ---- generated calendar settings --------------------------------------
+    /**
+     * The reader-facing on/off list, gathered under section headings and
+     * rearrangeable by dragging.
+     *
+     * Rebuilt whenever the drawer opens, because Google calendars are
+     * interleaved with the generated ones and an administrator may have just
+     * added or removed one.
+     */
+    const publicList = root.querySelector<HTMLElement>('[data-public-list]')!;
+
+    const weekStartSelect = root.querySelector<HTMLSelectElement>('[data-week-start]')!;
+    weekStartSelect.addEventListener('change', () => {
+      // The cycle view's is the Assembly's setting; the control is disabled
+      // there, and this guard keeps that true however the event arrived.
+      if (view === 'cycle') return;
+      prefs.weekStart[view] = Number(weekStartSelect.value);
+      savePrefs(prefs);
+      void render();
+    });
+
+    function syncPublicToggles() {
+      const entries = listed();
+      root.querySelector<HTMLElement>('[data-show-heading]')!.textContent =
+        `Show Calendars for ${VIEW_LABELS[view]} View`;
+      weekStartSelect.value = String(weekStartFor(view));
+      // Shown rather than hidden in the cycle view, so the grid's shape is
+      // explained instead of merely fixed.
+      weekStartSelect.disabled = view === 'cycle';
+      const weekNote = root.querySelector<HTMLElement>('[data-week-start-note]')!;
+      weekNote.hidden = view !== 'cycle';
+      publicList.innerHTML = '';
+
+      for (const section of CALENDAR_SECTIONS) {
+        const inSection = entries.filter((e) => e.section === section.id);
+        const block = document.createElement('details');
+        block.className = 'cal-section';
+        block.open = prefs.sectionsOpen[section.id] !== false;
+        block.dataset.section = section.id;
+        block.innerHTML =
+          `<summary>${escapeHtml(section.label)}` +
+          `<span class="cal-section-count">${inSection.length}</span></summary>` +
+          '<div class="cal-list" data-drop></div>';
+        block.addEventListener('toggle', () => {
+          prefs.sectionsOpen[section.id] = block.open;
+          savePrefs(prefs);
+        });
+
+        const list = block.querySelector<HTMLElement>('[data-drop]')!;
+
+        if (!inSection.length) {
+          list.innerHTML = '<p class="cal-help cal-empty">Drag a calendar here.</p>';
+        }
+
+        for (const entry of inSection) {
+          const on = isEnabled(entry.id);
+
+          const row = document.createElement('div');
+          row.className = 'cal-item cal-toggle-row';
+          row.draggable = server.admin;
+          row.dataset.id = entry.id;
+          row.innerHTML =
+            (server.admin ? '<span class="cal-grip" aria-hidden="true">⠿</span>' : '') +
+            `<label class="cal-toggle"><input type="checkbox" ${on ? 'checked' : ''} />` +
+            `<span class="cal-toggle-name">${escapeHtml(entry.name)}</span></label>` +
+            (entry.confidence === 'approximate' ? '<span class="cal-tag">approximate</span>' : '');
+
+          row.querySelector('input')!.addEventListener('change', (e) => {
+            // Recorded against the view being looked at, not globally.
+            (prefs.enabled[view] ??= {})[entry.id] = (e.target as HTMLInputElement).checked;
+            savePrefs(prefs);
+            void render();
+          });
+          list.appendChild(row);
+        }
+        publicList.appendChild(block);
+      }
+      wireDragging();
+    }
+
+    /**
+     * Drag to reorder, and to move a calendar between sections.
+     *
+     * Order is held as one flat list of ids spanning every section, so a
+     * calendar dropped into a different section both moves and lands in the
+     * right place within it.
+     */
+    let dragging: string | null = null;
+
+    function wireDragging() {
+      // Only an administrator may rearrange, so only they get the handles.
+      if (!server.admin) return;
+      for (const row of publicList.querySelectorAll<HTMLElement>('[data-id]')) {
+        row.addEventListener('dragstart', (e) => {
+          dragging = row.dataset.id!;
+          row.classList.add('is-dragging');
+          (e as DragEvent).dataTransfer?.setData('text/plain', dragging);
+        });
+        row.addEventListener('dragend', () => {
+          dragging = null;
+          row.classList.remove('is-dragging');
+          for (const el of publicList.querySelectorAll('.is-over')) el.classList.remove('is-over');
+        });
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (dragging && dragging !== row.dataset.id) row.classList.add('is-over');
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('is-over'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          row.classList.remove('is-over');
+          if (!dragging || dragging === row.dataset.id) return;
+          const section = row.closest<HTMLElement>('[data-section]')!.dataset.section!;
+          void dropOnto(dragging, row.dataset.id!, section);
+        });
+      }
+      // Dropping on the section itself appends to its end, which is the only
+      // way to reach a section that is currently empty.
+      for (const block of publicList.querySelectorAll<HTMLElement>('[data-section]')) {
+        block.addEventListener('dragover', (e) => e.preventDefault());
+        block.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (dragging) void dropOnto(dragging, null, block.dataset.section!);
+        });
+      }
+    }
+
+    /**
+     * Reordering is an administrator's act, not a reader's: the order and the
+     * sections are how the community presents its calendars, the same for
+     * everyone. Readers choose only what to switch on.
+     */
+    async function dropOnto(movedId: string, beforeId: string | null, section: string) {
+      if (!server.admin || !server.config) return;
+      const ids = listed().map((e) => e.id);
+      const without = ids.filter((id) => id !== movedId);
+      const at = beforeId ? without.indexOf(beforeId) : -1;
+      without.splice(at === -1 ? without.length : at, 0, movedId);
+
+      const config = server.config;
+      without.forEach((id, index) => {
+        const entry = config.calendars.find((c) => c.id === id);
+        if (entry) entry.position = (index + 1) * 10;
+      });
+      const moved = config.calendars.find((c) => c.id === movedId);
+      if (moved) moved.section = section as 'bahai' | 'interfaith' | 'secular';
+
+      await saveServerConfig(config);
+      syncPublicToggles();
+      void render();
+    }
+
+    /** Write the shared document back. Refused by the server below admin. */
+    async function saveServerConfig(config: StoredConfig): Promise<boolean> {
+      try {
+        const res = await fetch('/api/calendar-config.json', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        if (!res.ok) return false;
+        const body = (await res.json()) as { ok: boolean; config: StoredConfig };
+        if (!body.ok) return false;
+        server = { ...server, config: body.config, calendars: adminView(body.config) };
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+
+    // ---- Google calendars --------------------------------------------------
+    const googleList = root.querySelector<HTMLElement>('[data-google-list]')!;
+    const googleError = root.querySelector<HTMLElement>('[data-google-error]')!;
+
+    function renderGoogleList() {
+      googleList.innerHTML = '';
+      const config = server.config;
+      if (!config) {
+        googleList.innerHTML = '<p class="cal-help">Sign in as an administrator to manage calendars.</p>';
+        return;
+      }
+      const linked = config.calendars.filter((c) => c.kind === 'linked');
+      if (!linked.length) {
+        googleList.innerHTML = '<p class="cal-help">No calendars linked yet.</p>';
+        return;
+      }
+
+      for (const cal of linked) {
+        const fixed = isSeededCalendar(cal.id);
+        const row = document.createElement('details');
+        row.className = 'cal-item';
+        row.innerHTML = `
+          <summary>
+            <span class="cal-dot" data-g-dot style="--dot:${calendarColour(cal.colour)}"></span>
+            <span class="cal-toggle-name">${escapeHtml(cal.name ?? cal.id)}</span>
+            <span class="cal-tag">${cal.icsUrl?.trim() ? 'connected' : 'no address'}</span>
+          </summary>
+          <label class="cal-field">
+            Display name
+            <input type="text" data-g-name value="${escapeHtml(cal.name ?? '')}" />
+          </label>
+          <label class="cal-field">
+            View label
+            <input type="text" data-g-view value="${escapeHtml(cal.viewLabel ?? '')}" placeholder="Show full detail" />
+            <small>Shown instead of each event's real title, to anyone below the detail tier.</small>
+          </label>
+          <label class="cal-field">
+            Private iCal address
+            <input type="url" data-g-url value="${escapeHtml(cal.icsUrl ?? '')}"
+              placeholder="https://calendar.google.com/… or https://outlook.office365.com/…" />
+          </label>
+          <label class="cal-field">
+            Who can see this calendar
+            <select data-g-visibility>
+              ${TIERS.map((t) => `<option value="${t}"${cal.visibility === t ? ' selected' : ''}>${TIER_LABELS[t]}</option>`).join('')}
+            </select>
+          </label>
+          <label class="cal-field">
+            Who sees real event titles
+            <select data-g-detail>
+              ${TIERS.map((t) => `<option value="${t}"${cal.detailFrom === t ? ' selected' : ''}>${TIER_LABELS[t]}</option>`).join('')}
+            </select>
+            <small>Below this, the view label is sent instead — the real title never leaves the server.</small>
+          </label>
+          <div class="cal-field">
+            Colour
+            <div class="cal-swatches" data-g-colours>
+              ${CALENDAR_COLOURS.map(
+                (c) =>
+                  `<button type="button" class="cal-swatch${(cal.colour ?? 'blue') === c.id ? ' is-current' : ''}"` +
+                  ` data-colour="${c.id}" style="background:${c.value}" title="${c.label}">` +
+                  `<span class="sr-only">${c.label}</span></button>`,
+              ).join('')}
+            </div>
+          </div>
+          <p class="cal-error" data-g-error hidden></p>
+          ${
+            fixed
+              ? '<p class="cal-desc cal-fixed">Always available — the Feast and the Holy Days are ' +
+                'fixtures of community life, so this cannot be removed. Clear the address to hide it.</p>'
+              : '<button type="button" class="cal-remove" data-g-remove>Remove this calendar</button>'
+          }`;
+
+        const err = row.querySelector<HTMLElement>('[data-g-error]')!;
+        const urlInput = row.querySelector<HTMLInputElement>('[data-g-url]')!;
+        const summaryName = row.querySelector<HTMLElement>('.cal-toggle-name')!;
+        const summaryTag = row.querySelector<HTMLElement>('.cal-tag')!;
+        const summaryDot = row.querySelector<HTMLElement>('[data-g-dot]')!;
+
+        const commit = async () => {
+          const url = urlInput.value.trim();
+          err.hidden = true;
+          if (url && !isSupportedFeedUrl(url)) {
+            err.textContent =
+              'That must be a Google Calendar or Outlook iCal address (calendar.google.com or outlook.office365.com).';
+            err.hidden = false;
+            return;
+          }
+          cal.name = row.querySelector<HTMLInputElement>('[data-g-name]')!.value.trim() || cal.name;
+          cal.viewLabel = row.querySelector<HTMLInputElement>('[data-g-view]')!.value.trim();
+          cal.icsUrl = url;
+          cal.visibility = row.querySelector<HTMLSelectElement>('[data-g-visibility]')!.value as Tier;
+          cal.detailFrom = row.querySelector<HTMLSelectElement>('[data-g-detail]')!.value as Tier;
+
+          // Updated in place rather than by rebuilding the list, which would
+          // replace the row being edited and throw away focus mid-edit.
+          summaryName.textContent = cal.name ?? cal.id;
+          summaryTag.textContent = cal.icsUrl.trim() ? 'connected' : 'no address';
+
+          if (!(await saveServerConfig(config))) {
+            err.textContent = 'Could not save. Your administrator session may have expired.';
+            err.hidden = false;
+            return;
+          }
+          syncPublicToggles();
+          void render();
+        };
+        for (const input of row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
+          input.addEventListener('change', () => void commit());
+        }
+
+        row.querySelector('[data-g-colours]')!.addEventListener('click', (e) => {
+          const swatch = (e.target as HTMLElement).closest<HTMLElement>('[data-colour]');
+          if (!swatch) return;
+          cal.colour = swatch.dataset.colour!;
+          for (const other of row.querySelectorAll('.cal-swatch')) {
+            other.classList.toggle('is-current', other === swatch);
+          }
+          summaryDot.style.setProperty('--dot', calendarColour(cal.colour));
+          void saveServerConfig(config).then(() => {
+            syncPublicToggles();
+            void render();
+          });
+        });
+
+        row.querySelector('[data-g-remove]')?.addEventListener('click', async () => {
+          const ok = window.confirm(
+            `Remove \u201c${cal.name}\u201d from this calendar?\n\n` +
+              'The calendar itself is not deleted — it stays in Google or Outlook. ' +
+              'Only the link to it is removed from here, along with its address.',
+          );
+          if (!ok) return;
+          config.calendars = config.calendars.filter((c) => c.id !== cal.id);
+          await saveServerConfig(config);
+          renderGoogleList();
+          syncPublicToggles();
+          void render();
+        });
+        googleList.appendChild(row);
+      }
+    }
+
+    root.querySelector('[data-add-google]')!.addEventListener('click', async () => {
+      const nameEl = root.querySelector<HTMLInputElement>('[data-new-name]')!;
+      const urlEl = root.querySelector<HTMLInputElement>('[data-new-url]')!;
+      const viewEl = root.querySelector<HTMLInputElement>('[data-new-view-label]')!;
+      const name = nameEl.value.trim();
+      const icsUrl = urlEl.value.trim();
+      googleError.hidden = true;
+      if (!server.config) return;
+      if (!name || !icsUrl) {
+        googleError.textContent = 'A name and an iCal address are both needed.';
+        googleError.hidden = false;
+        return;
+      }
+      if (!isSupportedFeedUrl(icsUrl)) {
+        googleError.textContent =
+          'That must be a Google Calendar or Outlook iCal address (calendar.google.com or outlook.office365.com).';
+        googleError.hidden = false;
+        return;
+      }
+      const config = server.config;
+      config.calendars.push({
+        id: `c${Date.now().toString(36)}`,
+        kind: 'linked',
+        name,
+        icsUrl,
+        viewLabel: viewEl.value.trim(),
+        colour: 'blue',
+        section: 'bahai',
+        // A newly linked calendar starts closed. Opening it up has to be a
+        // decision, not something that happens by pasting an address.
+        visibility: 'assembly',
+        detailFrom: 'assembly',
+        position: Math.max(0, ...config.calendars.map((c) => c.position)) + 10,
+      });
+      if (!(await saveServerConfig(config))) {
+        googleError.textContent = 'Could not save. Your administrator session may have expired.';
+        googleError.hidden = false;
+        return;
+      }
+      nameEl.value = '';
+      urlEl.value = '';
+      viewEl.value = '';
+      renderGoogleList();
+      syncPublicToggles();
+      void render();
+    });
+
+    root.querySelector('[data-copy-config]')!.addEventListener('click', async () => {
+      const copied = root.querySelector<HTMLElement>('[data-copied]')!;
+      try {
+        // The whole shared document, addresses included — an administrator can
+        // already see those, and a backup without them would be no use.
+        await navigator.clipboard.writeText(JSON.stringify(server.config ?? {}, null, 2));
+        copied.hidden = false;
+        setTimeout(() => (copied.hidden = true), 2000);
+      } catch {
+        /* clipboard unavailable — nothing useful to do */
+      }
+    });
+
+    // ---- rendering ---------------------------------------------------------
+    /**
+     * What the grid is showing: the span of days, whether a day belongs to the
+     * period on display or is spilling in from the one either side, and how to
+     * head each cell.
+     *
+     * Both views draw the same seven-column grid of the same entries. They
+     * differ only in where the period starts and ends, and in which of the two
+     * dates a cell leads with — the Gregorian view leads with the Gregorian
+     * numeral, the Badí‘ view with the Badí‘ day, because that is what a reader
+     * came to that view for.
+     */
+    function currentPeriod() {
+      if (view === 'cycle') {
+        const cycle = activeCycle();
+        if (!cycle) {
+          const first = startOfMonth(todayIso());
+          return { first, last: addDays(shiftMonth(first, 1), -1), title: 'Cycle', subtitle: 'No cycle dates have been set.' };
+        }
+        const settings = server.config?.cycles ?? server.cycles;
+        const naming = nameCycle(cycle.start, cycle.end, settings?.plans ?? []);
+        // Cycles before the term dates carry the Plan's quarters, not the
+        // weeks this community actually worked to. Say so rather than let
+        // them pass as local dates.
+        const local = firstLocalBoundary();
+        const estimated = local !== null && cycle.start < local;
+        return {
+          first: cycle.start,
+          last: cycle.end,
+          title: naming.label,
+          subtitle:
+            `${formatLongDate(cycle.start)} – ${formatLongDate(cycle.end)} · ${cycle.weeks} weeks` +
+            (estimated ? ' · Plan dates' : ''),
+        };
+      }
+      if (view === 'badi') {
+        const first = badiToGregorian(badiCursor.year, badiCursor.month, 1);
+        const last = addDays(first, badiMonthLength(badiCursor) - 1);
+        const month = badiMonth(badiCursor.month);
+        return {
+          first,
+          last,
+          title: badiCursor.month === 0 ? month.name : `${month.name} · ${month.meaning}`,
+          subtitle:
+            `${badiCursor.year} B.E. · ${formatLongDate(first)} – ${formatLongDate(last)}`,
+        };
+      }
+      const { year, month } = parseIso(cursor);
+      const first = cursor;
+      const badiStart = gregorianToBadi(first);
+      return {
+        first,
+        last: addDays(shiftMonth(first, 1), -1),
+        title: `${MONTH_NAMES[month - 1]} ${year}`,
+        subtitle: `${badiStart.year} B.E. · Naw-Rúz ${formatLongDate(nawRuz(badiStart.year))}`,
+      };
+    }
+
+    async function render() {
+      const period = currentPeriod();
+      title.textContent = period.title;
+      badiYearEl.textContent = period.subtitle;
+
+      // Whole weeks either side, so a period that starts mid-week still reads
+      // as weeks rather than as a ragged block. Which day a week opens on is
+      // the reader's, and differs between the views. A cycle begins when the
+      // holidays do, which can be any day, so its first row reaches back to
+      // whichever day the reader starts a week on.
+      const ws = weekStartFor(view);
+      grid.classList.toggle('is-cycle', view === 'cycle');
+      const gridStart = addDays(period.first, -(((weekday(period.first) - ws) % 7 + 7) % 7));
+      const lastCell = addDays(period.last, ((ws + 6 - weekday(period.last)) % 7 + 7) % 7);
+      const gridEnd = lastCell;
+
+      // Paint the grid immediately so navigation feels instant, then fill it
+      // in. The key is left alone until the entries arrive, so it does not
+      // blink out and back on every move between months.
+      paint(gridStart, gridEnd, period, new Map(), new Map(), new Map(), new Set());
+
+      status.textContent = 'Loading…';
+      try {
+        // One day past the grid, so the evening band on the final cell knows
+        // what it is leading into. Without it, an observance falling the day
+        // after the grid leaves the last cell looking ordinary.
+        const entries = await loadEntries(gridStart, addDays(gridEnd, 1));
+        status.textContent = entries.warning ?? '';
+        const shown = paint(
+          gridStart, gridEnd, period, entries.byDate, entries.eve, entries.spans, entries.fastDays,
+        );
+        updateLegend(shown);
+      } catch {
+        status.textContent = 'Could not load calendar dates.';
+      }
+    }
+
+    async function loadEntries(from: string, to: string) {
+      const byDate = new Map<string, Entry[]>();
+      // A Bahá'í day begins at sunset, so the evening before an observance
+      // already belongs to it. That evening is shaded in the previous day's
+      // cell rather than given an entry of its own.
+      const eve = new Map<string, EveMark>();
+      /**
+       * The days of the Fast.
+       *
+       * Nineteen consecutive days is too long to wash with colour — it would
+       * drown out everything else in ‘Alá'. They are marked instead with the
+       * hours that actually matter: the Fast runs from sunrise to sunset, so
+       * each day carries both, and a line along the foot of the cell.
+       */
+      const fastDays = new Set<string>();
+      // What each day itself is, which for Ayyám-i-Há is every one of its days
+      // and not merely the first.
+      const spans = new Map<string, EveKind>();
+      let warning: string | undefined;
+
+      const res = await fetch(`/api/holy-days.json?from=${from}&to=${to}`);
+      const data = (await res.json()) as { occurrences: Occurrence[] };
+
+      for (const o of data.occurrences) {
+        if (!isEnabled(o.calendarId)) continue;
+        const kind =
+          o.calendarId === 'bahai-holy-days' ? 'holy-day'
+          : o.calendarId === 'bahai-feast' ? 'feast'
+          : o.calendarId === 'bahai-months' ? 'month'
+          : 'other';
+        const group = o.calendarId.startsWith('bahai') ? 'bahai' : 'other-faith';
+        // A calendar with a view label shows that label instead of the real name.
+        const name = o.name;
+
+        if (kind === 'holy-day' || kind === 'month') {
+          const isAyyam = o.name.startsWith('Ayyám-i-Há');
+          const isFast = o.name.startsWith('The Fast');
+          const spanKind: EveKind = kind === 'holy-day' ? 'holy' : isAyyam ? 'ayyam' : 'feast';
+
+          // The Fast is a month-long observance rather than a day to mark, so
+          // it takes no wash of its own.
+          if (isFast) {
+            for (const day of spanDays(o.date, o.endDate ?? o.date)) fastDays.add(day);
+          }
+
+          if (!isFast) {
+            // Ayyám-i-Há colours every one of its days; a month start colours
+            // only the day the month begins.
+            const lastDay = isAyyam ? (o.endDate ?? o.date) : o.date;
+            for (const day of spanDays(o.date, lastDay)) {
+              if (spanKind === 'holy' || !spans.has(day)) spans.set(day, spanKind);
+            }
+
+            if (o.startsPreviousEvening) {
+              const evening = addDays(o.date, -1);
+              const label = isAyyam
+                ? 'Ayyám-i-Há'
+                : kind === 'holy-day'
+                  ? o.name
+                  // "Núr (Light)" reads better here as "the month of Núr".
+                  : `The month of ${o.name.replace(/\s*\([^)]*\)\s*$/, '')}`;
+              // A Holy Day's evening outranks anything else falling together.
+              if (spanKind === 'holy' || !eve.has(evening)) {
+                eve.set(evening, { kind: spanKind, label });
+              }
+            }
+          }
+        }
+
+        for (const day of spanDays(o.date, o.endDate)) {
+          // Month and multi-day entries only mark their first day in this view.
+          if (kind === 'month' && day !== o.date) continue;
+          push(byDate, day, {
+            calendarId: o.calendarId,
+            name,
+            group,
+            kind,
+            workSuspended: o.workSuspended,
+            note: o.note,
+            approximate: o.confidence === 'approximate',
+            verified: o.confidence === 'verified',
+            startsPreviousEvening: o.startsPreviousEvening,
+            badge: badgeFor(o, kind),
+            tip: buildTip({ ...o, name }, group),
+          });
+        }
+      }
+
+      const failures: string[] = [];
+      await Promise.all(
+        // Asked for by id, never by address. The server holds the address, checks
+        // this reader is entitled to the calendar, and applies the view label
+        // before answering — so a title this reader may not see never arrives.
+        linkedCalendars().filter((c) => isEnabled(c.id)).map(async (cal) => {
+          try {
+            const q = new URLSearchParams({ id: cal.id, from, to });
+            const r = await fetch(`/api/calendar-feed.json?${q}`);
+            const body = (await r.json()) as { events?: IcsEvent[]; error?: string };
+            if (!r.ok || !body.events) {
+              failures.push(cal.name);
+              return;
+            }
+            for (const ev of body.events) {
+              for (const day of spanDays(ev.date, ev.endDate)) {
+                push(byDate, day, {
+                  calendarId: cal.id,
+                  // Already substituted server-side where this reader is not
+                  // entitled to the real title, so there is nothing to hide here.
+                  name: ev.summary,
+                  group: 'community',
+                  kind: 'event',
+                  time: ev.startTime,
+                  note: ev.location,
+                  colour: calendarColour(cal.colour),
+                  tip: !cal.showsDetail
+                    ? `title|${ev.summary}`
+                    : (() => {
+                        const location = ev.location?.trim() ?? '';
+                        const description = ev.description?.trim() ?? '';
+                        const meeting = findMeeting(`${location}\n${description}`);
+                        /*
+                         * What the button already carries is taken out of the
+                         * prose. Otherwise the card shows the address twice
+                         * and the passcode twice, and on a phone that is most
+                         * of what there is room for.
+                         */
+                        const tidy = (text: string) => {
+                          let out = text;
+                          if (meeting.url) out = out.split(meeting.url).join('');
+                          if (meeting.passcode) {
+                            out = out.replace(
+                              new RegExp(
+                                `(?:pass\\s?code|password|passcode)\\s*[:\\-]?\\s*`
+                                  + meeting.passcode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                                'ig',
+                              ),
+                              '',
+                            );
+                          }
+                          return out
+                            .replace(/[ \t]+/g, ' ')
+                            .split('\n')
+                            .map((line) => line.trim())
+                            // Taking the address out of "Join:" leaves the
+                            // label pointing at nothing, and an invitation's
+                            // rules of underscores were never worth reading.
+                            .filter((line) => line && !/^[-_=*~.\s]+$/.test(line)
+                              && !/^[A-Za-z][\w' ]{0,28}:$/.test(line))
+                            .join('\n')
+                            .trim();
+                        };
+                        const prose = tidy(description);
+                        return [
+                          `title|${ev.summary}`,
+                          `when|${formatEventTime(ev)}`,
+                          // Outlook sends DESCRIPTION:\n for an empty description,
+                          // which is truthy until it is trimmed.
+                          location ? `note|${location}` : '',
+                          // A Teams invitation runs to hundreds of words of
+                          // boilerplate. The joining details are lifted out
+                          // above, so what remains is trimmed to what a card
+                          // can hold rather than pushed off the screen.
+                          // What is left after the joining details are lifted
+                          // out is often a line or two of boilerplate; below a
+                          // handful of characters it says nothing worth space.
+                          prose.length > 3 ? `note|${prose.slice(0, 320)}${prose.length > 320 ? '…' : ''}` : '',
+                          meeting.url ? `join|${meeting.url}` : '',
+                          meeting.passcode ? `code|${meeting.passcode}` : '',
+                        ].filter(Boolean).join('\n');
+                      })(),
+                });
+              }
+            }
+          } catch {
+            failures.push(cal.name);
+          }
+        }),
+      );
+      if (failures.length) warning = `Could not load: ${failures.join(', ')}.`;
+      return { byDate, eve, spans, fastDays, warning };
+    }
+
+    /**
+     * The hours of the Fast for one day: sunrise on the left, sunset on the
+     * right, and the sun on the horizon between them.
+     *
+     * Both are worked out for the community's own location, because sunrise in
+     * Townsville is not sunrise in Melbourne and a fasting hour that is wrong
+     * by half an hour is worse than none at all.
+     */
+    function fastFooter(day: string): string {
+      const location = server.location ?? DEFAULT_LOCATION;
+      const rise = sunriseHours(day, location);
+      const set = sunsetHours(day, location);
+      if (rise === null || set === null) return '';
+      const tip =
+        `title|The Fast\n` +
+        `when|Sunrise ${formatHours(rise)} · sunset ${formatHours(set)}\n` +
+        `note|Fasting is observed from sunrise to sunset. Times are for ${location.name}.`;
+      return (
+        `<div class="cal-fast" tabindex="0" data-tip="${escapeHtml(tip)}">` +
+        `<span class="cal-fast-time">${formatHours(rise)}</span>` +
+        `<span class="cal-fast-icon" aria-hidden="true"></span>` +
+        `<span class="cal-fast-time">${formatHours(set)}</span>` +
+        `</div>`
+      );
+    }
+
+    function paint(
+      gridStart: string,
+      gridEnd: string,
+      period: { first: string; last: string },
+      byDate: Map<string, Entry[]>,
+      eve: Map<string, EveMark>,
+      spans: Map<string, EveKind>,
+      fastDays: Set<string>,
+    ) {
+      const today = todayIso();
+      const shown = new Set<string>();
+      const parts: string[] = [];
+
+      const ws = weekStartFor(view);
+
+      /*
+       * The cycle view carries two slim columns down its left: the phase, and
+       * the week number. The phase is drawn once per run and spanned across
+       * its weeks rather than repeated on every row, which would be both noisy
+       * and redundant.
+       */
+      const cycle = view === 'cycle' ? activeCycle() : null;
+      const settings = server.config?.cycles ?? server.cycles ?? null;
+      const weekCount = cycle ? cycleWeekStarts(cycle, ws as WeekDay).length : 0;
+      const runs = cycle && settings ? phaseRuns(weekCount, settings.phases) : [];
+      const runAt = new Map(runs.map((r) => [r.from, r]));
+      const phaseName = new Map(PHASES.map((p) => [p.id, p.name]));
+
+      if (cycle) {
+        // The phase column is too narrow for a heading, and the rotated
+        // labels beneath it say what it is; the name is left for screen
+        // readers rather than clipped to "Phas".
+        parts.push(
+          '<div class="cal-weekday cal-corner" role="columnheader">' +
+            '<span class="cal-sr-only">Phase</span></div>',
+        );
+        parts.push('<div class="cal-weekday cal-corner" role="columnheader">Wk</div>');
+      }
+      for (const name of [...WEEKDAY_NAMES.slice(ws), ...WEEKDAY_NAMES.slice(0, ws)]) {
+        parts.push(`<div class="cal-weekday" role="columnheader">${name}</div>`);
+      }
+
+      let day = gridStart;
+      while (day <= gridEnd) {
+        // Once per row, not once per day: the two leading columns belong to
+        // the week, and the grid only opens a new row on the reader's first
+        // day of the week.
+        const offset = daysBetween(gridStart, day);
+        if (cycle && offset % 7 === 0) {
+          const week = offset / 7 + 1;
+          const run = runAt.get(week);
+          if (run) {
+            const tint = pastelValue(settings!.phaseColours[run.phase]);
+            parts.push(
+              `<div class="cal-phase-cell" style="grid-column:1;grid-row:span ${run.weeks};` +
+                `background:${tint}"><span>${escapeHtml(phaseName.get(run.phase) ?? '')}</span></div>`,
+            );
+          }
+          const phase = runs.find((r) => week >= r.from && week < r.from + r.weeks);
+          const tint = phase ? pastelValue(settings!.phaseColours[phase.phase]) : 'transparent';
+          parts.push(
+            `<div class="cal-week-no" style="background:color-mix(in srgb, ${tint} 45%, white)">${week}</div>`,
+          );
+        }
+        const d = parseIso(day);
+        // Days either side of the period are shown tinted back rather than
+        // blank, so a week that straddles two months still reads as a week.
+        const inMonth = day >= period.first && day <= period.last;
+        const entries = byDate.get(day) ?? [];
+        const holy = entries.some((e) => e.kind === 'holy-day');
+        // What this day is comes from the spans rather than from the entries in
+        // the cell, because Ayyám-i-Há colours days that carry no entry at all.
+        const from = spans.get(day) ?? null;
+        const special = from !== null;
+
+        const fasting = fastDays.has(day);
+        if (fasting) shown.add('fast');
+        if (entries.some((e) => e.workSuspended)) shown.add('work');
+        const classes = ['cal-day'];
+        if (fasting) classes.push('is-fast');
+        if (!inMonth) classes.push('is-out');
+        if (day === today) classes.push('is-today');
+
+        // Two independent facts about a cell, because a Bahá'í day runs sunset
+        // to sunset and so straddles two Gregorian ones:
+        //   `from` — what this day already is, having begun last night;
+        //   `to`   — what its own evening leads into.
+        // The band is then drawn left to right across the pair.
+        /*
+         * What this evening leads into is simply what tomorrow is, because a
+         * Bahá'í day begins at sunset.
+         *
+         * Taking it instead from "an observance starts tomorrow" broke any
+         * span longer than a day: every day of Ayyám-i-Há faded out to its own
+         * right-hand edge, so a continuous stretch rendered as stripes. Asking
+         * what tomorrow is makes the interior of a span solid and still hands
+         * over correctly at its end — the last day of Ayyám-i-Há gives way to
+         * the teal of ‘Alá'.
+         */
+        const tomorrow = spans.get(addDays(day, 1)) ?? null;
+        // A key entry earns its place by appearing in the grid, whether as the
+        // day itself or as the evening leading into it.
+        if (from) shown.add(from);
+        if (tomorrow) shown.add(tomorrow);
+        const evening = eve.get(day) ?? null;
+        if (from) classes.push(`from-${from}`);
+        if (tomorrow) classes.push(`to-${tomorrow}`);
+
+        const badi = gregorianToBadi(day);
+        // The Badí' view leads with the Badí' day and carries the Gregorian
+        // date as the secondary one; the Gregorian view does the reverse.
+        const leadNumber = view === 'badi' ? String(badi.day) : String(d.day);
+        const holyEntry = entries.find((e) => e.kind === 'holy-day');
+        const feastEntry = entries.find((e) => e.kind === 'feast');
+        // Name what actually begins. Saying "a Feast" on the evening before
+        // Ayyám-i-Há was simply wrong, and on the evening before a Holy Day it
+        // was less use than the Holy Day's own name.
+        const headTip = holyEntry?.tip ?? feastEntry?.tip ??
+          (evening
+            ? `title|${formatBadiDate(badi)}\neve|${evening.label} begins at sunset this evening.`
+            : '');
+        const badiLine = formatBadiDate(badi);
+        /*
+         * What the small second line carries, which differs by view.
+         *
+         * Badí': the Gregorian date, since the Badí' day is already the large
+         * numeral. Gregorian: the Badí' date.
+         *
+         * Cycle: the Gregorian date too, written the same way as in the Badí'
+         * view. A planning grid runs twelve weeks or more across three or four
+         * months, and a column of bare numerals leaves the reader counting
+         * back to work out which month a week sits in. Naming the month only
+         * where it changed was not enough — the answer has to be in the cell
+         * being looked at, not in one further up the column.
+         *
+         * A Holy Day overrides all of them. Its name is worth more than any
+         * number, in any view.
+         */
+        const secondLine = holyEntry
+          ? holyEntry.name
+          : view === 'badi' || view === 'cycle'
+            ? `${d.day} ${MONTH_SHORT[d.month - 1]}`
+            : badiLine;
+
+        const badges = entries
+          .filter((e) => e.badge)
+          .map((e) => `<span class="cal-badge cal-badge-${e.kind}">${escapeHtml(e.badge!)}</span>`)
+          .join('');
+
+        const others = entries
+          .filter((e) => e.group === 'other-faith')
+          .map(
+            (e) => `<li class="cal-other${e.approximate ? ' is-approx' : ''}" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
+              // Only the faith calendars have a mark; a secular one would
+              // otherwise reserve the space and sit oddly indented.
+              (FAITHS_WITH_ICONS.has(e.calendarId)
+                ? `<span class="faith-icon faith-${escapeHtml(e.calendarId)}" aria-hidden="true"></span>`
+                : '') +
+              `<span>${escapeHtml(keepNameWhole(e.name))}</span></li>`,
+          )
+          .join('');
+
+        const events = entries
+          .filter((e) => e.group === 'community')
+          .map(
+            (e) => `<li class="cal-event" tabindex="0" data-tip="${escapeHtml(e.tip ?? e.name)}">` +
+              `<span class="cal-dot"${e.colour ? ` style="--dot:${escapeHtml(e.colour)}"` : ''}></span>` +
+              `<span>${escapeHtml(keepNameWhole(e.name))}</span></li>`,
+          )
+          .join('');
+
+        parts.push(`
+          <div class="${classes.join(' ')}" role="gridcell">
+            <div class="cal-day-head">
+              <span class="cal-greg">${leadNumber}</span>
+              <span class="cal-badi"${headTip ? ` tabindex="0" data-tip="${escapeHtml(headTip)}"` : ''}>${escapeHtml(keepNameWhole(secondLine))}${holyEntry?.workSuspended ? ' *' : ''}</span>
+            </div>
+            ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
+            ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
+            ${fasting ? fastFooter(day) : ''}
+          </div>`);
+        day = addDays(day, 1);
+      }
+      grid.innerHTML = parts.join('');
+      return shown;
+    }
+
+    /** Show only the key entries the grid actually uses. */
+    function updateLegend(shown: Set<string>) {
+      for (const item of root.querySelectorAll<HTMLElement>('[data-legend-for]')) {
+        item.hidden = !shown.has(item.dataset.legendFor!);
+      }
+      // With nothing to explain, the key itself is noise.
+      root.querySelector<HTMLElement>('[data-legend]')!.hidden = shown.size === 0;
+    }
+
+    setUpHoverCard(root, grid);
+    // Signing in or out changes what may be seen, so the configuration is
+    // fetched again rather than filtered locally.
+    setUpSignIn(root, () => {
+      void loadServerConfig().then(() => {
+        syncPublicToggles();
+        void render();
+      });
+    });
+
+    void loadServerConfig().then(() => void render());
+  }
+
+  /**
+   * Signing in and out.
+   *
+   * The tier lives in a signed, HttpOnly cookie, so the page cannot read it and
+   * cannot claim one it was not given. What tier the caller holds is asked of
+   * the server rather than remembered locally — the answer is the server's to
+   * give, and it is what every other request will be judged against.
+   */
+  function setUpSignIn(root: HTMLElement, onTierChange: () => void) {
+    const panel = root.querySelector<HTMLElement>('[data-signin]')!;
+    const scrim = root.querySelector<HTMLElement>('[data-signin-scrim]')!;
+    const openBtn = root.querySelector<HTMLButtonElement>('[data-open-signin]')!;
+    const tierLabel = root.querySelector<HTMLElement>('[data-tier-label]')!;
+    const signInForm = root.querySelector<HTMLElement>('[data-signin-form]')!;
+    const signOutForm = root.querySelector<HTMLElement>('[data-signout-form]')!;
+    const codeInput = root.querySelector<HTMLInputElement>('[data-signin-code]')!;
+    const error = root.querySelector<HTMLElement>('[data-signin-error]')!;
+
+    function show(tier: string, label: string) {
+      tierLabel.textContent = tier === 'public' ? 'the public' : label;
+      const signedIn = tier !== 'public';
+      signInForm.hidden = signedIn;
+      signOutForm.hidden = !signedIn;
+      openBtn.classList.toggle('is-signed-in', signedIn);
+      openBtn.title = signedIn ? `Signed in — ${label}` : 'Sign in';
+    }
+
+    async function refresh() {
+      try {
+        const res = await fetch('/api/calendar-session.json');
+        const body = (await res.json()) as { tier: string; label: string };
+        show(body.tier, body.label);
+      } catch {
+        show('public', 'Public');
+      }
+    }
+
+    /*
+     * The passkey button appears only when there is a passkey to use and this
+     * browser can use one. Offering it otherwise would send somebody to a
+     * dialog that can only disappoint them.
+     */
+    const passkeyBlock = root.querySelector<HTMLElement>('[data-passkey-signin]')!;
+    async function syncPasskeyOffer() {
+      const usable = typeof PublicKeyCredential !== 'undefined' && Boolean(navigator.credentials);
+      if (!usable) { passkeyBlock.hidden = true; return; }
+      try {
+        const res = await fetch('/api/passkey.json');
+        const body = (await res.json()) as { available?: boolean };
+        passkeyBlock.hidden = !body.available;
+      } catch {
+        passkeyBlock.hidden = true;
+      }
+    }
+
+    function open() {
+      panel.hidden = false;
+      scrim.hidden = false;
+      error.hidden = true;
+      codeInput.value = '';
+      void refresh();
+      void syncPasskeyOffer();
+      requestAnimationFrame(() => codeInput.focus());
+    }
+    function close() {
+      panel.hidden = true;
+      scrim.hidden = true;
+    }
+
+    openBtn.addEventListener('click', open);
+    scrim.addEventListener('click', close);
+    root.querySelector('[data-close-signin]')!.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) close();
+    });
+
+    async function submit() {
+      error.hidden = true;
+      try {
+        const res = await fetch('/api/calendar-session.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ code: codeInput.value }),
+        });
+        const body = (await res.json()) as { ok?: boolean; error?: string; tier?: string; label?: string };
+        if (!body.ok) {
+          error.textContent = body.error ?? 'That code was not recognised.';
+          error.hidden = false;
+          return;
+        }
+        show(body.tier!, body.label!);
+        codeInput.value = '';
+        close();
+        // What the calendar may show depends on the tier, so fetch it again.
+        onTierChange();
+      } catch {
+        error.textContent = 'Could not reach the server just now.';
+        error.hidden = false;
+      }
+    }
+
+    root.querySelector('[data-signin-submit]')!.addEventListener('click', () => void submit());
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void submit();
+    });
+
+    root.querySelector('[data-passkey-use]')!.addEventListener('click', async () => {
+      error.hidden = true;
+      try {
+        const startRes = await fetch('/api/passkey.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'sign-in-start' }),
+        });
+        const started = (await startRes.json()) as { ok?: boolean; error?: string; options?: any };
+        if (!started.ok) {
+          error.textContent = started.error ?? 'No passkey is enrolled.';
+          error.hidden = false;
+          return;
+        }
+        const o = started.options;
+        const assertion = (await navigator.credentials.get({
+          publicKey: { ...o, challenge: b64uToBytes(o.challenge), allowCredentials: [] },
+        })) as PublicKeyCredential | null;
+        if (!assertion) return;
+        const response = assertion.response as AuthenticatorAssertionResponse;
+
+        const finishRes = await fetch('/api/passkey.json', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            action: 'sign-in-finish',
+            credentialId: assertion.id,
+            clientDataJSON: bytesToB64u(new Uint8Array(response.clientDataJSON)),
+            authenticatorData: bytesToB64u(new Uint8Array(response.authenticatorData)),
+            signature: bytesToB64u(new Uint8Array(response.signature)),
+          }),
+        });
+        const body = (await finishRes.json()) as
+          { ok?: boolean; error?: string; tier?: string; label?: string };
+        if (!body.ok) {
+          error.textContent = body.error ?? 'That passkey was not recognised.';
+          error.hidden = false;
+          return;
+        }
+        show(body.tier!, body.label!);
+        close();
+        onTierChange();
+      } catch (err) {
+        error.textContent = (err as Error).name === 'NotAllowedError'
+          ? 'That was cancelled, or took too long.'
+          : 'Could not use a passkey just now.';
+        error.hidden = false;
+      }
+    });
+
+    root.querySelector('[data-signout]')!.addEventListener('click', async () => {
+      await fetch('/api/calendar-session.json', { method: 'DELETE' });
+      show('public', 'Public');
+      close();
+      onTierChange();
+    });
+
+    void refresh();
+  }
+
+  /**
+   * A hover card for calendar entries, replacing the browser's own tooltip.
+   *
+   * The native `title` tooltip waits about a second before appearing, renders
+   * in a small dark box we cannot style, and never shows on keyboard focus.
+   * This shows immediately, is legible, and is reachable by tab as well as by
+   * pointer. One element is reused for every entry, and events are delegated
+   * from the grid, so adding it costs nothing per cell.
+   */
+  function setUpHoverCard(root: HTMLElement, grid: HTMLElement) {
+    const card = document.createElement('div');
+    card.className = 'cal-card';
+    card.setAttribute('role', 'tooltip');
+    card.hidden = true;
+    root.appendChild(card);
+
+    let showTimer: number | undefined;
+    let hideTimer: number | undefined;
+    let current: HTMLElement | null = null;
+
+    function place(target: HTMLElement) {
+      const t = target.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      const margin = 8;
+      // Prefer above the entry; drop below when there is no room up there.
+      let top = t.top - c.height - margin;
+      let below = false;
+      if (top < margin) {
+        top = t.bottom + margin;
+        below = true;
+      }
+      let left = t.left + t.width / 2 - c.width / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - c.width - margin));
+      // Fixed positioning, so these stay viewport coordinates. Positioning it
+      // absolutely would place it relative to the calendar container rather
+      // than the page, putting it hundreds of pixels off.
+      card.style.top = `${top}px`;
+      card.style.left = `${left}px`;
+      card.classList.toggle('is-below', below);
+    }
+
+    function show(target: HTMLElement) {
+      const text = target.dataset.tip;
+      if (!text) return;
+      current = target;
+      card.innerHTML = text
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const at = line.indexOf('|');
+          const kind = at === -1 ? 'note' : line.slice(0, at);
+          const raw = at === -1 ? line : line.slice(at + 1);
+          if (kind === 'title') return `<strong>${escapeHtml(raw)}</strong>`;
+          if (kind === 'join') {
+            // Only ever http or https, checked again here rather than trusted
+            // from wherever the line was assembled.
+            if (!/^https?:\/\//i.test(raw)) return '';
+            return `<a class="tip-join" href="${escapeHtml(raw)}" target="_blank" rel="noopener noreferrer">`
+              + 'Join the meeting</a>';
+          }
+          if (kind === 'code') {
+            return `<span class="tip-code">Passcode <strong>${escapeHtml(raw)}</strong></span>`;
+          }
+          // A note may itself contain an address worth pressing.
+          return `<span class="tip-${kind}">${linkifyEscaped(raw)}</span>`;
+        })
+        .join('');
+      card.hidden = false;
+      // Position, then reveal, in this same turn.
+      //
+      // An earlier version waited for requestAnimationFrame before adding the
+      // visible class. rAF does not fire in a hidden or heavily throttled tab,
+      // so the card would be built and positioned but stay at opacity 0 —
+      // present in the DOM and invisible on screen. place() already forces a
+      // layout by reading getBoundingClientRect, so the element has its
+      // dimensions and the transition has a start state to animate from
+      // without waiting for a frame that may never come.
+      place(target);
+      void card.offsetWidth;
+      card.classList.add('is-visible');
+      closing = false;
+      overCard = false;
+    }
+
+    function hide() {
+      window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
+      hideTimer = undefined;
+      closing = false;
+      overCard = false;
+      current = null;
+      card.classList.remove('is-visible');
+      card.hidden = true;
+    }
+
+    /*
+     * Leaving the entry no longer closes the card at once.
+     *
+     * The card holds a link to join a meeting, and reaching it means moving
+     * the pointer off the entry and across a gap. Closing on that movement
+     * made the link impossible to press — the card vanished on the way to it.
+     *
+     * A plain timer was the first attempt and was the wrong instrument: it
+     * forgave a quick movement and punished a careful one, which is backwards.
+     * Cancelling on proximity was the second, and it never re-armed — once the
+     * pointer had been near the card the close was called off for good, so the
+     * card stayed up until another entry replaced it.
+     *
+     * What actually holds: while a close is pending, movement near the card
+     * keeps pushing it back, movement away brings it forward, and being on the
+     * card stops it entirely. Every one of those is a state, not a delay.
+     */
+    const NEAR = 48;
+    const LINGER = 500;
+    const LEAVING = 120;
+    let closing = false;
+    let overCard = false;
+
+    function cancelHide() {
+      closing = false;
+      window.clearTimeout(hideTimer);
+      hideTimer = undefined;
+    }
+
+    function scheduleHide(delay = LINGER) {
+      if (overCard) return;
+      closing = true;
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(hide, delay);
+    }
+
+    card.addEventListener('pointerenter', () => { overCard = true; cancelHide(); });
+    card.addEventListener('pointerleave', () => { overCard = false; scheduleHide(); });
+    // A link inside the card takes focus; that must not read as leaving.
+    card.addEventListener('focusin', cancelHide);
+
+    document.addEventListener('pointermove', (e) => {
+      if (!closing || card.hidden || overCard) return;
+      const r = card.getBoundingClientRect();
+      const near = e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR
+        && e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR;
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(hide, near ? LINGER : LEAVING);
+    }, { passive: true });
+
+    card.addEventListener('focusout', (e) => {
+      if (!card.contains(e.relatedTarget as Node | null)) scheduleHide();
+    });
+
+    grid.addEventListener('mouseover', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+      if (!target || target === current) return;
+      window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
+      // Just enough delay to avoid flickering while the pointer crosses cells.
+      showTimer = window.setTimeout(() => show(target), 60);
+    });
+    grid.addEventListener('mouseout', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+      if (!target) return;
+      const to = (e as MouseEvent).relatedTarget as Node | null;
+      if (to && (target.contains(to) || card.contains(to))) return;
+      scheduleHide();
+    });
+    grid.addEventListener('focusin', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+      if (target) show(target);
+    });
+    grid.addEventListener('focusout', (e) => {
+      // Tapping the join link moves focus into the card, which is not leaving.
+      if (card.contains((e as FocusEvent).relatedTarget as Node | null)) return;
+      scheduleHide();
+    });
+    // A tap anywhere else puts the card away, which is how a phone closes it.
+    document.addEventListener('pointerdown', (e) => {
+      const inside = card.contains(e.target as Node)
+        || (e.target as HTMLElement).closest?.('[data-tip]');
+      if (!inside) hide();
+    });
+    // Touch: a tap focuses the entry, and anything else dismisses the card.
+    document.addEventListener('scroll', hide, { passive: true });
+    window.addEventListener('resize', hide);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+    });
+  }
+
+  // ---- helpers -------------------------------------------------------------
+
+  /** "7:00 pm – 9:30 pm", or "All day" when there is no time to show. */
+  function formatEventTime(ev: IcsEvent): string {
+    if (ev.allDay || !ev.startTime) return 'All day';
+    const clock = (hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      const suffix = h >= 12 ? 'pm' : 'am';
+      const hour = h % 12 === 0 ? 12 : h % 12;
+      return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
+    };
+    return ev.endTime && ev.endTime !== ev.startTime
+      ? `${clock(ev.startTime)} – ${clock(ev.endTime)}`
+      : clock(ev.startTime);
+  }
+
+  const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  /**
+   * The text of an entry's hover card.
+   *
+   * Traditions whose day begins at sunset are marked plainly rather than
+   * silently: a reader looking at Friday should know an observance dated
+   * Saturday actually starts on Friday evening. Bahá'í observances say this
+   * with shading on the preceding cell as well; for everything else, which is
+   * rendered as plain text, the note carries it.
+   */
+  function buildTip(o: Occurrence & { name: string }, group: Entry['group']): string {
+    const lines: string[] = [`title|${o.name}`];
+
+    if (o.startsPreviousEvening) {
+      const evening = WEEKDAY_FULL[weekday(addDays(o.date, -1))];
+      lines.push(`eve|Starts ${evening} evening, at sunset.`);
+    }
+
+    lines.push(
+      `when|${
+        o.endDate && o.endDate !== o.date
+          ? `${formatLongDate(o.date)} – ${formatLongDate(o.endDate)}`
+          : formatLongDate(o.date)
+      }`,
+    );
+
+    if (group === 'bahai') lines.push(`badi|${formatBadiDate(gregorianToBadi(o.date), true)}`);
+    if (o.workSuspended) lines.push('work|Work is suspended.');
+    if (o.note) lines.push(`note|${o.note}`);
+
+    if (o.confidence === 'approximate') {
+      lines.push('caveat|Calculated — this tradition sets its dates by observation or local custom, so the day may differ.');
+    } else if (o.confidence === 'verified') {
+      lines.push('caveat|Confirmed against an announced date.');
+    }
+    return lines.join('\n');
+  }
+
+  function badgeFor(o: Occurrence, kind: Entry['kind']): string | undefined {
+    if (kind === 'holy-day') return o.workSuspended ? 'Holy Day *' : 'Holy Day';
+    if (kind === 'feast') {
+      // The Feast badge carries the month's English meaning — Splendour,
+      // Glory, Beauty — which is more use to a reader than the word "Feast".
+      const m = /\(([^)]+)\)\s*$/.exec(o.name);
+      return m ? m[1] : 'Feast';
+    }
+    if (kind === 'month') {
+      if (o.name.startsWith('Ayyám-i-Há')) return 'Ayyám-i-Há';
+      if (o.name.startsWith('The Fast')) return undefined;
+      // "Núr (Light)" -> "Light": the month's meaning is more use to a reader
+      // than repeating its name, which is already on the date line.
+      const m = /\(([^)]+)\)\s*$/.exec(o.name);
+      return m ? m[1] : undefined;
+    }
+    return undefined;
+  }
+
+  function push(map: Map<string, Entry[]>, day: string, entry: Entry) {
+    const list = map.get(day);
+    if (list) list.push(entry);
+    else map.set(day, [entry]);
+  }
+
+  function spanDays(start: string, end?: string): string[] {
+    if (!end || end <= start) return [start];
+    const out: string[] = [];
+    let d = start;
+    // Guard against a malformed feed producing an unbounded span.
+    for (let i = 0; i < 400 && d <= end; i += 1) {
+      out.push(d);
+      d = addDays(d, 1);
+    }
+    return out;
+  }
+
+  function todayIso(): string {
+    // Brisbane has no daylight saving, so a fixed +10 offset is exact.
+    const now = new Date();
+    const brisbane = new Date(now.getTime() + (now.getTimezoneOffset() + 600) * 60000);
+    return isoDate({
+      year: brisbane.getFullYear(),
+      month: brisbane.getMonth() + 1,
+      day: brisbane.getDate(),
+    });
+  }
+
+  function startOfMonth(iso: string): string {
+    const { year, month } = parseIso(iso);
+    return isoDate({ year, month, day: 1 });
+  }
+
+  function shiftMonth(iso: string, delta: number): string {
+    const { year, month } = parseIso(iso);
+    const m = month - 1 + delta;
+    return isoDate({ year: year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 + 1, day: 1 });
+  }
+
+  function formatLongDate(iso: string): string {
+    const { year, month, day } = parseIso(iso);
+    return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+  }
+
+  /**
+   * Stop a line break falling inside a name.
+   *
+   * Browsers break after a hyphen whatever `hyphens` says, which split
+   * "Ascension of ‘Abdu'l-Bahá" across two lines mid-name. Swapping in a
+   * non-breaking hyphen keeps the name whole and moves the break to a space,
+   * where it belongs. Applies to Naw-Rúz, Ayyám-i-Há and the rest equally.
+   */
+  /**
+   * Calendar feeds we will fetch. Mirrors the allowlist the proxy enforces on
+   * the server — this copy only exists to give a useful message before the
+   * request is made, and is not what actually protects the endpoint.
+   */
+  function isSupportedFeedUrl(url: string): boolean {
+    return /^https:\/\/(calendar\.google\.com|outlook\.(office365|office|live)\.com)\//.test(url);
+  }
+
+  /**
+   * Find the link that joins a meeting, and the passcode that goes with it.
+   *
+   * Outlook and Teams put the joining details in the description, wrapped in
+   * several hundred words of boilerplate, and Zoom puts them wherever the
+   * organiser typed them. Reading that on a phone, at eight in the morning,
+   * to find one URL, is the thing worth removing.
+   *
+   * Only http and https are accepted. A calendar feed is somebody else's text
+   * arriving over the network, and turning arbitrary text into a link the
+   * reader is invited to press is exactly where a `javascript:` URL would
+   * like to be.
+   */
+  const URL_PATTERN = /https?:\/\/[^\s<>"'\]),]+/gi;
+
+  /** Meeting hosts worth preferring when a description carries several links. */
+  const MEETING_HOSTS = [
+    'teams.microsoft.com', 'teams.live.com', 'zoom.us', 'meet.google.com',
+    'webex.com', 'whereby.com', 'jitsi',
+  ];
+
+  function findMeeting(text: string): { url?: string; passcode?: string } {
+    const found: { url?: string; passcode?: string } = {};
+    const urls = (text.match(URL_PATTERN) ?? [])
+      // A URL at the end of a sentence collects the full stop.
+      .map((u) => u.replace(/[.,;:)]+$/, ''))
+      .filter((u) => /^https?:\/\//i.test(u));
+    found.url = urls.find((u) => MEETING_HOSTS.some((h) => u.toLowerCase().includes(h))) ?? urls[0];
+
+    const code = /(?:pass\s?code|password|passcode)\s*[:\-]?\s*([^\s,;]{3,32})/i.exec(text);
+    if (code) found.passcode = code[1];
+    return found;
+  }
+
+  /** Escape text, then turn any web address in it into a link. */
+  function linkifyEscaped(text: string): string {
+    let out = '';
+    let at = 0;
+    for (const match of text.matchAll(URL_PATTERN)) {
+      const raw = match[0].replace(/[.,;:)]+$/, '');
+      const start = match.index ?? 0;
+      out += escapeHtml(text.slice(at, start));
+      out += `<a href="${escapeHtml(raw)}" target="_blank" rel="noopener noreferrer">${escapeHtml(raw)}</a>`;
+      at = start + raw.length;
+    }
+    return out + escapeHtml(text.slice(at));
+  }
+
+  function keepNameWhole(s: string): string {
+    return s.replace(/-/g, '\u2011');
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+    );
+  }
+
+  /**
+   * Sign in with a passkey.
+   *
+   * Shared, because there are two places a person reasonably tries: the
+   * sign-in dialog behind the person icon, and the administrator lock inside
+   * the settings drawer. Somebody who has just enrolled a passkey opens the
+   * drawer, is asked for a code, and concludes the passkey did nothing.
+   */
+  async function passkeySignIn(): Promise<{ ok: boolean; error?: string; tier?: string; label?: string }> {
+    if (typeof PublicKeyCredential === 'undefined' || !navigator.credentials) {
+      return { ok: false, error: 'This browser cannot use a passkey.' };
+    }
+    try {
+      const startRes = await fetch('/api/passkey.json', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'sign-in-start' }),
+      });
+      const started = (await startRes.json()) as { ok?: boolean; error?: string; options?: any };
+      if (!started.ok) return { ok: false, error: started.error ?? 'No passkey is enrolled.' };
+
+      const o = started.options;
+      const assertion = (await navigator.credentials.get({
+        publicKey: { ...o, challenge: b64uToBytes(o.challenge), allowCredentials: [] },
+      })) as PublicKeyCredential | null;
+      if (!assertion) return { ok: false, error: '' };
+      const response = assertion.response as AuthenticatorAssertionResponse;
+
+      const finishRes = await fetch('/api/passkey.json', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sign-in-finish',
+          credentialId: assertion.id,
+          clientDataJSON: bytesToB64u(new Uint8Array(response.clientDataJSON)),
+          authenticatorData: bytesToB64u(new Uint8Array(response.authenticatorData)),
+          signature: bytesToB64u(new Uint8Array(response.signature)),
+        }),
+      });
+      return (await finishRes.json()) as { ok: boolean; error?: string; tier?: string; label?: string };
+    } catch (err) {
+      return {
+        ok: false,
+        error: (err as Error).name === 'NotAllowedError'
+          ? 'That was cancelled, or took too long.'
+          : 'Could not use a passkey just now.',
+      };
+    }
+  }
+
+  function loadPrefs(): Prefs {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      const stored = parsed?.enabled as Record<string, unknown> | undefined;
+      const enabled = emptyEnabled();
+
+      if (stored) {
+        // Choices were once kept as one flat set for every view. Carry those
+        // forward into each view rather than dropping them, so nobody has to
+        // rebuild a selection they already made.
+        const isPerView = Object.values(stored).every(
+          (v) => v !== null && typeof v === 'object',
+        );
+        for (const view of Object.keys(enabled) as View[]) {
+          enabled[view] = isPerView
+            ? ({ ...(stored[view] as Record<string, boolean>) } ?? {})
+            : { ...(stored as Record<string, boolean>) };
+        }
+      }
+      // A stored week start is honoured only if it is one of the three days
+      // offered; anything else falls back to the default for that view.
+      const weekStart = defaultWeekStarts();
+      const storedStart = parsed?.weekStart as Record<string, unknown> | undefined;
+      if (storedStart) {
+        for (const v of Object.keys(weekStart) as View[]) {
+          const value = Number(storedStart[v]);
+          if (WEEK_START_CHOICES.includes(value)) weekStart[v] = value;
+        }
+      }
+
+      return {
+        enabled,
+        weekStart,
+        sectionsOpen: (parsed?.sectionsOpen as Record<string, boolean>) ?? {},
+      };
+    } catch {
+      return { enabled: emptyEnabled(), weekStart: defaultWeekStarts(), sectionsOpen: {} };
+    }
+  }
+
+  function savePrefs(prefs: Prefs) {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch {
+      /* private browsing — preferences simply will not persist */
+    }
+  }
+
+  // Entry point last: init() reads the module constants above, which are not
+  // hoisted the way function declarations are.
+  const root = document.querySelector<HTMLElement>('.calendar');
+  if (root) init(root);
+</script>
+
+<style is:global>
+  /*
+   * Global rather than scoped: the grid is built by script after hydration, so
+   * the generated cells never carry Astro's scoping attribute.
+   *
+   * Provisional styling — see the note at the top of this file. Holy Days take
+   * the site's gold and Feasts its teal; what matters is that the two are
+   * distinguished by hue and that other traditions stay unstyled, not these
+   * particular colours.
+   */
+  .calendar {
+    --cal-holy-tint: var(--color-gold-100);
+    --cal-holy-ink: var(--color-gold-700);
+    --cal-feast-tint: var(--color-teal-100);
+    --cal-feast-ink: var(--color-teal-700);
+    /* Ayyám-i-Há: neither a Feast nor a Holy Day, so neither colour. A cool
+       blue, far enough from the Feast's teal to be told apart at a glance. */
+    --cal-ayyam-tint: #dbe6f7;
+    --cal-ayyam-ink: #3a5a9b;
+    --cal-line: color-mix(in srgb, var(--color-teal-900) 14%, transparent);
+    position: relative;
+  }
+
+  /* The page title, in place of the hero the calendar used to sit beneath. */
+  .cal-page-title {
+    font-family: var(--font-display);
+    /*
+     * The floor was 1.5rem, which never bent: at 24px the title needs 327px
+     * and a 320-wide phone offers 288, so it broke onto two lines and pushed
+     * everything below it down. The preferred size now falls fast enough to
+     * matter on a phone, and the floor sits where the title still fits on one
+     * line at the narrowest width.
+     */
+    font-size: clamp(1.2rem, 5.6vw, 2.25rem);
+    font-weight: 600;
+    color: var(--color-teal-900);
+    text-align: center;
+    margin: 0 0 0.85rem;
+  }
+
+  .cal-views {
+    display: flex;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-bottom: 1.1rem;
+  }
+  .cal-view {
+    border: 1px solid var(--cal-line);
+    background: white;
+    color: var(--color-teal-800);
+    border-radius: 999px;
+    padding: 0.35rem 1rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  /*
+   * The same teal the menu uses for the calendar icon. These sit a few
+   * centimetres apart on the page and were #0f5250 against the menu's
+   * #0e6e6b — close enough to look like a mistake rather than a distinction.
+   */
+  .cal-view.is-current {
+    background: var(--color-teal-700);
+    border-color: var(--color-teal-700);
+    color: white;
+  }
+  .cal-view:disabled {
+    color: color-mix(in srgb, var(--color-ink) 35%, transparent);
+    background: var(--color-sand-100);
+    cursor: not-allowed;
+  }
+
+  /*
+   * Three equal columns, so the month sits in the middle of the calendar rather
+   * than in the middle of the gap the controls happen to leave. With a flex
+   * title the heading drifted right, because the navigation is wider than the
+   * two buttons opposite it.
+   */
+  .cal-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas: 'nav heading actions';
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .cal-heading { grid-area: heading; text-align: center; min-width: 0; }
+  .cal-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    color: var(--color-teal-900);
+    margin: 0;
+    white-space: nowrap;
+  }
+  .cal-nav { grid-area: nav; display: flex; gap: 0.25rem; justify-self: start; }
+  .cal-actions { grid-area: actions; display: flex; gap: 0.35rem; justify-self: end; }
+  .cal-btn {
+    border: 1px solid var(--cal-line);
+    background: white;
+    border-radius: 0.5rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--color-teal-800);
+    cursor: pointer;
+  }
+  .cal-btn-text { font-size: 0.85rem; padding: 0 0.7rem; }
+  .cal-btn:hover { background: var(--color-teal-50); }
+
+  .cal-burger, .cal-icon-btn {
+    border: 1px solid var(--cal-line);
+    background: white;
+    border-radius: 0.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: grid;
+    place-content: center;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--color-teal-800);
+  }
+  .cal-icon-btn svg { width: 1.15rem; height: 1.15rem; }
+  .cal-icon-btn:disabled {
+    color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+    background: var(--color-sand-100);
+    cursor: not-allowed;
+  }
+  .cal-burger span {
+    display: block;
+    width: 16px;
+    height: 2px;
+    background: var(--color-teal-800);
+    border-radius: 2px;
+  }
+
+  .cal-badi-year {
+    font-size: 0.75rem;
+    color: color-mix(in srgb, var(--color-ink) 62%, transparent);
+    margin: 0.1rem 0 0;
+    white-space: nowrap;
+  }
+
+  /* The grid scrolls inside its own box rather than the page. */
+  /*
+   * The grid is wider than a phone and scrolls inside this box. Without
+   * containment, iOS carries the swipe on into the page once the grid reaches
+   * its end — the header slides off to the left and the calendar looks broken.
+   * The document never overflows; the gesture was simply chaining.
+   */
+  .cal-grid-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(6.4rem, 1fr));
+    gap: 1px;
+    background: var(--cal-line);
+    border: 1px solid var(--cal-line);
+    border-radius: 0.6rem;
+    overflow: hidden;
+    min-width: 45rem;
+  }
+  .cal-weekday {
+    background: var(--color-teal-900);
+    color: var(--color-teal-100);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0.4rem 0;
+  }
+
+  /*
+   * A Bahá'í day runs from sunset to sunset, so an observance dated Wednesday
+   * actually begins on Tuesday evening and ends on Wednesday evening. The
+   * printed calendar says this with a horizontal band that ramps up through the
+   * evening of the first cell, holds, and fades out through the evening of the
+   * second — never a vertical wash, and never confined to one cell.
+   *
+   * Each cell paints one span of that band: `--cell-from` is what the day
+   * already is on waking, `--cell-to` is what its evening leads into. Both
+   * default to transparent, so an ordinary day is plain, and two observances in
+   * a row hand over to each other mid-cell rather than breaking.
+   *
+   * The 0/40/100 stops are taken from the print file's own gradients.
+   */
+  .cal-day {
+    --holy: var(--cal-holy-tint);
+    --feast: var(--cal-feast-tint);
+    --ayyam: var(--cal-ayyam-tint);
+    --cell-from: transparent;
+    --cell-to: transparent;
+    background-color: white;
+    background-image: linear-gradient(
+      to right,
+      var(--cell-from) 0%,
+      var(--cell-from) 40%,
+      var(--cell-to) 100%
+    );
+    min-height: 6.5rem;
+    padding: 0.35rem 0.4rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .cal-day.from-holy { --cell-from: var(--holy); }
+  .cal-day.from-feast { --cell-from: var(--feast); }
+  .cal-day.from-ayyam { --cell-from: var(--ayyam); }
+  .cal-day.to-holy { --cell-to: var(--holy); }
+  .cal-day.to-feast { --cell-to: var(--feast); }
+  .cal-day.to-ayyam { --cell-to: var(--ayyam); }
+
+  /*
+   * Days either side of the period are shown tinted back rather than hidden,
+   * so a week straddling two months still reads as a whole week.
+   *
+   * Their Holy Day and Feast washes are at FULL strength, not muted. A Holy Day
+   * is a Holy Day whichever month you happen to be looking at, and the band
+   * running into it has to be continuous across the boundary or it reads as
+   * though the observance stops at the edge of the grid. The dimmed numerals
+   * carry the out-of-period signal on their own.
+   */
+  .cal-day.is-out { background-color: var(--color-sand-50); }
+  .cal-day.is-out .cal-greg,
+  .cal-day.is-out .cal-badi { opacity: 0.45; }
+  .cal-day.is-today { box-shadow: inset 0 0 0 2px var(--color-teal-600); }
+
+  /*
+   * Gregorian numeral pinned left, Badí' date centred across the cell. The
+   * outer columns are equal, so the Badí' date lines up down the week whatever
+   * width the numeral takes.
+   */
+  .cal-day-head {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: 0.25rem;
+  }
+  .cal-day-head .cal-greg { justify-self: start; }
+  .cal-day-head .cal-badi { grid-column: 2; text-align: center; }
+  .cal-greg {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    line-height: 1;
+  }
+  .cal-badi {
+    font-size: 0.66rem;
+    color: color-mix(in srgb, var(--color-ink) 68%, transparent);
+    line-height: 1.15;
+  }
+  .cal-day.is-holy .cal-badi { color: var(--cal-holy-ink); font-weight: 600; }
+
+  .cal-badges { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+  .cal-badge {
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.32rem;
+    border-radius: 0.25rem;
+    color: white;
+    white-space: nowrap;
+  }
+  .cal-badge-holy-day { background: var(--cal-holy-ink); }
+  .cal-badge-feast { background: var(--cal-feast-ink); }
+  .cal-badge-month { background: var(--cal-feast-ink); }
+  /* The Ayyám-i-Há badge takes its own colour, matching its wash. */
+  .cal-day.from-ayyam .cal-badge-month { background: var(--cal-ayyam-ink); }
+  .cal-badge-event { background: color-mix(in srgb, var(--color-teal-800) 70%, white); }
+
+  .cal-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.12rem; position: relative; }
+  /* Every other tradition shares one quiet style — no tint, no badge. */
+
+  /*
+   * Entries line up in a column whatever leads them.
+   *
+   * A coloured dot and a faith symbol are different sizes, so giving each its
+   * own width started their labels at different x positions and set them on
+   * different lines. Both now sit in a slot of the same size, with the marker
+   * centred inside it, so only the marker differs and the text does not move.
+   */
+  .cal-entries { --marker: 1.05rem; }
+  .cal-other,
+  .cal-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.3rem;
+    font-size: 0.68rem;
+    line-height: 1.25;
+    cursor: default;
+  }
+  /*
+   * A flex item will not shrink below its longest word unless told to, so
+   * "Neighbourhood" and the like ran straight out of the cell and over the
+   * day beside it. Breaking mid-word is ugly; overlapping the next day is
+   * worse, and on a phone it happens constantly.
+   */
+  .cal-event > span:last-child,
+  .cal-other > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+
+  .cal-other { color: color-mix(in srgb, var(--color-ink) 72%, transparent); }
+  .cal-other.is-approx > span:last-child {
+    border-bottom: 1px dotted color-mix(in srgb, var(--color-ink) 35%, transparent);
+  }
+
+  /*
+   * Faith marks, drawn as the print artwork does: a light shape with a dark
+   * outline.
+   *
+   * These were first applied as CSS masks so they could take the text colour.
+   * That silently destroyed several of them — a mask makes every painted pixel
+   * opaque, and these files draw their detail as strokes INSIDE a filled
+   * shape, so the dharmachakra's spokes vanished and it rendered as a plain
+   * disc. They are images now, which keeps fill and outline distinct.
+   *
+   * The source strokes are 12 units on a 512 viewBox — about a third of a
+   * pixel at this size, hence invisible — so the exported files carry a
+   * heavier weight. Even so, the denser marks (om, khanda, ahimsa hand) only
+   * resolve from roughly 18px, which sets the size below.
+   */
+  .faith-icon {
+    flex: none;
+    width: var(--marker, 1.05rem);
+    height: var(--marker, 1.05rem);
+    /*
+     * The marker is taller than the line of text beside it, so aligning their
+     * tops leaves it hanging low. Pulled up by half the difference to centre it
+     * on the first line, while keeping flex-start so it stays with that line
+     * when a name wraps. The dot uses the same offset, so the two agree.
+     */
+    margin-top: -0.1rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+  }
+  .faith-buddhism { background-image: url('/icons/faith/buddhism.svg'); }
+  .faith-christian { background-image: url('/icons/faith/christian.svg'); }
+  .faith-hinduism { background-image: url('/icons/faith/hinduism.svg'); }
+  .faith-islam { background-image: url('/icons/faith/islam.svg'); }
+  .faith-jainism { background-image: url('/icons/faith/jainism.svg'); }
+  .faith-judaism { background-image: url('/icons/faith/judaism.svg'); }
+  .faith-orthodox { background-image: url('/icons/faith/orthodox.svg'); }
+  .faith-sikhism { background-image: url('/icons/faith/sikhism.svg'); }
+
+  .cal-other:hover, .cal-event:hover,
+  .cal-other:focus-visible, .cal-event:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, var(--color-teal-700) 10%, transparent);
+    border-radius: 0.2rem;
+  }
+  .cal-event { color: var(--color-teal-900); }
+  /* A slot the same size as a faith symbol, with the circle centred in it. */
+  .cal-dot {
+    flex: none;
+    width: var(--marker, 1.05rem);
+    height: var(--marker, 1.05rem);
+    display: grid;
+    place-items: center;
+    margin-top: -0.1rem;
+  }
+  .cal-dot::before {
+    content: '';
+    width: 10.5px;
+    height: 10.5px;
+    border-radius: 50%;
+    background: var(--dot, var(--color-teal-600));
+  }
+  .cal-time { font-variant-numeric: tabular-nums; opacity: 0.7; }
+
+  /* ---- hover card --------------------------------------------------------
+     Replaces the browser's own tooltip, which is slow, small, dark and
+     unstyleable. */
+  .cal-card {
+    position: fixed;
+    z-index: 60;
+    max-width: min(20rem, calc(100vw - 2rem));
+    background: white;
+    color: var(--color-ink);
+    border: 1px solid color-mix(in srgb, var(--color-teal-900) 12%, transparent);
+    border-top: 3px solid var(--color-teal-700);
+    border-radius: 0.55rem;
+    padding: 0.6rem 0.75rem;
+    box-shadow:
+      0 1px 2px rgb(15 61 62 / 0.08),
+      0 8px 24px rgb(15 61 62 / 0.16),
+      0 16px 48px rgb(15 61 62 / 0.10);
+    display: grid;
+    gap: 0.28rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 120ms ease, transform 120ms ease;
+    /*
+     * Reachable, because it now holds a link worth clicking. It was
+     * pointer-events: none, which made the card a picture of its contents
+     * rather than something you could use.
+     */
+    pointer-events: auto;
+  }
+  .cal-card.is-visible { opacity: 1; transform: translateY(0); }
+  .cal-card.is-below { border-top-width: 1px; border-bottom: 3px solid var(--color-teal-700); }
+  .cal-card strong {
+    font-family: var(--font-display);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-teal-900);
+    line-height: 1.25;
+  }
+  .cal-card span { color: color-mix(in srgb, var(--color-ink) 78%, transparent); }
+  .cal-card a { color: var(--color-teal-700); }
+  .cal-card .tip-join {
+    /*
+     * Centred by the box rather than by line-height. A min-height with a
+     * line-height leaves the text sitting off-centre the moment the two
+     * disagree, which is what it did — flex centres it whatever the height.
+     */
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 0.2rem; padding: 0.45rem 0.7rem;
+    background: var(--color-teal-700); color: white; text-align: center;
+    border-radius: 0.4rem; font-weight: 600; text-decoration: none;
+    /* Comfortably tappable: a link this important should not need aiming. */
+    min-height: 2.4rem; line-height: 1.2;
+  }
+  .cal-card .tip-join:hover, .cal-card .tip-join:focus-visible {
+    background: var(--color-teal-900);
+  }
+  .cal-card .tip-code { font-variant-numeric: tabular-nums; }
+  /* A pasted invitation can carry an address longer than the card is wide. */
+  .cal-card .tip-note { overflow-wrap: anywhere; }
+
+  .cal-card .tip-when { color: var(--color-teal-700); font-weight: 500; }
+  .cal-card .tip-badi { font-size: 0.74rem; opacity: 0.8; }
+  /* The sunset note is the line a reader most needs to catch: an observance
+     dated Saturday that in fact begins on Friday evening. */
+  .cal-card .tip-eve {
+    color: var(--color-gold-700);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-gold-100) 60%, transparent);
+    border-radius: 0.25rem;
+    padding: 0.15rem 0.35rem;
+    margin: 0 -0.1rem;
+  }
+  .cal-card .tip-work { color: var(--color-teal-800); font-weight: 500; }
+  .cal-card .tip-caveat {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--color-teal-900) 10%, transparent);
+    padding-top: 0.3rem;
+    margin-top: 0.1rem;
+  }
+
+  /* ---- the Fast ----------------------------------------------------------
+     Nineteen days is too long to wash with colour, so the days of ‘Alá' are
+     marked along the foot of the cell instead: the hours the Fast runs
+     between, and a line beneath. */
+  .cal-day.is-fast { position: relative; }
+  .cal-day.is-fast::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 2px;
+    background: #b3402f;
+  }
+  .cal-fast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.2rem;
+    margin-top: auto;
+    padding-top: 0.2rem;
+    font-size: 0.58rem;
+    font-variant-numeric: tabular-nums;
+    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+    cursor: default;
+  }
+  .cal-fast-icon {
+    width: 1.15rem;
+    height: 0.82rem;
+    flex: none;
+    background: url('/icons/sunset.svg') no-repeat center / contain;
+  }
+  .cal-fast-time { white-space: nowrap; }
+
+  .cal-status { font-size: 0.75rem; color: color-mix(in srgb, var(--color-ink) 60%, transparent); min-height: 1.2em; margin: 0.5rem 0 0; }
+
+  .cal-legend {
+    display: flex; flex-wrap: wrap; gap: 0.4rem 1rem;
+    list-style: none; margin: 0.75rem 0 0; padding: 0;
+    font-size: 0.72rem; color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  }
+  .cal-legend li { display: flex; align-items: center; gap: 0.35rem; }
+  .swatch { width: 0.85rem; height: 0.85rem; border-radius: 0.2rem; border: 1px solid var(--cal-line); }
+  /* These must match the washes painted in the cells, not the badge colours. */
+  .swatch-holy { background: var(--cal-holy-tint); }
+  .swatch-month { background: var(--cal-feast-tint); }
+  .swatch-ayyam { background: var(--cal-ayyam-tint); }
+  .swatch-fast { background: white; border-bottom: 2px solid #b3402f; }
+  .cal-legend-note { font-style: italic; }
+
+  /* ---- administrator drawer ---------------------------------------------- */
+  .cal-scrim {
+    position: fixed; inset: 0; background: rgb(15 61 62 / 0.45); z-index: 40;
+  }
+  .cal-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+    width: min(24rem, 100vw);
+    background: var(--color-sand-50);
+    box-shadow: -8px 0 24px rgb(15 61 62 / 0.18);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 200ms ease;
+  }
+  .cal-drawer.is-open { transform: translateX(0); }
+  .cal-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.1rem; background: var(--color-teal-900); color: white;
+  }
+  .cal-drawer-head h3 { font-family: var(--font-display); font-size: 1.05rem; margin: 0; }
+  .cal-close { background: none; border: 0; color: white; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+  .cal-drawer-body { overflow-y: auto; padding: 1rem 1.1rem 2.5rem; display: grid; gap: 1.5rem; }
+  .cal-drawer-body h4 {
+    font-family: var(--font-display); font-size: 0.95rem; color: var(--color-teal-900);
+    margin: 0 0 0.35rem;
+  }
+  .cal-help { font-size: 0.75rem; line-height: 1.45; color: color-mix(in srgb, var(--color-ink) 70%, transparent); margin: 0 0 0.6rem; }
+  .cal-desc { font-size: 0.72rem; color: color-mix(in srgb, var(--color-ink) 65%, transparent); margin: 0.35rem 0; }
+  .cal-list { display: grid; gap: 0.3rem; }
+  .cal-item {
+    background: white; border: 1px solid var(--cal-line); border-radius: 0.45rem;
+    padding: 0.5rem 0.6rem;
+  }
+  .cal-item summary { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; list-style: none; }
+  .cal-item summary::-webkit-details-marker { display: none; }
+  .cal-toggle { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; flex: 1; cursor: pointer; }
+  .cal-tag {
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--color-sand-200); color: var(--color-ink);
+    padding: 0.08rem 0.3rem; border-radius: 0.25rem;
+  }
+  .cal-sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+
+  /* ---- cycle view ------------------------------------------------------- */
+
+  /*
+   * Two slim columns down the left: the phase, and the week number. Narrow on
+   * purpose — they are a margin on the weeks, not a third of the grid.
+   */
+  .cal-grid.is-cycle { grid-template-columns: 1.5rem 1.6rem repeat(7, minmax(0, 1fr)); }
+
+  .cal-phase-cell {
+    display: grid; place-items: center;
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 0.62rem; letter-spacing: 0.09em; text-transform: uppercase;
+    font-weight: 600; text-align: center;
+    color: color-mix(in srgb, var(--color-ink) 78%, transparent);
+    border-right: 1px solid var(--cal-line);
+    /* The label is drawn once per phase and centred in its run, so a long name
+       on a short phase is clipped rather than allowed to break the column. */
+    overflow: hidden;
+  }
+  .cal-week-no {
+    display: grid; place-items: center;
+    font-size: 0.7rem; font-variant-numeric: tabular-nums;
+    color: color-mix(in srgb, var(--color-ink) 70%, transparent);
+    border-right: 1px solid var(--cal-line);
+  }
+  .cal-grid.is-cycle .cal-corner {
+    font-size: 0.55rem; letter-spacing: 0.02em; padding-inline: 0;
+  }
+
+  /*
+   * A subheading inside a settings section opens a new subject, so it needs
+   * more space above it than the paragraph it follows would otherwise leave —
+   * without it "Plans" sits hard against the sentence before it.
+   */
+  .cal-admin-section h5 {
+    margin: 1.6rem 0 0.3rem;
+    font-size: 1rem;
+  }
+  .cal-admin-section h5:first-child { margin-top: 0.4rem; }
+
+  /* ---- passkeys ----------------------------------------------------------- */
+  .cal-warn {
+    color: #a12;
+    border-left: 2px solid color-mix(in srgb, #a12 45%, transparent);
+    padding-left: 0.5rem;
+  }
+
+  .cal-passkey-signin { margin-top: 1.1rem; }
+  .cal-or {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin: 0 0 0.7rem; font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  }
+  .cal-or::before, .cal-or::after {
+    content: ''; flex: 1; height: 1px; background: var(--cal-line);
+  }
+
+  /* ---- plans -------------------------------------------------------------- */
+  .cal-plan { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; }
+  .cal-plan-name { flex: 1; }
+  .cal-plan-name small {
+    display: block; font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+  }
+  .cal-plan .cal-remove { margin-top: 0; }
+  .cal-plan-add { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .cal-plan-add input {
+    flex: 1 1 7rem; min-width: 0;
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.3rem 0.45rem; font-size: 0.8rem; background: white;
+  }
+  .cal-week-note { margin: -0.4rem 0 0.7rem; font-size: 0.7rem; }
+  .cal-week-start select:disabled {
+    background: color-mix(in srgb, var(--color-ink) 5%, white);
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+    cursor: not-allowed;
+  }
+
+  /* ---- phase settings ---------------------------------------------------- */
+  .cal-phase-grid { display: grid; gap: 0.35rem; margin-top: 0.5rem; }
+  .cal-phase-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+  .cal-phase-swatch {
+    flex: none; width: 0.9rem; height: 0.9rem; border-radius: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+  }
+  .cal-phase-name { flex: 1; }
+  .cal-phase-weeks { width: 3.2rem; text-align: center; }
+  input.cal-phase-weeks {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.2rem 0.3rem; font-size: 0.78rem; background: white;
+  }
+  .cal-phase-rest {
+    font-size: 0.7rem; color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .cal-phase-row select {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.2rem 0.3rem; font-size: 0.75rem; background: white;
+  }
+
+  /* Each administrator section collapses: the panel is long, and finding one
+     setting should not mean scrolling past four others. */
+  .cal-admin-section > summary {
+    cursor: pointer; list-style: none; font-weight: 600; font-size: 0.9rem;
+    padding: 0.45rem 0; border-top: 1px solid var(--cal-line);
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .cal-admin-section > summary::-webkit-details-marker { display: none; }
+  .cal-admin-section > summary::before {
+    content: '›'; display: inline-block; transition: transform 0.15s ease;
+    color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  }
+  .cal-admin-section[open] > summary::before { transform: rotate(90deg); }
+
+  .cal-cycle-next { opacity: 0.75; }
+
+  /* The select sits on the same line as its label, unlike the stacked fields. */
+  .cal-week-start {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.6rem; font-size: 0.78rem; margin: 0.35rem 0 0.7rem;
+  }
+  .cal-week-start select, .cal-field select {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.3rem 0.45rem; font-size: 0.8rem; background: white;
+  }
+
+  .cal-check { margin-top: 0.7rem; }
+  .cal-cycle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+  .cal-cycle-no {
+    flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%;
+    display: grid; place-items: center; font-size: 0.72rem;
+    background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  }
+  .cal-cycle.is-current-cycle .cal-cycle-no {
+    background: color-mix(in srgb, var(--cal-accent, #7a5c1e) 22%, transparent);
+    font-weight: 600;
+  }
+  .cal-cycle-date { font-variant-numeric: tabular-nums; }
+  .cal-cycle-input {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.2rem 0.35rem; font-size: 0.78rem; background: white;
+  }
+  .cal-cycle-span { margin-left: auto; text-align: right; line-height: 1.25; }
+  .cal-cycle-span small {
+    display: block; font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+  }
+  .cal-cycle-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; }
+  .cal-cycle .cal-remove { margin-top: 0; }
+
+  .cal-field { display: grid; gap: 0.2rem; font-size: 0.75rem; margin-top: 0.5rem; }
+  .cal-field input {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.35rem 0.5rem; font-size: 0.82rem; background: white;
+  }
+  .cal-field small { font-size: 0.68rem; color: color-mix(in srgb, var(--color-ink) 60%, transparent); }
+  .cal-add {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--cal-line);
+  }
+  .cal-add h5 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--color-teal-900);
+    margin: 0 0 0.4rem;
+  }
+  .cal-where { margin: 0 0 0.6rem; padding-left: 1rem; }
+  .cal-where li { margin-bottom: 0.3rem; }
+  .cal-primary, .cal-secondary {
+    margin-top: 0.6rem; border-radius: 0.4rem; padding: 0.42rem 0.8rem;
+    font-size: 0.8rem; cursor: pointer; border: 1px solid transparent;
+  }
+  .cal-primary { background: var(--color-teal-700); color: white; }
+  .cal-secondary { background: white; color: var(--color-teal-800); border-color: var(--cal-line); }
+  .cal-remove {
+    margin-top: 0.7rem;
+    background: white;
+    border: 1px solid color-mix(in srgb, #a12 35%, transparent);
+    color: #a12;
+    border-radius: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .cal-remove:hover { background: color-mix(in srgb, #a12 8%, white); }
+  .cal-google-row { display: grid; gap: 0.15rem; }
+  .cal-error { color: #a12; font-size: 0.75rem; margin: 0.4rem 0 0; }
+  .cal-copied { font-size: 0.75rem; color: var(--color-teal-700); margin-left: 0.5rem; }
+  .cal-toggle-name { flex: 1; }
+  .cal-admin-block {
+    border-top: 1px solid var(--cal-line);
+    padding-top: 1rem;
+  }
+  .cal-admin-block > summary {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    color: var(--color-teal-900);
+    cursor: pointer;
+    margin-bottom: 0.6rem;
+  }
+  .cal-admin-block > section,
+  .cal-admin-block [data-admin-panel] > section { margin-bottom: 1.5rem; }
+  /* ---- sections and dragging in the calendar list ------------------------ */
+  .cal-section { margin-bottom: 0.6rem; }
+  .cal-section > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-teal-800);
+    padding: 0.3rem 0;
+  }
+  .cal-section-count {
+    font-weight: 400;
+    letter-spacing: 0;
+    color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  }
+  .cal-empty {
+    margin: 0;
+    padding: 0.5rem;
+    border: 1px dashed var(--cal-line);
+    border-radius: 0.4rem;
+    text-align: center;
+  }
+  .cal-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: grab;
+  }
+  .cal-toggle-row.is-dragging { opacity: 0.4; }
+  /* The line shows where the calendar will land, above the row hovered over. */
+  .cal-toggle-row.is-over { box-shadow: inset 0 2px 0 var(--color-teal-600); }
+  .cal-grip {
+    color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+    font-size: 0.85rem;
+    line-height: 1;
+    flex: none;
+  }
+
+  /* ---- sign in ----------------------------------------------------------- */
+  .cal-signin {
+    position: fixed;
+    z-index: 55;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(22rem, calc(100vw - 2rem));
+    background: var(--color-sand-50);
+    border-radius: 0.6rem;
+    box-shadow: 0 12px 40px rgb(15 61 62 / 0.28);
+    overflow: hidden;
+  }
+  .cal-signin-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    background: var(--color-teal-900);
+    color: white;
+  }
+  .cal-signin-head h3 { font-family: var(--font-display); font-size: 1rem; margin: 0; }
+  .cal-signin-body { padding: 1rem; }
+  /* Signed in, the icon fills so the state is visible without opening it. */
+  .cal-icon-btn.is-signed-in {
+    background: var(--color-teal-700);
+    border-color: var(--color-teal-800);
+    color: white;
+  }
+
+  .cal-swatches { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
+  .cal-swatch {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px var(--cal-line);
+    cursor: pointer;
+    padding: 0;
+  }
+  .cal-swatch.is-current {
+    border-color: white;
+    box-shadow: 0 0 0 2px var(--color-teal-800);
+  }
+  .cal-item > summary .cal-dot { margin-right: 0.1rem; margin-top: 0; }
+  .cal-fixed { margin-top: 0.6rem; font-style: italic; }
+
+  .cal-verify-row { display: grid; gap: 0.2rem; }
+  .cal-verify-name { font-size: 0.82rem; font-weight: 600; color: var(--color-teal-900); }
+  .cal-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.68rem; text-align: left;
+    background: var(--color-sand-100); border: 1px solid var(--cal-line);
+    border-radius: 0.3rem; padding: 0.2rem 0.35rem; cursor: pointer;
+    color: var(--color-teal-800); word-break: break-all;
+  }
+  .cal-key:hover { background: var(--color-teal-50); }
+  .cal-drawer-body select {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem;
+    padding: 0.35rem 0.5rem; font-size: 0.82rem; background: white;
+  }
+  .cal-lock { display: grid; gap: 0.4rem; }
+  .cal-lock label { display: grid; gap: 0.25rem; font-size: 0.78rem; }
+  .cal-lock input {
+    border: 1px solid var(--cal-line); border-radius: 0.35rem; padding: 0.4rem 0.5rem; background: white;
+  }
+
+  @media (max-width: 640px) {
+    /*
+     * Wide enough to read, narrow enough to imply the rest.
+     *
+     * A fixed 4.9rem put about four and a half days on a phone, which looked
+     * squeezed and wrapped every second event name onto three lines. Sizing
+     * against the viewport instead shows the same three and a bit days on any
+     * phone, rather than four on one and three on another — and the third of a
+     * column at the edge is what says the week continues.
+     *
+     * 2rem is the page's own padding either side, which is the width the grid
+     * does not get.
+     */
+    .cal-grid {
+      --cal-cell: calc((100vw - 2rem) / 3.3);
+      grid-template-columns: repeat(7, minmax(var(--cal-cell), 1fr));
+      min-width: calc(7 * var(--cal-cell));
+    }
+    .cal-day { min-height: 5rem; }
+    .cal-title { font-size: 1.15rem; white-space: normal; }
+    .cal-badi-year { font-size: 0.68rem; white-space: normal; }
+    .cal-views { flex-wrap: wrap; }
+
+    /*
+     * Three columns do not fit across a phone: the month, the navigation and
+     * the two buttons together overflowed the viewport and pushed the page into
+     * a sideways scroll, with the menu button off the edge. Stack them instead —
+     * month above, controls below.
+     */
+    .cal-bar {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        'heading heading'
+        'nav actions';
+      gap: 0.6rem;
+    }
+
+    /* In a cell this narrow the Badí' date cannot sit beside the numeral
+       without breaking across lines, so it takes its own line under it. */
+    .cal-day-head { grid-template-columns: 1fr; gap: 0; }
+    .cal-day-head .cal-greg { justify-self: start; }
+    .cal-day-head .cal-badi { grid-column: 1; text-align: center; }
+  }
+</style>
