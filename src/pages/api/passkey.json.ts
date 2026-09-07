@@ -225,6 +225,15 @@ export const POST: APIRoute = async ({ request }) => {
       ok: true,
       passkeys: summarise(await listCredentials(store)),
       policy: await readPolicy(store),
+      /*
+       * Whether the recovery secret exists, never what it is.
+       *
+       * A secret set under a mistyped name looks exactly like one that was
+       * never set, and the difference only shows up on the day every enrolled
+       * device is gone — which is the worst possible moment to discover it.
+       * Reported to administrators only, and only as a yes or no.
+       */
+      recoveryConfigured: Boolean((env as Record<string, unknown>).ADMIN_RECOVERY_CODE),
     });
   }
 
