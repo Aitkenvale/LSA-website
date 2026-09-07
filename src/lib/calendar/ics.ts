@@ -447,11 +447,24 @@ function buildEvents(
     allDay,
   };
 
-  const starts = props.RRULE
-    ? expandRrule(props.RRULE.value, start.date, from, to)
-    : start.date >= from && start.date <= to
+  /*
+   * An event belongs to a window if it OVERLAPS it, not if it begins in it.
+   *
+   * Filtering on the start alone loses anything already under way: a booking
+   * running from the last day of one cycle into the next disappeared from the
+   * second entirely, and a hire spanning the turn of a month vanished from the
+   * month it finished in. The window is therefore searched from `spanDays`
+   * earlier, and each occurrence kept only if it actually reaches `from`.
+   */
+  const reachBack = spanDays > 0 ? addDays(from, -spanDays) : from;
+  const overlaps = (d: string) => d <= to && (spanDays > 0 ? addDays(d, spanDays) : d) >= from;
+
+  const starts = (props.RRULE
+    ? expandRrule(props.RRULE.value, start.date, reachBack, to)
+    : start.date >= reachBack && start.date <= to
       ? [start.date]
-      : [];
+      : []
+  ).filter(overlaps);
 
   return starts
     .filter((d) => !exdates.includes(d) && !replaced.has(d))
