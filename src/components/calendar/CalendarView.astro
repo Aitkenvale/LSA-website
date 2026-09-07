@@ -2699,6 +2699,7 @@
     function hide() {
       window.clearTimeout(showTimer);
       window.clearTimeout(hideTimer);
+      hideTimer = undefined;
       current = null;
       card.classList.remove('is-visible');
       card.hidden = true;
@@ -2715,8 +2716,26 @@
      */
     function scheduleHide() {
       window.clearTimeout(hideTimer);
-      hideTimer = window.setTimeout(hide, 220);
+      hideTimer = window.setTimeout(hide, 500);
     }
+
+    /*
+     * A timer alone is the wrong instrument here: it punishes a slow hand and
+     * forgives a fast one, which is exactly backwards. Someone moving
+     * carefully towards the card is the person most likely to want it.
+     *
+     * So while a close is pending, the pointer being anywhere near the card
+     * cancels it. The corridor between the entry and the card is generous
+     * enough to cross at any speed, and moving genuinely away still closes it.
+     */
+    const NEAR = 48;
+    document.addEventListener('pointermove', (e) => {
+      if (hideTimer === undefined || card.hidden) return;
+      const r = card.getBoundingClientRect();
+      const near = e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR
+        && e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR;
+      if (near) window.clearTimeout(hideTimer);
+    }, { passive: true });
 
     card.addEventListener('pointerenter', () => window.clearTimeout(hideTimer));
     card.addEventListener('pointerleave', scheduleHide);
@@ -3469,11 +3488,17 @@
   .cal-card span { color: color-mix(in srgb, var(--color-ink) 78%, transparent); }
   .cal-card a { color: var(--color-teal-700); }
   .cal-card .tip-join {
-    display: block; margin-top: 0.2rem; padding: 0.4rem 0.6rem;
+    /*
+     * Centred by the box rather than by line-height. A min-height with a
+     * line-height leaves the text sitting off-centre the moment the two
+     * disagree, which is what it did — flex centres it whatever the height.
+     */
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 0.2rem; padding: 0.45rem 0.7rem;
     background: var(--color-teal-700); color: white; text-align: center;
     border-radius: 0.4rem; font-weight: 600; text-decoration: none;
     /* Comfortably tappable: a link this important should not need aiming. */
-    min-height: 2.2rem; line-height: 1.5;
+    min-height: 2.4rem; line-height: 1.2;
   }
   .cal-card .tip-join:hover, .cal-card .tip-join:focus-visible {
     background: var(--color-teal-900);

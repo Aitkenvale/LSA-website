@@ -20,6 +20,15 @@ const fullTitle = title ? `${title} · ${settings.siteName}` : settings.siteName
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      iOS inflates text on its own judgement when a column looks narrow to it,
+      which changes sizes the layout was measured against. Pinning it does not
+      stop anyone zooming — that stays the reader's to do — it only stops the
+      browser deciding for them.
+    -->
+    <style is:inline>
+      html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    </style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
     <title>{fullTitle}</title>
