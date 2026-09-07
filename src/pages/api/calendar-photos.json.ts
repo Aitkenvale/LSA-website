@@ -76,8 +76,16 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (from && to) {
     if (!isPhotoDate(from) || !isPhotoDate(to)) return json({ error: 'Bad range.' }, 400);
     if (!may.view) return json({ counts: {}, may });
+    /*
+     * No cap on the span. The cycle view asks about twelve to sixteen weeks at
+     * once, and an earlier limit of 62 days meant its later weeks reported no
+     * photographs at all — days that held them showed the empty marker. The
+     * count now comes from a single listing however long the range, so there
+     * is nothing to bound. A sanity limit remains only to refuse a nonsense
+     * request.
+     */
     const dates: string[] = [];
-    for (let d = from; d <= to && dates.length < 62; ) {
+    for (let d = from; d <= to && dates.length < 400; ) {
       dates.push(d);
       const [y, m, day] = d.split('-').map(Number);
       d = new Date(Date.UTC(y, m - 1, day + 1)).toISOString().slice(0, 10);

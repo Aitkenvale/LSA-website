@@ -10,6 +10,7 @@ import {
 /** A bucket that behaves enough like R2 for these to mean something. */
 function fakeBucket(seed = {}) {
   const store = new Map(Object.entries(seed));
+  const meta = new Map();
   return {
     store,
     async get(key) {
@@ -17,8 +18,17 @@ function fakeBucket(seed = {}) {
       const body = store.get(key);
       return { json: async () => JSON.parse(body), text: async () => body };
     },
-    async put(key, value) { store.set(key, value); },
-    async delete(key) { store.delete(key); },
+    async put(key, value, options) { store.set(key, value); meta.set(key, options?.customMetadata); },
+    async delete(key) { store.delete(key); meta.delete(key); },
+    // Mirrors R2's listing, which is how a range of days is counted.
+    async list({ prefix = '' } = {}) {
+      return {
+        objects: [...store.keys()]
+          .filter((k) => k.startsWith(prefix))
+          .map((key) => ({ key, customMetadata: meta.get(key) })),
+        truncated: false,
+      };
+    },
   };
 }
 
@@ -126,4 +136,56 @@ test('the size ceiling separates a resized photograph from an original', () => {
   assert.ok(MAX_UPLOAD_BYTES < phoneOriginal, 'would accept an unresized original');
   assert.ok(MAX_UPLOAD_BYTES > typicalResized);
   assert.equal(MAX_IMAGE_EDGE, 2000);
+});
+
+// ---- counting a long range -------------------------------------------------
+
+/*
+ * The cycle view asks about twelve to sixteen weeks at once. Counting by
+ * opening each day's index meant a cap on how many, and past the cap the days
+ * reported nothing — so a day holding photographs showed the empty marker.
+ */
+function listingBucket(days) {
+  const objects = Object.entries(days).map(([date, n]) => ({
+    key: `photos/${date}.json`,
+    customMetadata: { count: String(n) },
+  }));
+  // Images live a level down and must not be mistaken for indexes.
+  return {
+    async list() { return { objects, truncated: false }; },
+    async get() { return null; },
+  };
+}
+
+test('every day of a sixteen-week cycle is counted, not just the first weeks', async () => {
+  const days = { '2026-06-27': 2, '2026-08-30': 1, '2026-09-06': 3, '2026-09-14': 1, '2026-09-18': 2 };
+  const dates = [];
+  for (let d = new Date('2026-06-27'); d <= new Date('2026-10-18'); d.setUTCDate(d.getUTCDate() + 1)) {
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  assert.ok(dates.length > 100, 'the range under test must be longer than a month');
+  const counts = await countsFor(listingBucket(days), dates);
+  assert.deepEqual(counts, days, 'a day late in the cycle was missed');
+  // The one that actually failed: day 72 of the cycle.
+  assert.equal(counts['2026-09-06'], 3);
+});
+
+test('days outside the range are not reported', async () => {
+  const counts = await countsFor(
+    listingBucket({ '2026-09-06': 1, '2026-12-25': 4 }),
+    ['2026-09-06', '2026-09-07'],
+  );
+  assert.deepEqual(counts, { '2026-09-06': 1 });
+});
+
+test('an index written before counts were recorded is still counted', async () => {
+  const bucket = {
+    async list() {
+      return { objects: [{ key: 'photos/2026-09-06.json', customMetadata: {} }], truncated: false };
+    },
+    async get() {
+      return { json: async () => ({ version: 1, photos: [{ id: 'a' }, { id: 'b' }] }) };
+    },
+  };
+  assert.deepEqual(await countsFor(bucket, ['2026-09-06']), { '2026-09-06': 2 });
 });

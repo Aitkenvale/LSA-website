@@ -142,23 +142,58 @@ export async function writeDay(bucket: R2Bucket, date: string, day: DayPhotos): 
   }
   await bucket.put(indexKey(date), JSON.stringify(day), {
     httpMetadata: { contentType: 'application/json' },
+    // The count is repeated onto the object so that a listing can report every
+    // day at once without opening any of them. See countsFor.
+    customMetadata: { count: String(day.photos.length) },
   });
 }
 
 /**
- * How many photographs each of a set of days holds.
+ * How many photographs each day in a range holds.
  *
- * The grid asks about a month at a time, so this reads the indexes rather than
- * listing the bucket: a listing would return every image object as well, and
- * the count is all the cell needs.
+ * One listing, not one read per day. The obvious implementation opened each
+ * day's index in turn, which was fine for a month and quietly wrong for the
+ * cycle view: a cycle runs twelve to sixteen weeks, and a cap put there to
+ * bound the reads meant the later weeks silently reported nothing. Days that
+ * held photographs showed the empty marker, which is worse than slow.
+ *
+ * The count is written onto the index object as metadata, so a listing carries
+ * it and nothing has to be opened. A day written before that is read directly,
+ * so an older index is counted rather than ignored.
  */
 export async function countsFor(
   bucket: R2Bucket | undefined,
   dates: string[],
 ): Promise<Record<string, number>> {
   if (!bucket || !dates.length) return {};
-  const found = await Promise.all(
-    dates.map(async (date) => [date, (await readDay(bucket, date)).photos.length] as const),
-  );
-  return Object.fromEntries(found.filter(([, n]) => n > 0));
+  const wanted = new Set(dates);
+  const counts: Record<string, number> = {};
+  const needReading: string[] = [];
+
+  let cursor: string | undefined;
+  do {
+    const listed = await bucket.list({
+      prefix: 'photos/',
+      // Only the day indexes sit directly under photos/; the images are a
+      // level down and are left as prefixes rather than returned.
+      delimiter: '/',
+      include: ['customMetadata'],
+      cursor,
+    });
+    for (const object of listed.objects) {
+      const date = object.key.slice('photos/'.length, -'.json'.length);
+      if (!object.key.endsWith('.json') || !wanted.has(date)) continue;
+      const recorded = Number(object.customMetadata?.count);
+      if (Number.isFinite(recorded) && recorded > 0) counts[date] = recorded;
+      else if (!object.customMetadata?.count) needReading.push(date);
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+
+  // Only indexes written before the count was recorded, so normally none.
+  for (const date of needReading) {
+    const n = (await readDay(bucket, date)).photos.length;
+    if (n > 0) counts[date] = n;
+  }
+  return counts;
 }

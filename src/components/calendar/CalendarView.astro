@@ -4200,8 +4200,32 @@
     margin-top: 0.2rem; font-size: 0.72rem; color: var(--color-teal-700);
   }
   .cal-lightbox-desc-read { margin: 0; font-size: 0.85rem; }
-  .cal-lightbox-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-  .cal-lightbox-actions .cal-remove { margin-top: 0; margin-left: auto; }
+  /*
+   * One row, one size.
+   *
+   * The three button styles were written for different places and carry
+   * different type sizes, paddings and top margins — which left Delete
+   * noticeably smaller than Done and sitting on its own baseline. Side by side
+   * that reads as a mistake. Here they are normalised, and a common minimum
+   * height holds them level whatever their text.
+   */
+  .cal-lightbox-actions {
+    display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: stretch;
+    margin-top: 0.2rem;
+  }
+  .cal-lightbox-actions button {
+    margin-top: 0;
+    min-height: 2.1rem;
+    padding: 0.42rem 0.85rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Destroying and finishing sit together at the far end, away from the two
+     that add. */
+  .cal-lightbox-actions .cal-remove { margin-left: auto; }
   .cal-lightbox-progress { margin: 0; }
 
   @media (max-width: 640px) {
