@@ -515,6 +515,14 @@ content:
           a password — the website's code is public, so do not reuse a code that
           matters elsewhere.
         type: string
+      - name: showCalendarLink
+        label: Show the calendar in the menu
+        description: >-
+          Off while the Assembly is still considering the calendar. The page
+          still works for anyone given its address; it is simply not announced,
+          not indexed by search engines, and not listed in the sitemap. Turn on
+          once the calendar is approved.
+        type: boolean
       - name: footer
         label: Footer
         type: object

@@ -9,10 +9,12 @@ import { getSiteSettings } from '../lib/site';
 interface Props {
   title?: string;
   description?: string;
+  /** Keep this page out of search results, whatever the site-wide gate says. */
+  noindex?: boolean;
 }
 
 const settings = await getSiteSettings();
-const { title, description = settings.tagline } = Astro.props;
+const { title, description = settings.tagline, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} · ${settings.siteName}` : settings.siteName;
 ---
 
@@ -38,7 +40,7 @@ const fullTitle = title ? `${title} · ${settings.siteName}` : settings.siteName
     <meta property="og:type" content="website" />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
     <link rel="sitemap" href="/sitemap-index.xml" />
-    {settings.sitePassword && <meta name="robots" content="noindex" />}
+    {(settings.sitePassword || noindex) && <meta name="robots" content="noindex" />}
     {
       settings.sitePassword && (
         <script is:inline define:vars={{ gatePw: settings.sitePassword }}>

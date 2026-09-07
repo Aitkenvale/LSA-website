@@ -9,6 +9,7 @@ const settings = await getSiteSettings();
 <Base
   title="Community calendar"
   description="Bahá'í Holy Days, Feasts and community events for Townsville, alongside the holy days of other faiths."
+  noindex={!settings.showCalendarLink}
 >
   {
     /*

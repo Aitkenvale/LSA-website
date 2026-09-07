@@ -156,6 +156,19 @@ const settings = defineCollection({
     // The administrator code is deliberately NOT here: it lives in the
     // ADMIN_CODE Worker secret and is checked server-side.
     calendarAccessCode: z.string().default(''),
+    /*
+     * Whether the calendar is announced on the site.
+     *
+     * Off, the page still answers at its address — this is not access control,
+     * and nothing private is behind it in any case, since a reader who has not
+     * signed in sees only Holy Days and public holidays. What it withholds is
+     * an invitation to something the Assembly has not yet approved.
+     *
+     * One switch with three consequences: the header link, the robots
+     * instruction on the page, and whether it appears in the sitemap. Kept
+     * together so none can be turned on while another is forgotten.
+     */
+    showCalendarLink: z.boolean().default(false),
   }),
 });
 

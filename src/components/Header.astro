@@ -14,7 +14,12 @@ const links = [
   { href: '/what-we-believe/', label: 'What We Believe' },
   { href: '/what-we-do/', label: 'What We Do' },
   { href: '/community-centre/', label: 'Community Centre' },
-  { href: '/calendar/', label: 'Calendar', icon: true },
+  // Announced only once the Assembly has approved it. Removed from the list
+  // rather than hidden with CSS, so it is absent from the markup entirely and
+  // there is nothing to find by reading the page.
+  ...(settings.showCalendarLink
+    ? [{ href: '/calendar/', label: 'Calendar', icon: true }]
+    : []),
 ];
 const path = Astro.url.pathname;
 const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
