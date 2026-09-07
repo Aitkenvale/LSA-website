@@ -121,6 +121,10 @@ export const GET: APIRoute = async (context) => {
      * behaviour changes, and the moment it is set the page switches over.
      */
     let busy;
+    // Which calendar answered. Not a secret — it names the route, not the
+    // address — and without it the only way to tell the two apart is to
+    // notice that one merges overlapping bookings and the other does not.
+    const source = icsUrl ? 'outlook' : 'google';
     if (icsUrl) {
       const res = await fetch(icsUrl, {
         headers: { accept: 'text/calendar' },
@@ -143,7 +147,7 @@ export const GET: APIRoute = async (context) => {
      * that a page reloaded a few times does not hammer Microsoft.
      */
     const response = json(
-      { month, busy },
+      { month, busy, source },
       200,
       { 'cache-control': 'public, max-age=60, s-maxage=120' },
     );
