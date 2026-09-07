@@ -2147,16 +2147,60 @@
                   colour: calendarColour(cal.colour),
                   tip: !cal.showsDetail
                     ? `title|${ev.summary}`
-                    : [
-                        `title|${ev.summary}`,
-                        `when|${formatEventTime(ev)}`,
-                        // Outlook sends DESCRIPTION:\n for an empty description,
-                        // which is truthy until it is trimmed.
-                        ev.location?.trim() ? `note|${ev.location.trim()}` : '',
-                        ev.description?.trim() ? `note|${ev.description.trim()}` : '',
-                      ]
-                        .filter(Boolean)
-                        .join('\n'),
+                    : (() => {
+                        const location = ev.location?.trim() ?? '';
+                        const description = ev.description?.trim() ?? '';
+                        const meeting = findMeeting(`${location}\n${description}`);
+                        /*
+                         * What the button already carries is taken out of the
+                         * prose. Otherwise the card shows the address twice
+                         * and the passcode twice, and on a phone that is most
+                         * of what there is room for.
+                         */
+                        const tidy = (text: string) => {
+                          let out = text;
+                          if (meeting.url) out = out.split(meeting.url).join('');
+                          if (meeting.passcode) {
+                            out = out.replace(
+                              new RegExp(
+                                `(?:pass\\s?code|password|passcode)\\s*[:\\-]?\\s*`
+                                  + meeting.passcode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                                'ig',
+                              ),
+                              '',
+                            );
+                          }
+                          return out
+                            .replace(/[ \t]+/g, ' ')
+                            .split('\n')
+                            .map((line) => line.trim())
+                            // Taking the address out of "Join:" leaves the
+                            // label pointing at nothing, and an invitation's
+                            // rules of underscores were never worth reading.
+                            .filter((line) => line && !/^[-_=*~.\s]+$/.test(line)
+                              && !/^[A-Za-z][\w' ]{0,28}:$/.test(line))
+                            .join('\n')
+                            .trim();
+                        };
+                        const prose = tidy(description);
+                        return [
+                          `title|${ev.summary}`,
+                          `when|${formatEventTime(ev)}`,
+                          // Outlook sends DESCRIPTION:\n for an empty description,
+                          // which is truthy until it is trimmed.
+                          location ? `note|${location}` : '',
+                          // A Teams invitation runs to hundreds of words of
+                          // boilerplate. The joining details are lifted out
+                          // above, so what remains is trimmed to what a card
+                          // can hold rather than pushed off the screen.
+                          // What is left after the joining details are lifted
+                          // out is often a line or two of boilerplate; below a
+                          // handful of characters it says nothing worth space.
+                          prose.length > 3 ? `note|${prose.slice(0, 320)}${prose.length > 320 ? '…' : ''}` : '',
+                          meeting.url ? `join|${meeting.url}` : '',
+                          meeting.passcode ? `code|${meeting.passcode}` : '',
+                        ].filter(Boolean).join('\n');
+                      })(),
                 });
               }
             }
@@ -2587,6 +2631,7 @@
     root.appendChild(card);
 
     let showTimer: number | undefined;
+    let hideTimer: number | undefined;
     let current: HTMLElement | null = null;
 
     function place(target: HTMLElement) {
@@ -2620,10 +2665,20 @@
         .map((line) => {
           const at = line.indexOf('|');
           const kind = at === -1 ? 'note' : line.slice(0, at);
-          const body = escapeHtml(at === -1 ? line : line.slice(at + 1));
-          return kind === 'title'
-            ? `<strong>${body}</strong>`
-            : `<span class="tip-${kind}">${body}</span>`;
+          const raw = at === -1 ? line : line.slice(at + 1);
+          if (kind === 'title') return `<strong>${escapeHtml(raw)}</strong>`;
+          if (kind === 'join') {
+            // Only ever http or https, checked again here rather than trusted
+            // from wherever the line was assembled.
+            if (!/^https?:\/\//i.test(raw)) return '';
+            return `<a class="tip-join" href="${escapeHtml(raw)}" target="_blank" rel="noopener noreferrer">`
+              + 'Join the meeting</a>';
+          }
+          if (kind === 'code') {
+            return `<span class="tip-code">Passcode <strong>${escapeHtml(raw)}</strong></span>`;
+          }
+          // A note may itself contain an address worth pressing.
+          return `<span class="tip-${kind}">${linkifyEscaped(raw)}</span>`;
         })
         .join('');
       card.hidden = false;
@@ -2643,15 +2698,39 @@
 
     function hide() {
       window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
       current = null;
       card.classList.remove('is-visible');
       card.hidden = true;
     }
 
+    /*
+     * Leaving the entry no longer closes the card at once.
+     *
+     * The card holds a link to join a meeting, and reaching it means moving
+     * the pointer off the entry and across a gap. Closing on that movement
+     * made the link impossible to press — the card vanished on the way to it.
+     * A short grace period is enough for the crossing, and entering the card
+     * cancels it entirely.
+     */
+    function scheduleHide() {
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(hide, 220);
+    }
+
+    card.addEventListener('pointerenter', () => window.clearTimeout(hideTimer));
+    card.addEventListener('pointerleave', scheduleHide);
+    // A link inside the card takes focus; that must not read as leaving.
+    card.addEventListener('focusin', () => window.clearTimeout(hideTimer));
+    card.addEventListener('focusout', (e) => {
+      if (!card.contains(e.relatedTarget as Node | null)) scheduleHide();
+    });
+
     grid.addEventListener('mouseover', (e) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
       if (!target || target === current) return;
       window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
       // Just enough delay to avoid flickering while the pointer crosses cells.
       showTimer = window.setTimeout(() => show(target), 60);
     });
@@ -2659,14 +2738,24 @@
       const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
       if (!target) return;
       const to = (e as MouseEvent).relatedTarget as Node | null;
-      if (to && target.contains(to)) return;
-      hide();
+      if (to && (target.contains(to) || card.contains(to))) return;
+      scheduleHide();
     });
     grid.addEventListener('focusin', (e) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
       if (target) show(target);
     });
-    grid.addEventListener('focusout', hide);
+    grid.addEventListener('focusout', (e) => {
+      // Tapping the join link moves focus into the card, which is not leaving.
+      if (card.contains((e as FocusEvent).relatedTarget as Node | null)) return;
+      scheduleHide();
+    });
+    // A tap anywhere else puts the card away, which is how a phone closes it.
+    document.addEventListener('pointerdown', (e) => {
+      const inside = card.contains(e.target as Node)
+        || (e.target as HTMLElement).closest?.('[data-tip]');
+      if (!inside) hide();
+    });
     // Touch: a tap focuses the entry, and anything else dismisses the card.
     document.addEventListener('scroll', hide, { passive: true });
     window.addEventListener('resize', hide);
@@ -2809,6 +2898,54 @@
    */
   function isSupportedFeedUrl(url: string): boolean {
     return /^https:\/\/(calendar\.google\.com|outlook\.(office365|office|live)\.com)\//.test(url);
+  }
+
+  /**
+   * Find the link that joins a meeting, and the passcode that goes with it.
+   *
+   * Outlook and Teams put the joining details in the description, wrapped in
+   * several hundred words of boilerplate, and Zoom puts them wherever the
+   * organiser typed them. Reading that on a phone, at eight in the morning,
+   * to find one URL, is the thing worth removing.
+   *
+   * Only http and https are accepted. A calendar feed is somebody else's text
+   * arriving over the network, and turning arbitrary text into a link the
+   * reader is invited to press is exactly where a `javascript:` URL would
+   * like to be.
+   */
+  const URL_PATTERN = /https?:\/\/[^\s<>"'\]),]+/gi;
+
+  /** Meeting hosts worth preferring when a description carries several links. */
+  const MEETING_HOSTS = [
+    'teams.microsoft.com', 'teams.live.com', 'zoom.us', 'meet.google.com',
+    'webex.com', 'whereby.com', 'jitsi',
+  ];
+
+  function findMeeting(text: string): { url?: string; passcode?: string } {
+    const found: { url?: string; passcode?: string } = {};
+    const urls = (text.match(URL_PATTERN) ?? [])
+      // A URL at the end of a sentence collects the full stop.
+      .map((u) => u.replace(/[.,;:)]+$/, ''))
+      .filter((u) => /^https?:\/\//i.test(u));
+    found.url = urls.find((u) => MEETING_HOSTS.some((h) => u.toLowerCase().includes(h))) ?? urls[0];
+
+    const code = /(?:pass\s?code|password|passcode)\s*[:\-]?\s*([^\s,;]{3,32})/i.exec(text);
+    if (code) found.passcode = code[1];
+    return found;
+  }
+
+  /** Escape text, then turn any web address in it into a link. */
+  function linkifyEscaped(text: string): string {
+    let out = '';
+    let at = 0;
+    for (const match of text.matchAll(URL_PATTERN)) {
+      const raw = match[0].replace(/[.,;:)]+$/, '');
+      const start = match.index ?? 0;
+      out += escapeHtml(text.slice(at, start));
+      out += `<a href="${escapeHtml(raw)}" target="_blank" rel="noopener noreferrer">${escapeHtml(raw)}</a>`;
+      at = start + raw.length;
+    }
+    return out + escapeHtml(text.slice(at));
   }
 
   function keepNameWhole(s: string): string {
@@ -3064,7 +3201,13 @@
   }
 
   /* The grid scrolls inside its own box rather than the page. */
-  .cal-grid-wrap { overflow-x: auto; }
+  /*
+   * The grid is wider than a phone and scrolls inside this box. Without
+   * containment, iOS carries the swipe on into the page once the grid reaches
+   * its end — the header slides off to the left and the calendar looks broken.
+   * The document never overflows; the gesture was simply chaining.
+   */
+  .cal-grid-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
   .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(6.4rem, 1fr));
@@ -3205,6 +3348,15 @@
     line-height: 1.25;
     cursor: default;
   }
+  /*
+   * A flex item will not shrink below its longest word unless told to, so
+   * "Neighbourhood" and the like ran straight out of the cell and over the
+   * day beside it. Breaking mid-word is ugly; overlapping the next day is
+   * worse, and on a phone it happens constantly.
+   */
+  .cal-event > span:last-child,
+  .cal-other > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+
   .cal-other { color: color-mix(in srgb, var(--color-ink) 72%, transparent); }
   .cal-other.is-approx > span:last-child {
     border-bottom: 1px dotted color-mix(in srgb, var(--color-ink) 35%, transparent);
@@ -3298,7 +3450,12 @@
     opacity: 0;
     transform: translateY(3px);
     transition: opacity 120ms ease, transform 120ms ease;
-    pointer-events: none;
+    /*
+     * Reachable, because it now holds a link worth clicking. It was
+     * pointer-events: none, which made the card a picture of its contents
+     * rather than something you could use.
+     */
+    pointer-events: auto;
   }
   .cal-card.is-visible { opacity: 1; transform: translateY(0); }
   .cal-card.is-below { border-top-width: 1px; border-bottom: 3px solid var(--color-teal-700); }
@@ -3310,6 +3467,21 @@
     line-height: 1.25;
   }
   .cal-card span { color: color-mix(in srgb, var(--color-ink) 78%, transparent); }
+  .cal-card a { color: var(--color-teal-700); }
+  .cal-card .tip-join {
+    display: block; margin-top: 0.2rem; padding: 0.4rem 0.6rem;
+    background: var(--color-teal-700); color: white; text-align: center;
+    border-radius: 0.4rem; font-weight: 600; text-decoration: none;
+    /* Comfortably tappable: a link this important should not need aiming. */
+    min-height: 2.2rem; line-height: 1.5;
+  }
+  .cal-card .tip-join:hover, .cal-card .tip-join:focus-visible {
+    background: var(--color-teal-900);
+  }
+  .cal-card .tip-code { font-variant-numeric: tabular-nums; }
+  /* A pasted invitation can carry an address longer than the card is wide. */
+  .cal-card .tip-note { overflow-wrap: anywhere; }
+
   .cal-card .tip-when { color: var(--color-teal-700); font-weight: 500; }
   .cal-card .tip-badi { font-size: 0.74rem; opacity: 0.8; }
   /* The sunset note is the line a reader most needs to catch: an observance
