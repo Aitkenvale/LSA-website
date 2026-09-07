@@ -18,6 +18,8 @@
 
 import type { CalendarSection } from './registry.ts';
 import { CALENDAR_SECTIONS, GENERATED_CALENDARS, SEEDED_GOOGLE_CALENDARS } from './registry.ts';
+import type { PhotoPermissions } from './photo-store.ts';
+import { DEFAULT_PHOTO_PERMISSIONS, asPhotoPermissions } from './photo-store.ts';
 import type { Plan } from './plans.ts';
 import { DEFAULT_PLANS, sortPlans } from './plans.ts';
 import type {
@@ -126,6 +128,8 @@ export interface StoredConfig {
   calendars: StoredCalendar[];
   location: CalendarLocation;
   cycles: CycleSettings;
+  /** Who may see, add, describe, download and destroy a day's photographs. */
+  photos: PhotoPermissions;
   /** When each tier's code was last changed, so the record is a fact. */
   codeChanged: Partial<Record<Tier, string>>;
 }
@@ -172,6 +176,7 @@ export function defaultStoredConfig(): StoredConfig {
     calendars,
     location: { ...DEFAULT_LOCATION },
     cycles: defaultCycleSettings(),
+    photos: { ...DEFAULT_PHOTO_PERMISSIONS },
     codeChanged: {},
   };
 }
@@ -314,6 +319,7 @@ export function normaliseConfig(raw: unknown): StoredConfig {
     calendars: [...byId.values()].sort((a, b) => a.position - b.position),
     location,
     cycles: asCycles(stored.cycles),
+    photos: asPhotoPermissions(stored.photos),
     codeChanged: stored.codeChanged ?? {},
   };
 }

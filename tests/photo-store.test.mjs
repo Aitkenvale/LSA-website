@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  DEFAULT_PHOTO_PERMISSIONS, asPhotoPermissions, countsFor, imageKey, indexKey,
+  DEFAULT_PHOTO_PERMISSIONS, MAX_IMAGE_EDGE, MAX_PHOTOS_PER_DAY, MAX_UPLOAD_BYTES,
+  asPhotoPermissions, countsFor, imageKey, indexKey,
   isPhotoDate, newPhotoId, readDay, writeDay,
 } from '../src/lib/calendar/photo-store.ts';
 
@@ -104,4 +105,25 @@ test('a malformed tier falls back to admin, never to something looser', () => {
   assert.deepEqual(p, DEFAULT_PHOTO_PERMISSIONS);
   assert.deepEqual(asPhotoPermissions(undefined), DEFAULT_PHOTO_PERMISSIONS);
   assert.deepEqual(asPhotoPermissions('nonsense'), DEFAULT_PHOTO_PERMISSIONS);
+});
+
+// ---- limits ----------------------------------------------------------------
+
+test('a day holds ten photographs at most', () => {
+  assert.equal(MAX_PHOTOS_PER_DAY, 10);
+});
+
+/*
+ * The upload ceiling has to sit above what a resized photograph weighs and
+ * below what an unresized one does, or it either refuses honest uploads or
+ * accepts a phone's original untouched.
+ */
+test('the size ceiling separates a resized photograph from an original', () => {
+  const typicalResized = 900 * 1024;      // 2000px JPEG at 0.8
+  const generousResized = 2 * 1024 * 1024; // a busy scene, still resized
+  const phoneOriginal = 6 * 1024 * 1024;   // straight off a recent iPhone
+  assert.ok(MAX_UPLOAD_BYTES > generousResized, 'would refuse an honest upload');
+  assert.ok(MAX_UPLOAD_BYTES < phoneOriginal, 'would accept an unresized original');
+  assert.ok(MAX_UPLOAD_BYTES > typicalResized);
+  assert.equal(MAX_IMAGE_EDGE, 2000);
 });

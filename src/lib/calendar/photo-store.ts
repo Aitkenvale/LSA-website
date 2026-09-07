@@ -77,6 +77,28 @@ export function asPhotoPermissions(value: unknown): PhotoPermissions {
   };
 }
 
+/**
+ * How many photographs a day may hold.
+ *
+ * Two is what anyone expects to add; ten is where it stops. The ceiling is not
+ * for storage — ten thousand would fit — but because this is a record of a day
+ * rather than an album, and a cell that says 40 has stopped being a record and
+ * become a place to put things.
+ */
+export const MAX_PHOTOS_PER_DAY = 10;
+
+/** The longest side of a stored image, after resizing in the browser. */
+export const MAX_IMAGE_EDGE = 2000;
+
+/**
+ * The largest upload accepted.
+ *
+ * A 2000px JPEG at reasonable quality lands well under a megabyte. Four is
+ * generous enough that an unusual photograph is not refused, and small enough
+ * that something which has not been resized at all is.
+ */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isPhotoDate(value: unknown): value is string {
