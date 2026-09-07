@@ -86,6 +86,34 @@ export const POST: APIRoute = async (context) => {
   // One-click pre-filled event for the "Bahai Centre" Google Calendar
   const esc = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  /*
+   * A one-click "add to calendar" for the booking officer.
+   *
+   * This replaces the Google link the email used to carry, and does the same
+   * job: it opens Outlook with the booking already filled in, and the officer
+   * chooses the Bahá'í Centre calendar before saving. Nothing is written
+   * without them.
+   *
+   * The address is Microsoft's compose deeplink. They changed its form once
+   * before — the older /calendar/0/deeplink/compose stopped working and took
+   * everyone's links with it — so the attachment stays alongside as the thing
+   * that cannot break, and this is the convenience on top.
+   *
+   * Times are local and unsuffixed, which is how the deeplink expects them;
+   * Queensland keeps no daylight saving, so there is no offset to lose.
+   */
+  const outlookUrl =
+    'https://outlook.office.com/calendar/deeplink/compose?path=/calendar/action/compose' +
+    '&rru=addevent' +
+    `&subject=${encodeURIComponent(`Centre hire: ${name}`)}` +
+    `&startdt=${encodeURIComponent(`${date}T${startTime}:00`)}` +
+    `&enddt=${encodeURIComponent(`${date}T${endTime}:00`)}` +
+    `&location=${encodeURIComponent(settings?.data.address ?? "Bahá'í Centre, Townsville")}` +
+    `&body=${encodeURIComponent(
+      `${purpose}\n\nContact: ${name}\nEmail: ${email}${phone ? `\nPhone: ${phone}` : ''}` +
+        `${organisation ? `\nOrganisation: ${organisation}` : ''}\nAttendance: ${attendance}`,
+    )}`;
+
   const lines = [
     `New Community Centre hire application`,
     ``,
@@ -104,8 +132,11 @@ export const POST: APIRoute = async (context) => {
     `Purpose:`,
     purpose,
     ``,
-    `To APPROVE: reply to this email, then open the attached booking.ics and`,
-    `save it to the Bahai Centre calendar.`,
+    `To APPROVE: reply to this email, then add the booking to the Bahai Centre`,
+    `calendar (pick "Bahai Centre" in the event window before saving):`,
+    outlookUrl,
+    ``,
+    `Or open the attached booking.ics, which works in any calendar.`,
     ``,
     `— Sent from the website hire form. Reply to this email to contact the applicant.`,
   ];
@@ -131,7 +162,9 @@ export const POST: APIRoute = async (context) => {
     ),
     `</table>`,
     `<p style="margin:14px 0 4px;color:#555">Purpose</p><p style="margin:0;white-space:pre-wrap">${esc(purpose)}</p>`,
-    `<p style="color:#555;font-size:13px">To approve: reply to this email (goes straight to the applicant), then open the attached <strong>booking.ics</strong> and save it to the <strong>Bahá'í Centre</strong> calendar.</p>`,
+    `<p style="margin:18px 0"><a href="${outlookUrl}" style="background:#0e6e6b;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Add booking to the Bahá'í Centre calendar</a></p>`,
+    `<p style="color:#555;font-size:13px">To approve: reply to this email (goes straight to the applicant), then use the button above — pick the <strong>Bahá'í Centre</strong> calendar in the event window before saving.</p>`,
+    `<p style="color:#555;font-size:13px">The attached <strong>booking.ics</strong> does the same in any other calendar.</p>`,
   ].join('\n');
 
   /*
