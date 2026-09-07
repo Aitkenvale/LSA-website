@@ -2606,7 +2606,7 @@
             </div>
             ${badges ? `<div class="cal-badges">${badges}</div>` : ''}
             ${events || others ? `<ul class="cal-entries">${events}${others}</ul>` : ''}
-            ${photoMarker(day, events !== '')}
+            ${photoMarker(day)}
             ${fasting ? fastFooter(day) : ''}
           </div>`);
         day = addDays(day, 1);
@@ -2627,20 +2627,24 @@
      * somewhere to start; shown to nobody else, so a reader who may not look
      * is not told there is anything to look at.
      */
-    function photoMarker(date: string, hasEvent: boolean): string {
+    function photoMarker(date: string): string {
       const count = photoCounts[date] ?? 0;
 
       /*
-       * Shown against the days that had something happen — the ones carrying
-       * an event from a linked calendar — rather than against all thirty-odd.
+       * On every day, for whoever may use it.
        *
-       * Except where photographs already exist. Those calendars are somebody
-       * else's, and an event deleted in Outlook would otherwise take the only
-       * way of reaching its photographs with it.
+       * It was tied to days carrying an event from a linked calendar, on the
+       * reasoning that those were the days worth recording. That was wrong
+       * twice over: plenty happens that nobody put in a calendar, and the
+       * events come from feeds we do not control — so a day's only route to
+       * its own photographs depended on somebody else's diary still holding
+       * the entry.
+       *
+       * Whoever may not add one, and may not see one, still gets nothing.
        */
       if (count > 0) {
         if (!photoMay.view) return '';
-      } else if (!hasEvent || !photoMay.upload) return '';
+      } else if (!photoMay.upload) return '';
 
       const label = count
         ? `${count} photograph${count === 1 ? '' : 's'} from ${formatLongDate(date)}`
