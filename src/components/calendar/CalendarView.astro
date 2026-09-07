@@ -3155,9 +3155,14 @@
     font-size: 0.82rem;
     cursor: pointer;
   }
+  /*
+   * The same teal the menu uses for the calendar icon. These sit a few
+   * centimetres apart on the page and were #0f5250 against the menu's
+   * #0e6e6b — close enough to look like a mistake rather than a distinction.
+   */
   .cal-view.is-current {
-    background: var(--color-teal-800);
-    border-color: var(--color-teal-800);
+    background: var(--color-teal-700);
+    border-color: var(--color-teal-700);
     color: white;
   }
   .cal-view:disabled {
@@ -3909,7 +3914,7 @@
   .cal-signin-body { padding: 1rem; }
   /* Signed in, the icon fills so the state is visible without opening it. */
   .cal-icon-btn.is-signed-in {
-    background: var(--color-teal-800);
+    background: var(--color-teal-700);
     border-color: var(--color-teal-800);
     color: white;
   }
