@@ -102,17 +102,32 @@ export const POST: APIRoute = async (context) => {
    * Times are local and unsuffixed, which is how the deeplink expects them;
    * Queensland keeps no daylight saving, so there is no offset to lose.
    */
+  /*
+   * Carriage returns, not bare newlines.
+   *
+   * The body arrived as one run-on line: "testing Contact: TEST5 Email:
+   * test@test.com Attendance: 1". Outlook's compose field drops a lone %0A,
+   * so the breaks have to be CRLF to survive the trip.
+   */
+  const detail = [
+    `Name: ${name}`,
+    `Email: ${email}`,
+    phone ? `Phone: ${phone}` : null,
+    organisation ? `Organisation: ${organisation}` : null,
+    `Purpose: ${purpose}`,
+    `Attendance: ${attendance}`,
+  ].filter((line): line is string => line !== null).join('\r\n');
+
   const outlookUrl =
     'https://outlook.office.com/calendar/deeplink/compose?path=/calendar/action/compose' +
     '&rru=addevent' +
-    `&subject=${encodeURIComponent(`Centre hire: ${name}`)}` +
+    // The calendar is the Centre's, so every entry in it is a hire; saying so
+    // in each title only pushes the name out of sight in a crowded month view.
+    `&subject=${encodeURIComponent(name)}` +
     `&startdt=${encodeURIComponent(`${date}T${startTime}:00`)}` +
     `&enddt=${encodeURIComponent(`${date}T${endTime}:00`)}` +
     `&location=${encodeURIComponent(settings?.data.address ?? "Bahá'í Centre, Townsville")}` +
-    `&body=${encodeURIComponent(
-      `${purpose}\n\nContact: ${name}\nEmail: ${email}${phone ? `\nPhone: ${phone}` : ''}` +
-        `${organisation ? `\nOrganisation: ${organisation}` : ''}\nAttendance: ${attendance}`,
-    )}`;
+    `&body=${encodeURIComponent(detail)}`;
 
   const lines = [
     `New Community Centre hire application`,

@@ -81,15 +81,14 @@ export function buildHireIcs(event: HireEvent, stamp: string): string {
   const start = toUtcStamp(event.date, event.startTime);
   const end = toUtcStamp(event.date, event.endTime);
 
-  // null for "leave this out", so the deliberate blank line after the purpose
-  // survives while an absent phone number does not leave a gap.
+  // One labelled line each, in the order the booking officer reads them.
+  // null means "leave this out", so an absent phone leaves no empty line.
   const description = [
-    event.purpose,
-    '',
-    `Contact: ${event.name}`,
+    `Name: ${event.name}`,
     `Email: ${event.email}`,
     event.phone ? `Phone: ${event.phone}` : null,
     event.organisation ? `Organisation: ${event.organisation}` : null,
+    `Purpose: ${event.purpose}`,
     `Attendance: ${event.attendance}`,
   ].filter((line): line is string => line !== null).join('\n');
 
@@ -126,7 +125,7 @@ export function buildHireIcs(event: HireEvent, stamp: string): string {
     `DTSTAMP:${stamp}`,
     `DTSTART:${start}`,
     `DTEND:${end}`,
-    `SUMMARY:${escapeIcsText(`Centre hire: ${event.name}`)}`,
+    `SUMMARY:${escapeIcsText(event.name)}`,
     `DESCRIPTION:${escapeIcsText(description)}`,
     `LOCATION:${escapeIcsText(event.location)}`,
     'END:VEVENT',
