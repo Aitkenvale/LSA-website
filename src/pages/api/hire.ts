@@ -147,6 +147,7 @@ export const POST: APIRoute = async (context) => {
     {
       name, email, phone, organisation, date, startTime, endTime, purpose, attendance,
       location: settings?.data.address ?? "Bahá'í Centre, Townsville",
+      organiser: fromAddress,
     },
     new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''),
   );
