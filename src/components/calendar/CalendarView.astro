@@ -3952,7 +3952,23 @@
   }
 
   @media (max-width: 640px) {
-    .cal-grid { grid-template-columns: repeat(7, minmax(4.9rem, 1fr)); min-width: 34.5rem; }
+    /*
+     * Wide enough to read, narrow enough to imply the rest.
+     *
+     * A fixed 4.9rem put about four and a half days on a phone, which looked
+     * squeezed and wrapped every second event name onto three lines. Sizing
+     * against the viewport instead shows the same three and a bit days on any
+     * phone, rather than four on one and three on another — and the third of a
+     * column at the edge is what says the week continues.
+     *
+     * 2rem is the page's own padding either side, which is the width the grid
+     * does not get.
+     */
+    .cal-grid {
+      --cal-cell: calc((100vw - 2rem) / 3.3);
+      grid-template-columns: repeat(7, minmax(var(--cal-cell), 1fr));
+      min-width: calc(7 * var(--cal-cell));
+    }
     .cal-day { min-height: 5rem; }
     .cal-title { font-size: 1.15rem; white-space: normal; }
     .cal-badi-year { font-size: 0.68rem; white-space: normal; }
