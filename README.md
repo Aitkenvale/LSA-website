@@ -1,8 +1,9 @@
 # Bahá'í Community of Townsville — website
 
 Community website: upcoming events and announcements, What We Believe / What We
-Do pages, and a Community Centre page with a live hire-availability calendar and
-application form. Built to be maintained by non-technical editors.
+Do pages, a Community Centre page with a live hire-availability calendar and
+application form, and a community calendar of Bahá'í and interfaith holy days.
+Built to be maintained by non-technical editors.
 
 Live at https://townsville.bahai.org.au — total recurring cost **$0/month**
 (every service on a free tier).
@@ -18,13 +19,13 @@ This repo is public so other communities can build the same thing. Click
 **"Use this template"** on GitHub (or fork), then:
 
 1. Follow [docs/SETUP.md](docs/SETUP.md) end to end — it walks through every
-   service (GitHub, Cloudflare Workers, Pages CMS, Google Calendar, Resend,
-   Turnstile, the daily rebuild) on free tiers.
+   service (GitHub, Cloudflare Workers, Pages CMS, the Outlook availability
+   feed, Resend, Turnstile, the daily rebuild) on free tiers.
 2. Replace the Townsville-specific content with your own: everything under
    `src/content/`, the photos in `src/assets/uploads/`, the documents in
    `public/files/`, the logo in `src/components/Logo.astro`, and `site` in
    `astro.config.mjs`.
-3. Read [docs/SPEC.md](docs/SPEC.md) §11 first — it lists the operational
+3. Read [docs/SPEC.md](docs/SPEC.md) §13 first — it lists the operational
    quirks that cost us the most time.
 
 No secrets live in this repo; all credentials are Cloudflare Worker secrets.
@@ -36,11 +37,12 @@ Townsville photos, logo, and page text are not; replace them with your own.
 
 | Piece | Choice |
 |---|---|
-| Framework | Astro + Tailwind CSS (static pages + two server API routes) |
+| Framework | Astro + Tailwind CSS (static pages + server API routes) |
 | CMS | [Pages CMS](https://pagescms.org) — config in `.pages.yml`; editors sign in by email code |
 | Hosting | Cloudflare Workers (git-connected deploys, free tier) |
 | Availability calendar | Published Outlook feed → `/api/availability` (busy blocks only) → custom grid |
 | Hire form | `/api/hire` → Turnstile spam check → Resend email to booking officer |
+| Community calendar | calculated holy days + linked ICS feeds → `/calendar`; config and passkeys in KV, day photographs in R2 |
 
 ## Key files
 
@@ -48,7 +50,11 @@ Townsville photos, logo, and page text are not; replace them with your own.
 - `src/content/` — all site content (Markdown/YAML, committed by the CMS)
 - `src/pages/api/availability.ts` — privacy boundary: only busy start/end times ever leave it
 - `src/pages/api/hire.ts` — hire-form handler
-- `docs/SETUP.md` — secrets, Google/Resend/Turnstile setup, the daily-rebuild cron (required)
+- `src/lib/calendar/` — the calendar's engines: astronomy, Badí', eight other
+  traditions, tiers, WebAuthn, cycles and Plans
+- `src/components/calendar/CalendarView.astro` — the whole calendar UI
+- `docs/SETUP.md` — secrets, Outlook/Resend/Turnstile setup, the daily-rebuild cron (required)
+- `docs/CALENDAR-SETUP.md` — how the calendar was built and merged (history)
 
 ## Development
 
