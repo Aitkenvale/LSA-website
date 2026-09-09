@@ -70,9 +70,13 @@ Outlook calendar "Bahá'í Centre" (on centre.townsville@qld.bahai.org.au)
 **Retired:** Google Workspace (assembly@/centre@bahaitownsville.org.au) —
 cancelled 2026-08-08; email for the domain has no MX by design (clean bounce).
 Old InMotion-hosted site — replaced. Google Cloud project **townsville-website**
-and its service account — deleted 2026-09-09 when the Centre's bookings moved to
-Outlook; the old Google "Bahai Centre" calendar is kept, labelled OLD, read by
-nothing.
+(number 265255237934) and its service account — shut down 2026-09-09 when the
+Centre's bookings moved to Outlook, permanent deletion 9 Oct 2026, restorable
+until then. Shutting it down revoked the service-account key immediately and the
+live site was unaffected, which is the proof the Google path was dead and not
+merely thought to be. The old Google "Bahai Centre" calendar is kept, labelled
+OLD, read by nothing. The `lsa-calendar` Worker and the `calendar` branch went
+the same day.
 
 ## 5. Domains & DNS (zone: bahaitownsville.org.au, on Cloudflare)
 
