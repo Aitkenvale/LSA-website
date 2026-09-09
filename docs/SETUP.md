@@ -26,7 +26,7 @@ One-time setup checklist for the developer/administrator. Target: $0/month.
   - Deploy command: `npx wrangler deploy`
 - Add the custom domain to the Worker (Settings → Domains & Routes).
 - Secrets (Settings → Variables and Secrets, type "Secret"):
-  - `GOOGLE_SA_EMAIL`, `GOOGLE_SA_KEY`, `VENUE_CALENDAR_ID` (step 4)
+  - `VENUE_ICS_URL` (step 4)
   - `RESEND_API_KEY`, `RESEND_FROM` (step 5)
   - `TURNSTILE_SECRET` (step 6)
 - Plain-text build variable: `PUBLIC_TURNSTILE_SITE_KEY` (step 6).
@@ -38,25 +38,25 @@ One-time setup checklist for the developer/administrator. Target: $0/month.
 - Invite each editor by **email** (Settings → Collaborators). Editors sign in
   with a one-time email code; they never need GitHub accounts.
 
-## 4. Google Calendar availability (one-time; a free Gmail account is fine)
+## 4. Centre availability (one-time)
 
-1. In [Google Cloud Console](https://console.cloud.google.com): create a project
-   (e.g. "townsville-website") → enable the **Google Calendar API**.
-2. Create a **service account** (no roles needed) → create a **JSON key** and
-   download it.
-   - If key creation is blocked (Google Workspace accounts only), a Workspace
-     super-admin must lift the `iam.disableServiceAccountKeyCreation` org
-     policy for this project.
-3. In Google Calendar, as the owner of the **venue calendar**: Settings →
-   Share with specific people → add the service account's email with
-   **"See only free/busy (hide details)"**.
-4. From the JSON key set the Cloudflare secrets:
-   - `GOOGLE_SA_EMAIL` = `client_email`
-   - `GOOGLE_SA_KEY` = `private_key` (paste as-is, including BEGIN/END lines)
-   - `VENUE_CALENDAR_ID` = the venue calendar's ID (calendar Settings →
-     "Integrate calendar")
-5. Keys don't expire; nothing recurring. Verify: `/api/availability?month=<this month>`
-   returns busy blocks with **no event titles**.
+The booking grid reads a **published Outlook calendar** — no API keys, no
+service account, nothing to renew.
+
+1. In Outlook on the web, open the calendar the Centre's bookings live on →
+   **Sharing and permissions** → **Publish a calendar**.
+2. Set the permission to **"Can view when I'm busy"**. This is what keeps the
+   titles private: Microsoft strips the subject, location and notes before the
+   feed leaves them, so nothing sensitive ever reaches this site to be leaked.
+3. Copy the **ICS** link (not the HTML one) → Cloudflare secret
+   `VENUE_ICS_URL`.
+4. Verify: `/api/availability?month=<this month>` returns busy blocks with
+   **no event titles**.
+
+The link is a bearer token — anyone holding it can read the busy times — so
+keep it in the secret and nowhere else. To rotate it, click **Unpublish** and
+publish again; the old address dies immediately, so update the secret in the
+same sitting.
 
 ## 5. Resend (hire-form email)
 

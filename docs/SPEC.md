@@ -35,10 +35,10 @@ GitHub: Aitkenvale/LSA-website (public, source of truth)
                  ▼
 Cloudflare Worker "lsa-website"  (git-connected: npm run build; npx wrangler deploy)
   ├─ static pages (Astro prerendered) + optimised images
-  ├─ /api/availability ──► Google Calendar freeBusy (service account, busy blocks only)
+  ├─ /api/availability ──► published Outlook feed (busy blocks only)
   └─ /api/hire ──► Turnstile verify ──► Resend email (notify + acknowledge)
 
-Google Calendar "Bahai Centre" (on lsatownsville@gmail.com)
+Outlook calendar "Bahá'í Centre" (on centre.townsville@qld.bahai.org.au)
   ◄── secretariat manages bookings; website reads ONLY free/busy
 ```
 
@@ -52,7 +52,6 @@ Google Calendar "Bahai Centre" (on lsatownsville@gmail.com)
 | Wrangler config | minimal `wrangler.jsonc` (name, compat date, `nodejs_compat`) | no `main`/`assets` — adapter generates them; a Pages-style `pages_build_output_dir` breaks the build |
 | Content | Astro content collections + Zod (`src/content.config.ts`) | schema mirrors `.pages.yml`; bad CMS input fails the build loudly |
 | Email | Resend REST API (no SDK) | |
-| Auth to Google | `jose` (SignJWT RS256) — Workers-compatible | googleapis SDK does not run on Workers |
 | Fonts | Fraunces (display) + Public Sans via Fontsource | self-hosted, no external font requests |
 | Interactivity | vanilla inline `<script>` only | mobile menu, gallery lightbox, calendar island, form submit |
 
@@ -63,15 +62,17 @@ Google Calendar "Bahai Centre" (on lsatownsville@gmail.com)
 | GitHub | org **Aitkenvale**, repo **LSA-website** (CLI auth: BDS-AU) | source of truth; CMS commits here |
 | Cloudflare | account "Assembly@bahaito…" (login email = lsatownsville@gmail.com) | Worker hosting, DNS zone, Turnstile, custom hostnames |
 | Pages CMS | app.pagescms.org, sign-in with GitHub; editors invited by email | editing UI; config = `.pages.yml` in repo root |
-| Google (free) | **lsatownsville@gmail.com** — the operational account | owns calendars ("Bahai Centre" = venue, "LSA Townsville" = internal), Drive for public files, Cloudflare login, Google Cloud project |
-| Google Cloud | project **townsville-website** (no billing) | Calendar API enabled; service account `website-calendar@townsville-website.iam.gserviceaccount.com` |
+| Google (free) | **lsatownsville@gmail.com** — the operational account | Drive for public files, Cloudflare login. No longer serves any calendar the site reads |
 | Resend | signed in with Google (lsatownsville) | sends form emails from `bookings@bahaitownsville.org.au`; domain verified (region ap-northeast-1) |
 | Vodien | registrar for bahaitownsville.org.au (expiry 14 Sep 2029, auto-renew, transfer lock ON, DNSSEC off) | nameservers → aldo/sara.ns.cloudflare.com |
 | NSA M365 | qld.bahai.org.au shared mailboxes (pending) | future official email; also SharePoint for Assembly records |
 
 **Retired:** Google Workspace (assembly@/centre@bahaitownsville.org.au) —
 cancelled 2026-08-08; email for the domain has no MX by design (clean bounce).
-Old InMotion-hosted site — replaced.
+Old InMotion-hosted site — replaced. Google Cloud project **townsville-website**
+and its service account — deleted 2026-09-09 when the Centre's bookings moved to
+Outlook; the old Google "Bahai Centre" calendar is kept, labelled OLD, read by
+nothing.
 
 ## 5. Domains & DNS (zone: bahaitownsville.org.au, on Cloudflare)
 
@@ -95,9 +96,7 @@ bahaitownsville.org.au (Cloudflare redirect rule) is not yet deployed.
 
 | Name | Purpose |
 |---|---|
-| `GOOGLE_SA_EMAIL` | service-account client_email |
-| `GOOGLE_SA_KEY` | service-account private_key (PEM; literal `\n` OK — code normalises) |
-| `VENUE_CALENDAR_ID` | the venue calendar's ID (`…@group.calendar.google.com`, from calendar Settings → Integrate calendar) |
+| `VENUE_ICS_URL` | the Centre calendar's published ICS address (Outlook → Publish a calendar → **"Can view when I'm busy"**). A bearer token: whoever holds it can read the busy times. Rotate by unpublishing and republishing |
 | `RESEND_API_KEY` | Resend API key |
 | `RESEND_FROM` | `Bahai Community of Townsville <bookings@bahaitownsville.org.au>` — **ASCII only**; accented characters make Resend reject the send |
 | `TURNSTILE_SECRET` | Turnstile server key (widget: hostnames bahaitownsville.org.au, townsville.bahai.org.au, localhost; Managed mode) |
@@ -134,12 +133,15 @@ single newlines become line breaks.
 ## 8. Key implementation details
 
 - **/api/availability** (`src/pages/api/availability.ts`): validates
-  `?month=YYYY-MM` within current..+3 months (Brisbane clock) → service-account
-  JWT (scope `calendar.freebusy`) → Google freeBusy → merges overlaps → returns
-  `{month, busy:[{start,end}]}` **only** — event titles can never leak (freeBusy
-  is incapable + calendar share is "See only free/busy"). Edge-cached 15 min
-  (Cache API, keyed per URL/hostname), browser 5 min. In dev without secrets it
-  serves sample data.
+  `?month=YYYY-MM` within current..+3 months (Brisbane clock) → fetches the
+  published Outlook feed → `parseIcs` → returns `{month, busy:[{start,end}]}`
+  **only** — event titles can never leak, because the "Can view when I'm busy"
+  publication strips subject, location and notes at Microsoft's end before the
+  feed is generated. Edge-cached 2 min (Cache API, keyed per URL/hostname),
+  browser 1 min: the feed is built per request, so the cache is the only
+  staleness the page has. In dev without the secret it serves sample data.
+  Unlike Google's freeBusy, this does **not** merge overlapping bookings — two
+  overlapping entries arrive as two blocks, which the grid handles by coverage.
 - **Calendar UI** (`AvailabilityCalendar.astro`): month grid, states Available ✓
   / Partly ◐ / Booked ✕ from coverage of 08:00–22:00 (+10:00 fixed — QLD has no
   DST); click a day for busy time ranges; prev/next within horizon.
@@ -173,9 +175,8 @@ single newlines become line breaks.
 4. Add DNS zone to Cloudflare (free), switch registrar nameservers, then attach
    apex + www as Worker custom domains (delete conflicting A/CNAME first).
 5. Pages CMS: install GitHub app on the repo, invite editors by email.
-6. Google: free account → Cloud project → enable Calendar API → service account
-   + JSON key → share venue calendar "See only free/busy" → set the three
-   `GOOGLE_*`/`VENUE_CALENDAR_ID` secrets.
+6. Outlook: publish the Centre calendar at **"Can view when I'm busy"** → copy
+   the ICS address → `VENUE_ICS_URL` secret.
 7. Resend: add + verify domain (auto-adds DNS via Cloudflare integration), API
    key → `RESEND_API_KEY`/`RESEND_FROM` secrets.
 8. Turnstile: create widget (Managed) for prod hostnames + localhost →

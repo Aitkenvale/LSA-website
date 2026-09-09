@@ -176,11 +176,12 @@ When the Assembly approves it:
 4. Add the calendar to the site's navigation.
 5. Delete the `lsa-calendar` Worker and the second Pages CMS project.
 
-Before that point, note the limitation recorded in the calendar's code: view
-labels are currently applied in the browser, so a Google calendar's real event
-titles do reach the reader's device. That is acceptable while the whole
-deployment is behind a password and only administrators can attach a calendar.
-It must be moved to the server before the calendar is public.
+View labels are applied on the server. Below the tier that may see detail, the
+server sends the label and strips the title, location and description, so a
+subscribed calendar's real event titles never reach the reader's device and feed
+addresses never leave the Worker. (This was a browser-side substitution until
+6 September 2026 — a real leak, tolerable then only because the whole deployment
+sat behind a password.)
 
 ---
 

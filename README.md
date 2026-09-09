@@ -39,7 +39,7 @@ Townsville photos, logo, and page text are not; replace them with your own.
 | Framework | Astro + Tailwind CSS (static pages + two server API routes) |
 | CMS | [Pages CMS](https://pagescms.org) — config in `.pages.yml`; editors sign in by email code |
 | Hosting | Cloudflare Workers (git-connected deploys, free tier) |
-| Availability calendar | Google service account → `/api/availability` (freeBusy proxy, busy blocks only) → custom grid |
+| Availability calendar | Published Outlook feed → `/api/availability` (busy blocks only) → custom grid |
 | Hire form | `/api/hire` → Turnstile spam check → Resend email to booking officer |
 
 ## Key files

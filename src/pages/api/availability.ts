@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { getAccessToken, queryFreeBusy } from '../../lib/google-freebusy';
 import { parseIcs, type IcsEvent } from '../../lib/calendar/ics';
 
 export const prerender = false;
@@ -73,11 +72,7 @@ export const GET: APIRoute = async (context) => {
   // Cloudflare secrets (production) / .dev.vars (local dev)
   const secrets = env as Record<string, string | undefined>;
   const icsUrl = secrets.VENUE_ICS_URL;
-  const saEmail = secrets.GOOGLE_SA_EMAIL;
-  const saKey = secrets.GOOGLE_SA_KEY;
-  const calendarId = secrets.VENUE_CALENDAR_ID;
-  const googleConfigured = Boolean(saEmail && saKey && calendarId);
-  if (!icsUrl && !googleConfigured) {
+  if (!icsUrl) {
     // Local dev without credentials: serve sample data so the UI can be built/tested
     if (import.meta.env.DEV) {
       const sample = [
@@ -97,7 +92,7 @@ export const GET: APIRoute = async (context) => {
     return json({ error: 'Calendar not configured yet' }, 503);
   }
 
-  // Serve from the edge cache when fresh (15 min)
+  // Serve from the edge cache when fresh (see the note on the cache header below)
   const cache = (globalThis as { caches?: { default: Cache } }).caches?.default;
   const cacheKey = new Request(url.toString());
   if (cache) {
@@ -106,36 +101,15 @@ export const GET: APIRoute = async (context) => {
   }
 
   const [y, m] = month.split('-').map(Number);
-  const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
-  const timeMin = `${month}-01T00:00:00+10:00`;
-  const timeMax = `${next}-01T00:00:00+10:00`;
-
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 
   try {
-    /*
-     * The published Outlook feed when there is one, Google otherwise.
-     *
-     * Both are kept while the change settles, so deploying this cannot take
-     * the booking page down: until VENUE_ICS_URL is set nothing about the
-     * behaviour changes, and the moment it is set the page switches over.
-     */
-    let busy;
-    // Which calendar answered. Not a secret — it names the route, not the
-    // address — and without it the only way to tell the two apart is to
-    // notice that one merges overlapping bookings and the other does not.
-    const source = icsUrl ? 'outlook' : 'google';
-    if (icsUrl) {
-      const res = await fetch(icsUrl, {
-        headers: { accept: 'text/calendar' },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!res.ok) throw new Error(`calendar feed answered ${res.status}`);
-      busy = busyFromIcs(await res.text(), month, monthEnd);
-    } else {
-      const token = await getAccessToken(saEmail!, saKey!);
-      busy = await queryFreeBusy(token, calendarId!, timeMin, timeMax);
-    }
+    const res = await fetch(icsUrl, {
+      headers: { accept: 'text/calendar' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`calendar feed answered ${res.status}`);
+    const busy = busyFromIcs(await res.text(), month, monthEnd);
 
     /*
      * Two minutes, not fifteen.
@@ -147,7 +121,7 @@ export const GET: APIRoute = async (context) => {
      * that a page reloaded a few times does not hammer Microsoft.
      */
     const response = json(
-      { month, busy, source },
+      { month, busy },
       200,
       { 'cache-control': 'public, max-age=60, s-maxage=120' },
     );

@@ -82,7 +82,6 @@ export const POST: APIRoute = async (context) => {
   const to = settings?.data.bookingEmail;
   if (!to) return json({ error: 'The booking form is not set up yet — please email us directly.' }, 503);
 
-  // One-click pre-filled event for the "Bahai Centre" Google Calendar
   const esc = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   /*
@@ -95,8 +94,10 @@ export const POST: APIRoute = async (context) => {
    *
    * The address is Microsoft's compose deeplink. They changed its form once
    * before — the older /calendar/0/deeplink/compose stopped working and took
-   * everyone's links with it — so the attachment stays alongside as the thing
-   * that cannot break, and this is the convenience on top.
+   * everyone's links with it — so this is worth checking if the link ever
+   * stops opening a filled-in event. An .ics attachment was tried as a
+   * fallback and removed: Outlook's web client refused to import its own
+   * file, valid or not.
    *
    * Times are local and unsuffixed, which is how the deeplink expects them;
    * Queensland keeps no daylight saving, so there is no offset to lose.
