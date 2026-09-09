@@ -1,8 +1,17 @@
 # Community calendar — setup
 
-The community calendar is built in this repository but deployed **separately**
-from the live website, so work in progress never reaches the public site. This
-is the one-time setup. Target: $0/month, as with the rest of the project.
+> **This has already happened.** The calendar was merged into `main` on
+> 7 September 2026 and now runs on the live Worker, `lsa-website`, at
+> `/calendar`. There is no `calendar` branch and no second Worker any more.
+>
+> What follows is kept as the record of how it was built and merged — the
+> bindings, the secrets, and the mistakes worth not repeating. Read it as
+> history, not as instructions: following the two-deployment sections below
+> would rebuild something that was deliberately taken apart.
+
+The community calendar was built in this repository but deployed **separately**
+from the live website, so work in progress never reached the public site. This
+was the one-time setup. Target: $0/month, as with the rest of the project.
 
 ## Why one repository, not two
 
@@ -175,6 +184,11 @@ When the Assembly approves it:
    **Calendar access code** instead, which gates only `/calendar`.
 4. Add the calendar to the site's navigation.
 5. Delete the `lsa-calendar` Worker and the second Pages CMS project.
+
+Steps 1–4 were done on 7 September 2026; step 5 on 9 September 2026, along with
+the `calendar` branch and the `env.calendar` block in `wrangler.jsonc`. The KV
+namespace and the R2 bucket were untouched — they belong to the account, not to
+the Worker that was deleted, and `lsa-website` was already bound to both.
 
 View labels are applied on the server. Below the tier that may see detail, the
 server sends the label and strips the title, location and description, so a

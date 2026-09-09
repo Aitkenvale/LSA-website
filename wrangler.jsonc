@@ -30,26 +30,5 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
-  },
-
-  // The community calendar is developed on the `calendar` branch and deployed
-  // to a separate Worker by a separate Cloudflare project, whose deploy command
-  // is `npx wrangler deploy --env calendar`.
-  //
-  // This block is declared here on main as well, so that command has an
-  // unambiguous target no matter which branch happens to be built. Without it
-  // wrangler only warns that the environment is undefined and carries on to a
-  // name of its own choosing — which is not something to leave to chance next
-  // to a live website.
-  //
-  // The website's own deploy command is a plain `npx wrangler deploy`, which
-  // uses the top-level name above and is unaffected by this.
-  "env": {
-    "calendar": {
-      "name": "lsa-calendar",
-      "observability": {
-        "enabled": true
-      }
-    }
   }
 }
