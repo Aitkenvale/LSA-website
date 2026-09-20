@@ -27,7 +27,16 @@ const showCalendarLink = (() => {
 
 // https://astro.build/config
 export default defineConfig({
-  // Canonical public address (NSA CNAME live 2026-08-10); bahaitownsville.org.au redirects here
+  /*
+   * The canonical public address (NSA CNAME live 2026-08-10). Everything that
+   * names a URL — canonical tags, the sitemap, Open Graph — uses this host.
+   *
+   * bahaitownsville.org.au and its www still SERVE the same site rather than
+   * redirecting to it. The 301 is a Cloudflare Single Redirect rule on that
+   * zone, not code: prerendered pages are answered by the Workers assets layer
+   * without the script running, so middleware here would miss the homepage and
+   * catch only /calendar and /api. See SPEC §12 for the rule.
+   */
   site: 'https://townsville.bahai.org.au',
   // 'compile' = images optimised at build time with sharp (free; all our
   // image-bearing pages are prerendered) instead of paid Cloudflare Images

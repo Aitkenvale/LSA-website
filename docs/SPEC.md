@@ -604,11 +604,32 @@ Worker secret, compared on the server.
   contact.townsville@qld.bahai.org.au (NSA M365 shared mailbox).
 - ~~Calendar on its own Worker~~ **DONE** (2026-09-07/09): merged into `main`,
   second Worker and branch deleted.
-- 301 redirect bahaitownsville.org.au → townsville.bahai.org.au: Cloudflare
-  redirect rule, expression
-  `(http.host in {"bahaitownsville.org.au" "www.bahaitownsville.org.au"})`,
-  dynamic target `concat("https://townsville.bahai.org.au", http.request.uri.path)`,
-  301, preserve query string — not yet deployed.
+- 301 redirect bahaitownsville.org.au → townsville.bahai.org.au — **not yet
+  deployed**. Cloudflare → the bahaitownsville.org.au zone → Rules → Redirect
+  Rules → Single Redirect:
+  - expression `(http.host in {"bahaitownsville.org.au" "www.bahaitownsville.org.au"})`
+  - dynamic target `concat("https://townsville.bahai.org.au", http.request.uri.path)`
+  - 301, preserve query string
+
+  **Two exact hosts, never a wildcard.** `sites.bahaitownsville.org.au` is the
+  Cloudflare for SaaS fallback origin that `townsville.bahai.org.au` CNAMEs to;
+  catching it would redirect the canonical host's own traffic into a loop.
+
+  **It cannot be done in Astro middleware.** Prerendered pages are answered by
+  the Workers assets layer without the script running (`cf-cache-status: HIT` on
+  the homepage), so middleware would miss every static page and catch only
+  `/calendar` and `/api/*` — the wrong half. Single Redirects are the first HTTP
+  request phase (`http_request_dynamic_redirect`), ahead of the Worker entirely.
+
+  Why it matters more now than it did: the session cookie is host-only and
+  `rpId` is `url.hostname`, so a passkey enrolled on the apex does not work on
+  the canonical host and the credential store cannot tell you why (§9.6). Two
+  reachable hostnames means two parallel identities.
+
+  Unaffected: email (Resend uses `send.bahaitownsville.org.au`; DNS, not HTTP),
+  the SaaS fallback origin, and Turnstile's hostname list. Keep the apex + www
+  Worker custom domains — they are what resolve the hostname at all, and the
+  fallback if the rule is ever deleted.
 - ~~Announce the calendar~~ **DONE** (2026-09-20): `showCalendarLink: true`.
   `calendarAccessCode` and `sitePassword` were already clear. The calendar is
   now linked in the menu, indexable, and in the sitemap.
