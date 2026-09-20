@@ -674,7 +674,9 @@ Worker secret, compared on the server.
 - Search Console: the calendar is newly indexable, so resubmit the sitemap and
   watch that `/calendar` is accepted rather than flagged. Not yet done.
 - Editor invites; editor-guide PDF (with screenshots) → committee OneDrive.
-- Launch: clear `sitePassword` in CMS; consider disabling the workers.dev route.
+- ~~Launch: clear `sitePassword`; disable the workers.dev route~~ **DONE**
+  (2026-09-20). `sitePassword` was already clear; `workers_dev` is now `false`
+  in `wrangler.jsonc` and `lsa-website.<subdomain>.workers.dev` answers 404 (§6).
 - Gmail account: passkey exists; add a second passkey/recovery owned by the
   Assembly (officer-turnover safety).
 - ~~Delete the empty `lsa-website-session` KV namespace~~ **DONE**
@@ -738,6 +740,22 @@ instead.
   code asking for 60. Set Browser Cache TTL to "Respect Existing Headers", or add
   a Cache Rule for `/api/`, if this ever matters.
 
+**Fonts**
+
+- Fontsource registers the families as **`'Fraunces Variable'`** and
+  **`'Public Sans Variable'`**, not `'Fraunces'`. A CSS stack naming `'Fraunces'`
+  silently falls through to the next family — on this site, Georgia — and looks
+  plausible, because Georgia is also a serif. Worse,
+  `document.fonts.check('600 103px Fraunces')` returns **true** regardless: it
+  answers "can this text be rendered?", not "with that family?". If you are
+  measuring type, measure a rendered DOM node; canvas `measureText` under-reported
+  by about 15% here.
+- Fraunces carries an `opsz` (optical size) axis, and Chrome's default
+  `font-optical-sizing: auto` drives it from the **pixel** size, not the point
+  size the CSS spec suggests. The face narrows markedly as it grows — the same
+  string sets roughly 17% narrower at `opsz` 103 than at `opsz` 9 — so a line
+  measured at one size does not scale linearly to another.
+
 **Merging long-lived branches**
 
 - A merge can be silently wrong without conflicting. `sitePassword: '1844'` came
@@ -756,8 +774,13 @@ Teal/gold on warm neutrals, WCAG AA: teal-950 #0a2a2b … teal-700 #0e6e6b
 (buttons/links) … teal-100 #d8f0ee; gold-500 #c9a227 (accents only; gold-700
 #8a6d1d at text sizes); sand-50 #faf7f0 background; ink #1e2528 text. Tokens in
 `src/styles/global.css` (`@theme`). Fraunces for display, Public Sans for body.
-Nine-pointed star mark, African/mudcloth-influenced — outline star, chevrons,
-dotted ring (`Logo.astro`, favicon; `dark` prop for dark backgrounds). Sections
+Nine-pointed star mark, African/mudcloth-influenced: an outline star, nine
+chevrons, a ring of nine dots and a centre dot. Defined once in `Logo.astro` —
+ring radius 12.4, dot radius 2.17, centre radius 4.22 in the mark's own 100-unit
+space — and every instance (header, footer, 404, the hero watermark) draws from
+it; the `dark` prop lightens the interior marks for teal grounds.
+`public/favicon.svg` is deliberately **not** the same drawing: star outline and
+centre dot only, because the ring and chevrons do not survive 16 px. Sections
 open with a small gold rule; cards are white with soft teal-tinted shadows.
 
 Linked calendars are given one of ten strongly saturated dot colours, chosen to
