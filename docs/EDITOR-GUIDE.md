@@ -27,7 +27,8 @@ Changes appear on the live website about **2 minutes** after you save.
 | **Centre photo gallery** | The interior photos on the Community Centre page |
 | **Events** | Upcoming events on the home page (they drop off automatically once past) |
 | **News** | News items on the home page (the five newest show) |
-| **Site settings** | Site name, contact details, footer text, the Acknowledgement of Country — and the **pre-launch access code** (clearing that field makes the site fully public) |
+| **Calendar overrides** | Confirmed dates for holy days that are set by moon sighting rather than by a rule — see "The community calendar" below. Leave this alone unless you have an official announcement in front of you |
+| **Site settings** | Site name, contact details, footer text, the Acknowledgement of Country — and the switches that make things public: the **pre-launch access code**, the **calendar access code**, and **Show the calendar in the menu** |
 
 ## Adding an event
 
@@ -66,22 +67,55 @@ inbox with all their details (they receive an automatic "we got it" reply):
 1. **Reply to the email** to approve, decline or ask questions — your reply
    goes straight to the applicant. Keep a saved template with payment and key
    details.
-2. If approved, click **"add the booking to the calendar"** in the email — a
-   Google Calendar event opens pre-filled. **Choose the "Bahai Centre"
-   calendar** in the dropdown, adjust if needed, Save.
-3. Done — the website marks those hours as booked within about 15 minutes.
+2. If approved, click **"add the booking to the calendar"** in the email —
+   **Outlook** opens with the booking already filled in. **Choose the Bahá'í
+   Centre calendar**, adjust anything you need to, and Save. Nothing is written
+   until you save it.
+3. Done — the website marks those hours as booked within a couple of minutes.
 
-**Managing bookings in Google Calendar directly:** any event you put in the
-"Bahai Centre" calendar blocks that time on the website. Two important habits:
+**Managing bookings in Outlook directly:** any event you put in the Bahá'í
+Centre calendar blocks that time on the website. Two habits worth keeping:
 
-- Use **timed events** for part-day hires so the rest of the day stays
+- Use **timed events** for part-day hires, so the rest of the day stays
   bookable.
-- If you make an **all-day** event, you must set its "Free/Busy" option to
-  **Busy** — Google marks all-day events as "Free" by default, and the website
-  ignores "Free" events.
+- If an **all-day** booking ever fails to show as booked on the website, check
+  whether Outlook has marked it **Free** rather than **Busy**. The website reads
+  the calendar's busy times, and a booking marked Free is not one of them.
 
 The website only ever shows "available" or "booked" — never event names or who
-booked.
+booked. That is not us filtering them out: Microsoft strips the titles before
+the information leaves them.
+
+## The community calendar
+
+The calendar at **/calendar** is not edited in this editor. It is managed from
+the calendar page itself, by someone signed in as an administrator — the menu
+icon at the top right of that page.
+
+What you should know as an editor:
+
+- **Holy Days and Feast dates are calculated**, not typed in. Nobody has to
+  keep them up to date.
+- **Community events come from Outlook calendars.** Put an event in the right
+  Outlook calendar and it appears on the website's calendar by itself.
+- **Not everyone sees the same thing.** Each linked calendar has a setting for
+  who may see that it exists at all, and a second for who may see the event's
+  real name. Below that second level a visitor sees only a coloured dot with a
+  word like **FEAST** — never the title, the address or the notes. Visitors
+  unlock more by entering the code for their group on the calendar page.
+- **One calendar is fully public: "Bahá'í Centre Public Events".** Whatever is
+  typed into that one — the event name, the location, the notes — is readable by
+  anyone on the internet. Use it for what you would put on a public noticeboard,
+  and use one of the other calendars for anything else.
+
+### Confirming a holy day date (Calendar overrides)
+
+Some traditions fix their holy days by sighting the moon rather than by a rule,
+so the website calculates the most likely date and marks it *approximate*. When
+an official announcement gives the real date, an administrator can record it
+under **Calendar overrides**, along with where it came from. Confirming a date
+that was already right is also worth doing — it simply changes *approximate* to
+*confirmed*. If you have no official source in front of you, leave it alone.
 
 ## Changing hire rates or the booking email
 
@@ -90,8 +124,8 @@ booked.
 
 ## Things that happen automatically
 
-- Past events drop off overnight; photos are resized; the availability
-  calendar follows the Bahai Centre Google calendar on its own.
+- Past events drop off overnight; photos are resized; the availability grid
+  follows the Bahá'í Centre Outlook calendar on its own.
 
 ## If something looks wrong
 

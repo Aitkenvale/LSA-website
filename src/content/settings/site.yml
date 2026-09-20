@@ -5,6 +5,7 @@ bookingEmail: contact.townsville@qld.bahai.org.au
 address: Bahá'í Centre, Townsville QLD
 sitePassword: ''
 calendarAccessCode: ''
+showCalendarLink: true
 footer:
   text: The Bahá'í community of Townsville warmly welcomes people of all
     backgrounds to join us in worship, service and community building.

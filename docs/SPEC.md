@@ -400,6 +400,13 @@ compared with a timing-safe comparison.
 - `visibility` — the lowest tier that may see the calendar exists at all.
 - `detailFrom` — the lowest tier that may see real event titles.
 
+As configured on 2026-09-20, a signed-out visitor sees: the eleven calculated
+calendars; a **FEAST** marker and a **HOLY DAY** marker with no titles; and
+**Bahá'í Centre Public Events** with its real titles, locations and notes. LSA
+Meetings, Cluster Events and Aitkenvale Events are invisible to them entirely.
+The one to be conscious of is that third public calendar — whatever the
+secretariat types into it is published, which is what its name is for.
+
 Below `detailFrom` the **server** substitutes the calendar's view label and
 strips title, location and description before responding. This is the important
 word: until 6 September 2026 the substitution happened in the browser, which hid
@@ -602,16 +609,20 @@ Worker secret, compared on the server.
   `(http.host in {"bahaitownsville.org.au" "www.bahaitownsville.org.au"})`,
   dynamic target `concat("https://townsville.bahai.org.au", http.request.uri.path)`,
   301, preserve query string — not yet deployed.
-- Announce the calendar: set `showCalendarLink`, clear `calendarAccessCode`.
-- Photo permissions are all `admin` while the feature is being tried. Widening
-  `view` and `upload` is the point of them being settings.
+- ~~Announce the calendar~~ **DONE** (2026-09-20): `showCalendarLink: true`.
+  `calendarAccessCode` and `sitePassword` were already clear. The calendar is
+  now linked in the menu, indexable, and in the sitemap.
+- ~~Photo permissions all `admin`~~ **DONE**: widened to `assembly` for all five
+  (view, upload, edit, download, delete). Still not public, which is right — the
+  photographs are a record, not a gallery.
+- Search Console: the calendar is newly indexable, so resubmit the sitemap and
+  watch that `/calendar` is accepted rather than flagged. Not yet done.
 - Editor invites; editor-guide PDF (with screenshots) → committee OneDrive.
 - Launch: clear `sitePassword` in CMS; consider disabling the workers.dev route.
 - Gmail account: passkey exists; add a second passkey/recovery owned by the
   Assembly (officer-turnover safety).
 - Optional tidy: prune remaining old-zone DNS leftovers; delete the empty
-  `lsa-website-session` KV namespace (§6); Search Console registration
-  post-launch.
+  `lsa-website-session` KV namespace (§6).
 
 ## 13. Operational quirks (hard-won)
 
