@@ -163,7 +163,9 @@ passkey, while every byte of the real thing sits untouched in the namespace
 nobody is reading. It looks exactly like data loss and is not.
 
 That is not hypothetical: it is how the orphaned, empty `lsa-website-session`
-namespace in this account came to exist (§12). Naming the id here does not put
+namespace in this account came to exist. It was deleted on 2026-09-20, once the
+id above made it impossible to recreate; `lsa-calendar-session` is now the only
+KV namespace in the account. Naming the id here does not put
 production within reach of a local run — `platformProxy` gives `astro dev` a
 local simulated KV — and an id is not a credential; it does nothing without
 account authentication.
@@ -675,10 +677,10 @@ Worker secret, compared on the server.
 - Launch: clear `sitePassword` in CMS; consider disabling the workers.dev route.
 - Gmail account: passkey exists; add a second passkey/recovery owned by the
   Assembly (officer-turnover safety).
-- Delete the empty `lsa-website-session` KV namespace — orphaned by the
-  adapter's id-less binding, before the id was declared (§6). Nothing is bound to
-  it and it holds no keys:
-  `npx wrangler kv namespace delete --namespace-id f1d9ea9e3bbe41cc972ea8c78a174175`
+- ~~Delete the empty `lsa-website-session` KV namespace~~ **DONE**
+  (2026-09-20). `lsa-calendar-session` is now the only namespace in the account,
+  and with its id declared in `wrangler.jsonc` a deploy can no longer invent a
+  replacement (§6).
 - Optional tidy: prune remaining old-zone DNS leftovers.
 
 ### Building something the Assembly has not yet approved
