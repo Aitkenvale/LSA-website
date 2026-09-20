@@ -1,7 +1,15 @@
 ---
 // Nine-pointed star emblem — "mudcloth" design: open gold outline star with
-// hand-drawn chevrons, a dotted ring and a centre dot. `dark` lightens the
-// interior marks for use on teal backgrounds.
+// hand-drawn chevrons, a ring of nine dots and a centre dot. `dark` lightens
+// the interior marks for use on teal backgrounds.
+//
+// The ring was a fine dash pattern until 2026-09-20, reading as roughly twelve
+// pips. It became nine discrete dots on a wider circle when the mark was cut
+// for a wax seal: at 35 mm the dashes came out 0.60 mm across, which is the
+// floor for molten wax, and widening the circle bought the circumference to
+// draw them at 1.00 mm. Nine matches the star's points and the chevrons. The
+// centre dot grew by the same factor, so its 0.34 proportion to the ring is
+// unchanged. The sign artwork and the seal die share these exact numbers.
 interface Props {
   class?: string;
   dark?: boolean;
@@ -12,6 +20,17 @@ const STAR =
   'M50.00 7.00L60.60 20.87L77.64 17.06L76.85 34.50L92.35 42.53L80.53 55.38L87.24 71.50L69.93 73.75L64.71 90.41L50.00 81.00L35.29 90.41L30.07 73.75L12.76 71.50L19.47 55.38L7.65 42.53L23.15 34.50L22.36 17.06L39.40 20.87Z';
 const chevronColour = dark ? '#dfc45c' : '#8a6d1d';
 const centreColour = dark ? '#d8f0ee' : '#0e6e6b';
+
+const RING_RADIUS = 12.4;
+const RING_DOT_RADIUS = 2.17;
+const CENTRE_RADIUS = 4.22;
+const ringDots = Array.from({ length: 9 }, (_, i) => {
+  const a = ((i * 40 - 90) * Math.PI) / 180;
+  return {
+    cx: +(50 + RING_RADIUS * Math.cos(a)).toFixed(3),
+    cy: +(50 + RING_RADIUS * Math.sin(a)).toFixed(3),
+  };
+});
 ---
 
 <svg viewBox="0 0 100 100" class={className} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -21,6 +40,6 @@ const centreColour = dark ? '#d8f0ee' : '#0e6e6b';
       <path d="M46 26 L50 20 L54 26" transform={`rotate(${i * 40} 50 50)`} />
     ))}
   </g>
-  <circle cx="50" cy="50" r="10" fill="none" stroke="#c9a227" stroke-width="2.6" stroke-dasharray="0.1 5.1" stroke-linecap="round"></circle>
-  <circle cx="50" cy="50" r="3.4" fill={centreColour}></circle>
+  {ringDots.map((d) => <circle cx={d.cx} cy={d.cy} r={RING_DOT_RADIUS} fill="#c9a227" />)}
+  <circle cx="50" cy="50" r={CENTRE_RADIUS} fill={centreColour}></circle>
 </svg>
