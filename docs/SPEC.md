@@ -147,17 +147,37 @@ Turnstile **site** key is public and hardcoded as a fallback in
 
 | Type | Variable | Points at |
 |---|---|---|
-| KV namespace | `SESSION` | namespace **`lsa-calendar-session`** (id `eb12c850…`) — calendar config, passkeys, passkey policy |
+| KV namespace | `SESSION` | namespace **`lsa-calendar-session`**, id `eb12c8508c6245d08569390a5113dc12` — calendar config, passkeys, passkey policy |
 | R2 bucket | `PHOTOS` | bucket **`lsa-calendar-photos`** — day photographs |
 
-**Hazard worth knowing.** A second, empty namespace `lsa-website-session` also
-exists in the account. Binding that one instead would present an administrator
-with no calendars, no cycle dates and no way to sign in with a passkey, while the
-real configuration sat untouched in the namespace nobody was reading — a
-confusing failure that looks like data loss and is not. The R2 binding is also
-declared in `wrangler.jsonc` so that `astro dev` gets a local bucket rather than
-an undefined binding; the KV namespace is deliberately **not** declared there,
-because naming it in a file would invite a local run to write to the live one.
+Both are set in the dashboard **and** declared in `wrangler.jsonc`, and the KV
+one carries its **id** on purpose.
+
+**The hazard that id closes.** The Astro adapter injects
+`kv_namespaces: [{ binding: "SESSION" }]` into the generated deploy config with
+**no id**. Where the dashboard already binds `SESSION`, Cloudflare keeps that
+binding. Where it does not, wrangler **creates** a namespace called
+`<worker>-session` and binds that instead — silently, with no error. The calendar
+then comes up with no calendars, no cycle dates and no way to sign in with a
+passkey, while every byte of the real thing sits untouched in the namespace
+nobody is reading. It looks exactly like data loss and is not.
+
+That is not hypothetical: it is how the orphaned, empty `lsa-website-session`
+namespace in this account came to exist (§12). Naming the id here does not put
+production within reach of a local run — `platformProxy` gives `astro dev` a
+local simulated KV — and an id is not a credential; it does nothing without
+account authentication.
+
+### Hostnames this Worker answers on
+
+`workers_dev` is **false**. `lsa-website.<subdomain>.workers.dev` served the whole
+site, calendar included, indexable and beyond the reach of the 301 on the old
+domain. A fourth hostname matters more here than it looks: the session cookie is
+host-only and a passkey is bound to the host it was enrolled on, so a sign-in
+there would quietly fail to carry anywhere else.
+
+`preview_urls` is **true** — a different address,
+`<version>-<name>.<subdomain>.workers.dev`. See §12 for what it is for.
 
 ## 7. Content model ↔ CMS
 
@@ -655,8 +675,31 @@ Worker secret, compared on the server.
 - Launch: clear `sitePassword` in CMS; consider disabling the workers.dev route.
 - Gmail account: passkey exists; add a second passkey/recovery owned by the
   Assembly (officer-turnover safety).
-- Optional tidy: prune remaining old-zone DNS leftovers; delete the empty
-  `lsa-website-session` KV namespace (§6).
+- Delete the empty `lsa-website-session` KV namespace — orphaned by the
+  adapter's id-less binding, before the id was declared (§6). Nothing is bound to
+  it and it holds no keys:
+  `npx wrangler kv namespace delete --namespace-id f1d9ea9e3bbe41cc972ea8c78a174175`
+- Optional tidy: prune remaining old-zone DNS leftovers.
+
+### Building something the Assembly has not yet approved
+
+The calendar was built on its own branch deploying to its own Worker. Do not
+repeat that: Workers Builds deploys to whichever Worker its project is bound to
+regardless of `wrangler.jsonc`, and twice it served the calendar branch as the
+live site, password and all. Two patterns replace it.
+
+**Ship it dark behind a CMS flag.** `showCalendarLink` is the worked example —
+the code goes live, the switch stays off, and the Assembly turns it on themselves
+when they approve. Best for anything finished and safe.
+
+**Upload a version without deploying it.** `npx wrangler versions upload` returns
+a preview URL at `<version>-lsa-website.<subdomain>.workers.dev` running the real
+code, while production is untouched and nothing is announced.
+
+**Mind the bindings on a preview**: it shares this Worker's *real* KV namespace
+and *real* R2 bucket. Preview a change that reads, or that only affects the page;
+anything that **writes** configuration or photographs belongs behind a flag
+instead.
 
 ## 13. Operational quirks (hard-won)
 
