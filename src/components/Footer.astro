@@ -17,7 +17,15 @@ const year = new Date().getFullYear();
     </div>
 
     <div>
-      <h2 class="font-display text-base font-semibold text-white">Contact</h2>
+      <!--
+        From md up, boxed to the same height as the brand row opposite — the logo
+        is h-8 and the name is centred against it, so a heading sitting flush to
+        the top of its column opened five pixels high. Only from md, because
+        below it the columns stack and the box would just add space.
+      -->
+      <div class="md:flex md:h-8 md:items-center">
+        <h2 class="font-display text-base font-semibold text-white">Contact</h2>
+      </div>
       <ul class="mt-4 space-y-2 text-sm text-teal-100/80">
         <li>{settings.address}</li>
         <li>
@@ -39,7 +47,15 @@ const year = new Date().getFullYear();
     </div>
 
     <div>
-      <h2 class="font-display text-base font-semibold text-white">Explore</h2>
+      <!--
+        From md up, boxed to the same height as the brand row opposite — the logo
+        is h-8 and the name is centred against it, so a heading sitting flush to
+        the top of its column opened five pixels high. Only from md, because
+        below it the columns stack and the box would just add space.
+      -->
+      <div class="md:flex md:h-8 md:items-center">
+        <h2 class="font-display text-base font-semibold text-white">Explore</h2>
+      </div>
       <ul class="mt-4 space-y-2 text-sm text-teal-100/80">
         {
           settings.footer.links.map((link) => (
