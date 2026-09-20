@@ -18,13 +18,48 @@
   // Photos for the calendar. Declared here as well as in the dashboard so that
   // `astro dev` gets its own local bucket instead of an undefined binding —
   // the note Cloudflare shows when you add one is worth heeding.
-  //
-  // The KV namespace is deliberately not declared here: it needs an id, and
-  // the one that matters is the live namespace holding real configuration and
-  // real passkeys. Naming it in a file would invite a local run to write to it.
   "r2_buckets": [
     { "binding": "PHOTOS", "bucket_name": "lsa-calendar-photos" }
   ],
+
+  // The calendar's configuration, the enrolled passkeys and the passkey policy.
+  //
+  // The id is here on purpose, and it was a mistake to leave it out. The Astro
+  // adapter injects `kv_namespaces: [{ binding: "SESSION" }]` into the deploy
+  // config with NO id. Where the dashboard already binds SESSION, Cloudflare
+  // keeps that binding and all is well. Where it does not, wrangler CREATES a
+  // namespace called <worker>-session and binds that instead — silently, with
+  // no error. The calendar then comes up with no calendars, no cycle dates and
+  // no way to sign in with a passkey, while every byte of the real thing sits
+  // untouched in the namespace nobody is reading. It looks exactly like data
+  // loss and is not. That is how the orphaned `lsa-website-session` namespace
+  // came to exist.
+  //
+  // Naming it here does not put production within reach of a local run:
+  // `platformProxy` gives `astro dev` a local simulated KV, and an id is not a
+  // credential — it does nothing without account authentication.
+  "kv_namespaces": [
+    { "binding": "SESSION", "id": "eb12c8508c6245d08569390a5113dc12" }
+  ],
+
+  // The site answers on its own domains. lsa-website.<subdomain>.workers.dev
+  // served the whole site as well, calendar included, indexable and outside the
+  // reach of the 301 on the old domain — a fourth hostname, which matters here
+  // more than it looks: the session cookie is host-only and a passkey is bound
+  // to the host it was enrolled on, so signing in there would quietly fail to
+  // carry anywhere else.
+  "workers_dev": false,
+
+  // Preview URLs are a different address — <version>-<name>.<subdomain> — and
+  // they stay ON. `npx wrangler versions upload` publishes a version WITHOUT
+  // deploying it, which is how work pending the Assembly's approval gets looked
+  // at now that the calendar's second Worker is gone.
+  //
+  // Mind the bindings: a preview shares this Worker's real KV and R2. Preview a
+  // change that only reads or only affects the page; anything that WRITES
+  // configuration or photographs should ship dark behind a CMS flag instead,
+  // the way showCalendarLink did.
+  "preview_urls": true,
 
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
