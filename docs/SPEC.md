@@ -604,9 +604,9 @@ Worker secret, compared on the server.
   contact.townsville@qld.bahai.org.au (NSA M365 shared mailbox).
 - ~~Calendar on its own Worker~~ **DONE** (2026-09-07/09): merged into `main`,
   second Worker and branch deleted.
-- 301 redirect bahaitownsville.org.au → townsville.bahai.org.au — **not yet
-  deployed**. Cloudflare → the bahaitownsville.org.au zone → Rules → Redirect
-  Rules → Single Redirect:
+- ~~301 redirect bahaitownsville.org.au → townsville.bahai.org.au~~ **DONE**
+  (2026-09-20). Cloudflare → the bahaitownsville.org.au zone → Rules → Redirect
+  Rules → Single Redirect "Old domain to canonical":
   - expression `(http.host in {"bahaitownsville.org.au" "www.bahaitownsville.org.au"})`
   - dynamic target `concat("https://townsville.bahai.org.au", http.request.uri.path)`
   - 301, preserve query string
@@ -625,6 +625,19 @@ Worker secret, compared on the server.
   `rpId` is `url.hostname`, so a passkey enrolled on the apex does not work on
   the canonical host and the credential store cannot tell you why (§9.6). Two
   reachable hostnames means two parallel identities.
+
+  **Set Type to Dynamic, not Static.** Deployed as Static first, the rule sent
+  the expression as a literal `Location: concat("https://…", http.request.uri.path)`
+  — a live 301 to a nonsense address. The form defaults to Static and the text
+  is accepted either way, so this fails silently and only shows in the response
+  header.
+
+  Verified on deploy: both old hosts 301 with path and query intact, one hop to
+  a 200; the canonical host 200 everywhere with zero redirects; and
+  `sites.bahaitownsville.org.au` NOT caught (it answers 522, which is its normal
+  state — the fallback origin is 192.0.2.1, a reserved address that never
+  replies and only needs to exist as a DNS target). A 301 there would have meant
+  the expression was too broad.
 
   Unaffected: email (Resend uses `send.bahaitownsville.org.au`; DNS, not HTTP),
   the SaaS fallback origin, and Turnstile's hostname list. Keep the apex + www

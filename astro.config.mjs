@@ -31,11 +31,11 @@ export default defineConfig({
    * The canonical public address (NSA CNAME live 2026-08-10). Everything that
    * names a URL — canonical tags, the sitemap, Open Graph — uses this host.
    *
-   * bahaitownsville.org.au and its www still SERVE the same site rather than
-   * redirecting to it. The 301 is a Cloudflare Single Redirect rule on that
-   * zone, not code: prerendered pages are answered by the Workers assets layer
-   * without the script running, so middleware here would miss the homepage and
-   * catch only /calendar and /api. See SPEC §12 for the rule.
+   * bahaitownsville.org.au and its www 301 here, path and query intact (live
+   * 2026-09-20). That redirect is a Cloudflare Single Redirect rule on the old
+   * zone, not code, and it has to be: prerendered pages are answered by the
+   * Workers assets layer without the script running, so middleware here would
+   * miss the homepage and catch only /calendar and /api. See SPEC §12.
    */
   site: 'https://townsville.bahai.org.au',
   // 'compile' = images optimised at build time with sharp (free; all our
