@@ -11,6 +11,6 @@ They’re days for joy, not solemnity. Prayers, music, stories, shared food — 
 
 In 2026 they fall on Tuesday 10 and Wednesday 11 November, each beginning at sunset the evening before.
 
-The Birth of Baha'u'llah will be celebrated from 3:30pm at the Baha'i Community Centre. 
+The Birth of Bahá’u’lláh will be celebrated from 3:30pm at the Bahá’í Community Centre. 
 
-Everyone welcome RSVP [townsville@qld.bahai.org.com](mailto:townsville@qld.bahai.org.com)
+Everyone welcome, RSVP [townsville@qld.bahai.org.com](mailto:townsville@qld.bahai.org.com)
