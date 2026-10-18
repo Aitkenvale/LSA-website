@@ -4,7 +4,19 @@ import { parseIcs, type IcsEvent } from '../../lib/calendar/ics';
 
 export const prerender = false;
 
-const MONTHS_AHEAD = 3;
+/**
+ * How far ahead the booking grid may look, in months.
+ *
+ * Must match the constant of the same name in AvailabilityCalendar.astro: that
+ * one decides which months the page offers, this one decides which it will
+ * answer for, and a disagreement shows as a "next" arrow that errors when
+ * clicked.
+ *
+ * Eighteen, because a hall is booked further ahead than it is enquired about.
+ * At three months the grid stopped inside the current year, so anyone planning
+ * a wedding or a conference was told nothing at all.
+ */
+const MONTHS_AHEAD = 18;
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -61,7 +73,7 @@ export const GET: APIRoute = async (context) => {
     return json({ error: 'Invalid month' }, 400);
   }
 
-  // Only serve current month .. +3 (Brisbane clock)
+  // Only serve current month .. +MONTHS_AHEAD (Brisbane clock)
   const nowBrisbane = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Brisbane' }).format(new Date());
   const currentIdx = monthIndex(nowBrisbane.slice(0, 7));
   const requestedIdx = monthIndex(month);

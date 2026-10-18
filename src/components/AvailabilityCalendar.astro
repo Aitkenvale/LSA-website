@@ -35,7 +35,9 @@
   const TZ = 'Australia/Brisbane';
   const OPEN_HOUR = 8;
   const CLOSE_HOUR = 22;
-  const MONTHS_AHEAD = 3;
+  // Keep in step with MONTHS_AHEAD in src/pages/api/availability.ts, which
+  // refuses any month outside the same window — see the note there.
+  const MONTHS_AHEAD = 18;
 
   type Busy = { start: string; end: string };
 
