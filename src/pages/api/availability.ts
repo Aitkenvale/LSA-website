@@ -18,6 +18,33 @@ export const prerender = false;
  */
 const MONTHS_AHEAD = 18;
 
+/**
+ * How far ahead the published Outlook feed actually carries bookings.
+ *
+ * NOT the same thing as MONTHS_AHEAD, and the difference is the whole point of
+ * this constant. Outlook publishes a ROLLING TWELVE MONTHS, not the calendar.
+ * Past that edge the feed is still perfectly reachable and simply stops, so a
+ * month beyond it returns no busy blocks — which, left alone, the grid would
+ * draw as a completely free hall. That is worse than an outage: an outage is
+ * visible, this is confidently wrong, and it would invite an enquiry for a date
+ * already taken. The catch block below guards the unreachable case for exactly
+ * this reason; the horizon walks straight around that guard.
+ *
+ * Measured 2026-10-18. The Centre has a standing Mon/Thu 18:00–20:00 booking.
+ * The feed served it in unbroken rhythm to Mon 18 Oct 2027 and stopped; the
+ * next instance, Thu 21 Oct, was absent. That is twelve months to the day from
+ * the date of measurement — a series cut mid-rhythm on today+12mo is a
+ * publishing horizon, not the end of the bookings.
+ *
+ * Because it rolls daily it is a DATE, not a month: today it is good to the
+ * 18th of the twelfth month and unknown for the rest of it. The page is sent
+ * that date and greys out what lies beyond, rather than claiming it is free.
+ *
+ * If Microsoft changes the window, re-measure and change this: too small wastes
+ * real data, too large resurrects the lie.
+ */
+const FEED_HORIZON_MONTHS = 12;
+
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -28,6 +55,24 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 function monthIndex(key: string): number {
   const [y, m] = key.split('-').map(Number);
   return y * 12 + (m - 1);
+}
+
+/**
+ * The last day the feed can be trusted to know about: `from` plus
+ * FEED_HORIZON_MONTHS.
+ *
+ * Clamped to the end of the target month rather than allowed to roll over, so
+ * 29 February lands on 28 February and never on 1 March. Erring a day early
+ * costs one day of real data; erring a day late claims a day we do not have.
+ */
+function feedHorizon(from: string): string {
+  const [y, m, d] = from.split('-').map(Number);
+  const target = m - 1 + FEED_HORIZON_MONTHS;
+  const ty = y + Math.floor(target / 12);
+  const tm = (((target % 12) + 12) % 12) + 1;
+  const lastOfMonth = new Date(Date.UTC(ty, tm, 0)).getUTCDate();
+  const td = Math.min(d, lastOfMonth);
+  return `${ty}-${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}`;
 }
 
 /**
@@ -99,7 +144,7 @@ export const GET: APIRoute = async (context) => {
           end: `${month}-${d}T${String(e).padStart(2, '0')}:00:00+10:00`,
         };
       });
-      return json({ month, busy: sample, sample: true });
+      return json({ month, busy: sample, sample: true, horizon: feedHorizon(nowBrisbane) });
     }
     return json({ error: 'Calendar not configured yet' }, 503);
   }
@@ -133,7 +178,7 @@ export const GET: APIRoute = async (context) => {
      * that a page reloaded a few times does not hammer Microsoft.
      */
     const response = json(
-      { month, busy },
+      { month, busy, horizon: feedHorizon(nowBrisbane) },
       200,
       { 'cache-control': 'public, max-age=60, s-maxage=120' },
     );

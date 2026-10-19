@@ -23,6 +23,7 @@
     <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-teal-300 bg-teal-100" aria-hidden="true"></span> Available</span>
     <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-gold-400 bg-gold-100" aria-hidden="true"></span> Partly booked</span>
     <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-ink/20 bg-sand-200" aria-hidden="true"></span> Booked</span>
+    <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-dashed border-ink/30 bg-white" aria-hidden="true"></span> Not known yet</span>
   </div>
 
   <div id="cal-detail" class="mt-4 hidden rounded-xl bg-teal-50 p-4 text-sm" aria-live="polite"></div>
@@ -40,6 +41,16 @@
   const MONTHS_AHEAD = 18;
 
   type Busy = { start: string; end: string };
+  type State = 'available' | 'partly' | 'booked' | 'unknown';
+
+  /*
+   * The last day the Outlook feed is published to — sent by the API, because
+   * only it knows. Beyond this the feed returns nothing, which is NOT the same
+   * as nothing being booked, so those days are drawn as unknown rather than
+   * free. Null until the first response lands; days are only ever called
+   * unknown on a date we have actually been given.
+   */
+  let horizon: string | null = null;
 
   const grid = document.getElementById('cal-grid')!;
   const title = document.getElementById('cal-title')!;
@@ -72,7 +83,9 @@
       .toLowerCase();
   }
 
-  function dayState(dateStr: string, busy: Busy[]): { state: 'available' | 'partly' | 'booked'; ranges: [number, number][] } {
+  function dayState(dateStr: string, busy: Busy[]): { state: State; ranges: [number, number][] } {
+    // Past the published horizon the feed knows nothing, so neither do we.
+    if (horizon && dateStr > horizon) return { state: 'unknown', ranges: [] };
     const open = brisbaneMs(dateStr, OPEN_HOUR);
     const close = brisbaneMs(dateStr, CLOSE_HOUR);
     const ranges: [number, number][] = [];
@@ -97,7 +110,11 @@
       new Date(`${dateStr}T12:00:00+10:00`),
     );
     let html = `<p class="font-semibold text-teal-900">${nice}</p>`;
-    if (state === 'available') {
+    if (state === 'unknown') {
+      html +=
+        '<p class="mt-1 text-ink/80">We can\u2019t show availability this far ahead yet \u2014 the hall diary is only published about twelve months out.</p>' +
+        '<p class="mt-2 text-teal-800">Send us your enquiry below and we\u2019ll check the date and come back to you.</p>';
+    } else if (state === 'available') {
       html += `<p class="mt-1 text-teal-800">✓ Available all day (${OPEN_HOUR}am – ${CLOSE_HOUR - 12}pm)</p>`;
     } else if (state === 'booked') {
       html += `<p class="mt-1 text-ink/80">✕ Booked all day.</p>`;
@@ -126,7 +143,11 @@
       try {
         const res = await fetch(`/api/availability?month=${key}`);
         if (!res.ok) throw new Error(String(res.status));
-        busy = (await res.json()).busy as Busy[];
+        const body = (await res.json()) as { busy: Busy[]; horizon?: string };
+        // Same for every month, but re-read each time so it keeps rolling
+        // forward on a page left open across midnight.
+        horizon = body.horizon ?? null;
+        busy = body.busy;
         cache.set(key, busy);
       } catch {
         grid.innerHTML = '';
@@ -162,8 +183,14 @@
           available: 'border border-teal-300 bg-teal-100 text-teal-900 hover:bg-teal-200',
           partly: 'border border-gold-400 bg-gold-100 text-gold-800 hover:bg-gold-200',
           booked: 'border border-ink/20 bg-sand-200 text-ink/50 hover:bg-sand-100',
+          unknown: 'border border-dashed border-ink/30 bg-white text-ink/40 hover:bg-sand-50',
         }[state];
-        const labels = { available: 'available', partly: 'partly booked', booked: 'booked' };
+        const labels = {
+          available: 'available',
+          partly: 'partly booked',
+          booked: 'booked',
+          unknown: 'availability not known this far ahead',
+        };
         cell.className = `${base} ${styles} cursor-pointer font-medium`;
         (cell as HTMLButtonElement).type = 'button';
         cell.setAttribute('aria-label', `${dateStr}: ${labels[state]}. Show details`);
@@ -173,7 +200,9 @@
             ? '<span class="text-[0.6rem] leading-none">✕</span>'
             : state === 'partly'
               ? '<span class="text-[0.6rem] leading-none">◐</span>'
-              : '<span class="text-[0.6rem] leading-none">✓</span>');
+              : state === 'unknown'
+                ? '<span class="text-[0.6rem] leading-none">?</span>'
+                : '<span class="text-[0.6rem] leading-none">✓</span>');
         cell.addEventListener('click', () => showDetail(dateStr, busy));
       }
       grid.appendChild(cell);
