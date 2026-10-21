@@ -737,8 +737,15 @@ instead.
 - On a cache **hit** Cloudflare rewrites the browser-facing `max-age` up to the
   zone's Browser Cache TTL (4 hours by default), leaving `s-maxage` alone. It
   acts as a floor, so `/api/availability` goes out as `max-age=14400` despite the
-  code asking for 60. Set Browser Cache TTL to "Respect Existing Headers", or add
-  a Cache Rule for `/api/`, if this ever matters.
+  code asking for 60. Confirmed on a `cf-cache-status: HIT` on 2026-10-19; a MISS
+  carries the honest `max-age=60`.
+  **This stopped being hypothetical.** It means a visitor's browser can hold hall
+  availability for four hours, so a booking taken this morning may not show — and
+  during a deploy it pinned a stale response, which is how a horizon-less copy
+  made November 2027 render as thirty free days. **Fix:** a Cache Rule matching
+  `starts_with(http.request.uri.path, "/api/")` with **Browser TTL → Respect
+  origin**, so the Worker's own numbers are honoured. Changing the zone-wide
+  Browser Cache TTL instead would also slow the pages down, which is not wanted.
 
 **Fonts**
 

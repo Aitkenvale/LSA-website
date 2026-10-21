@@ -43,15 +43,6 @@
   type Busy = { start: string; end: string };
   type State = 'available' | 'partly' | 'booked' | 'unknown';
 
-  /*
-   * The last day the Outlook feed is published to — sent by the API, because
-   * only it knows. Beyond this the feed returns nothing, which is NOT the same
-   * as nothing being booked, so those days are drawn as unknown rather than
-   * free. Null until the first response lands; days are only ever called
-   * unknown on a date we have actually been given.
-   */
-  let horizon: string | null = null;
-
   const grid = document.getElementById('cal-grid')!;
   const title = document.getElementById('cal-title')!;
   const detail = document.getElementById('cal-detail')!;
@@ -62,6 +53,38 @@
   // "Today" in Brisbane regardless of the viewer's timezone
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
   const [ty, tm] = todayStr.split('-').map(Number);
+
+  /*
+   * Mirrors FEED_HORIZON_MONTHS in src/pages/api/availability.ts.
+   *
+   * The server is authoritative and overwrites this on the first response that
+   * carries a horizon. It exists so that a response arriving WITHOUT one — a
+   * copy cached before the field existed, say — cannot make the page claim
+   * availability it has no basis for. A missing horizon is ignorance, and
+   * ignorance must read as "we don't know", never as "it's free": the whole
+   * point of the horizon is that an empty month past the feed's edge would
+   * otherwise be drawn as a completely free hall.
+   */
+  const FALLBACK_HORIZON_MONTHS = 12;
+
+  /** `from` plus n months, clamped to the end of the target month (as the API does). */
+  function addMonths(from: string, months: number): string {
+    const [y, m, d] = from.split('-').map(Number);
+    const target = m - 1 + months;
+    const yy = y + Math.floor(target / 12);
+    const mm = (((target % 12) + 12) % 12) + 1;
+    const last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+    const dd = Math.min(d, last);
+    return `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  }
+
+  /*
+   * The last day the Outlook feed is published to. Beyond it the feed returns
+   * nothing, which is NOT the same as nothing being booked, so those days are
+   * drawn as unknown rather than free. Seeded conservatively, then corrected by
+   * the API; never reset to nothing once known.
+   */
+  let horizon: string = addMonths(todayStr, FALLBACK_HORIZON_MONTHS);
   let offset = 0; // months from current month, 0..MONTHS_AHEAD
   const cache = new Map<string, Busy[]>();
 
@@ -85,7 +108,7 @@
 
   function dayState(dateStr: string, busy: Busy[]): { state: State; ranges: [number, number][] } {
     // Past the published horizon the feed knows nothing, so neither do we.
-    if (horizon && dateStr > horizon) return { state: 'unknown', ranges: [] };
+    if (dateStr > horizon) return { state: 'unknown', ranges: [] };
     const open = brisbaneMs(dateStr, OPEN_HOUR);
     const close = brisbaneMs(dateStr, CLOSE_HOUR);
     const ranges: [number, number][] = [];
@@ -146,7 +169,10 @@
         const body = (await res.json()) as { busy: Busy[]; horizon?: string };
         // Same for every month, but re-read each time so it keeps rolling
         // forward on a page left open across midnight.
-        horizon = body.horizon ?? null;
+        // Only ever upgrade. A response without the field leaves the last
+        // known horizon standing rather than wiping it, so one stale copy
+        // cannot make a whole month look free.
+        if (body.horizon) horizon = body.horizon;
         busy = body.busy;
         cache.set(key, busy);
       } catch {
